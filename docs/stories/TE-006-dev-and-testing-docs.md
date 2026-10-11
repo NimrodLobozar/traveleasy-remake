@@ -38,6 +38,14 @@ database by accident.
 - [ ] AC4 (when to rebuild): the `CLAUDE.md` rebuild table (source change → nothing; migration → migrate in the
       container; `package.json`/lockfiles/`composer.json`/Dockerfile/compose/env vars → `docker compose up -d --build -V`)
       is present and explains that `-V` renews the dependency volumes and keeps the database.
+      *Added after TE-002 round 1:* `up -d --build -V` leaves the old anonymous dependency volumes behind (about 0.5 GB
+      per rebuild). `dev.md` documents the clean variant `docker compose rm -s -f -v app vite` followed by
+      `docker compose up -d --build` (the DB volume is untouched), plus how to list and remove dangling anonymous
+      volumes safely. In the same edit as AC14, the orchestrator/architect updates the `CLAUDE.md` § Docker dev
+      workflow table to match.
+- [ ] AC4a (secrets in `docker compose config`): `dev.md` warns that `docker compose config` prints resolved values
+      including `POSTGRES_PASSWORD` in plain text. Its output must never be pasted into docs, issues or CI logs; use
+      `docker compose config --quiet` to only validate.
 - [ ] AC5 (safe reset): a clearly marked warning (a `> **Warning**` block) that `docker compose down -v` **deletes all
       volumes including the database**, that the owner is asked first, and the safer alternatives
       (`php artisan migrate:fresh --seed` in the container for an empty schema; `down` without `-v` to stop).
@@ -47,7 +55,8 @@ database by accident.
       (`APP_PORT`/`VITE_PORT`), slow file access on bind mounts and the option of cloning into the WSL file system
       (with its trade-offs), CRLF line-ending errors in scripts, and the Playwright image/version mismatch.
 - [ ] AC7a (database GUI): `dev.md` documents Adminer from TE-002 (AC23–AC27): that it is dev-only and opt-in, how to
-      start and stop it (`docker compose --profile tools up -d` / `docker compose stop adminer`), the URL
+      start and stop it (`docker compose --profile tools up -d` / `docker compose --profile tools rm -s -f adminer`;
+      not `stop adminer`, because a stopped profile container fails to start after `down` recreates the network), the URL
       (`http://localhost:8081`, `ADMINER_PORT`), and the login values (system PostgreSQL, server `db`, and
       `DB_USERNAME` / `DB_PASSWORD` / `DB_DATABASE` from `.env`; no stored credentials).
 - [ ] AC8 (no mail): states that there is no mail catcher because the app sends no e-mail (link ADR-0005).

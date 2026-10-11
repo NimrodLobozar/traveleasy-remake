@@ -1,13 +1,13 @@
 ---
 id: TE-002
 title: Docker dev environment with hot reload and a PostgreSQL named volume
-status: in-progress
+status: rework
 priority: must
 epic: M0 Docker dev environment
 agents: [devops-engineer, backend-developer, frontend-developer]
 testers: [qa-engineer, security-privacy-reviewer]
 design: not-needed
-rework_rounds: 0
+rework_rounds: 1
 ---
 
 ## User story
@@ -71,8 +71,10 @@ matches how the app runs on the home server.
 - [ ] AC9 (database volume): PostgreSQL (pinned image tag, at least major.minor, e.g. `postgres:17.x-alpine`) stores
       its data in a **named** volume. Data created before `docker compose down` and before
       `docker compose up -d --build -V` is still there afterwards.
-- [ ] AC10 (DB not exposed): `docker compose port db 5432` returns nothing and neither compose file has a `ports:`
-      entry on `db`. The app reaches the DB over the internal network as host `db`.
+- [ ] AC10 (DB not exposed): `docker inspect` of the running `db` container shows no host port binding
+      (`HostConfig.PortBindings` empty), and neither compose file has a `ports:` entry on `db`. The app reaches the DB
+      over the internal network as host `db`. *(Reworded in rework round 1: Compose v5.5.1 prints `invalid IP:0`
+      with exit 0 for `docker compose port db 5432` on an unpublished port, so that command is not a reliable check.)*
 - [ ] AC11 (test database): On first initialisation of the DB volume, a second database `traveleasy_test`, owned by
       the app's DB user, is created by an init script, so TE-004 can run tests against PostgreSQL. The handoff says how
       to create it on an existing volume (init scripts only run on an empty volume).
@@ -90,10 +92,28 @@ matches how the app runs on the home server.
       and `compose.yaml` contains no bind mounts of the source, no Vite service, no `adminer` service and no dev ports.
 - [ ] AC16 (line endings): Given a clone made with `core.autocrlf=true`, the containers still start (shell scripts are
       LF via `.gitattributes`, which already forces LF by default; any entrypoint script is covered).
-- [ ] AC17 (starter tests on PostgreSQL): `docker compose exec app php artisan test` runs the starter-kit tests
-      against PostgreSQL and passes: `phpunit.xml` sets `DB_CONNECTION=pgsql` and `DB_DATABASE=traveleasy_test`
-      (no SQLite in-memory). *Note from TE-001:* `phpunit.xml` currently still uses in-memory SQLite, so this switch
-      is real work in this story. TE-004 then adds the safety guard and the arch tests.
+- [ ] AC17 (starter tests on PostgreSQL, isolated from the dev DB; clarified in rework round 1):
+      `docker compose exec app php artisan test` runs the starter-kit tests against PostgreSQL and passes.
+      - **Forced target.** The test run always uses connection `pgsql` and database `traveleasy_test`, whatever is set
+        in `$_SERVER`, `$_ENV`, `putenv` or the container environment. That covers `DB_CONNECTION`, `DB_DATABASE`,
+        `DB_URL` and `DB_HOST`. It also holds when a cached config exists (`bootstrap/cache/config.php` from
+        `php artisan config:cache`).
+      - **Why `force="true"` isn't enough.** `force="true"` in `phpunit.xml` is not sufficient on its own: Laravel's
+        env reader checks `$_SERVER` first, and container env vars live there in PHP CLI.
+      - **Guard.** Before any migration or `RefreshDatabase` runs, a guard checks the **active** connection. It aborts
+        the whole run with a clear message naming the connection and the database unless the driver is `pgsql` **and**
+        the database name is exactly `traveleasy_test`. This guard lives in this story; TE-004 references it instead of
+        building its own.
+      - **No SQLite file.** No test run may create a SQLite file anywhere in the repo.
+      - **Proof.** QA's `tests/Unit/DockerDevEnvironmentContractTest.php` (commit 6889cc8) passes. Its three nested-run
+        cases must each end on `traveleasy_test` or abort through the guard, never touch the named target:
+        1. `-e DB_CONNECTION=sqlite -e DB_DATABASE=qa_nonexistent_db`
+        2. `-e DB_URL=pgsql://…/qa_nonexistent_db`
+        3. `-e DB_DATABASE=qa_conflict_nonexistent_db`
+
+        A fourth case runs with a cached config (`config:cache` in dev, with `DB_DATABASE=traveleasy`). It must not
+        touch the dev DB, and the cache is cleared afterwards.
+      - **Invariant.** Row counts in the dev DB `traveleasy` are identical before and after every case.
 - [ ] AC18 (one dev image with PHP and Node): the dev image contains **PHP 8.5** (the lock was resolved on 8.5.11)
       and **Node 24** (24.21.x, with npm 11) together, on a glibc base (not Alpine/musl). Reason: `vp build` and the
       Vite dev server run `php artisan wayfinder:generate`, so the `vite` service needs PHP too. Both `app` and `vite`
@@ -178,7 +198,54 @@ matches how the app runs on the home server.
   security/privacy and docs criteria; checked by the security-privacy-reviewer (already a tester on this story).
 
 ## Rework log
-(empty)
+
+### Round 1 (2026-10-11)
+- **Verdicts:**
+  - security-privacy-reviewer: **PASS** (Low findings only; filed as follow-ups, see below).
+  - qa-engineer: **FAIL** on AC17. Several ACs are BLOCKED because drive C: was full (126 MB free). That's an
+    environment problem, not a code defect.
+- **Failed criterion:** AC17. The test run is not isolated from the dev database.
+- **Evidence:** `tests/Unit/DockerDevEnvironmentContractTest.php` (commit 6889cc8), three failing nested-run cases
+  around line 62:
+  - `-e DB_CONNECTION=sqlite -e DB_DATABASE=qa_nonexistent_db`: all 67 tests "passed" on SQLite, and
+    `RefreshDatabase` created a 100 KB SQLite file in the repo root (since deleted);
+  - `-e DB_URL=pgsql://…/qa_nonexistent_db`: the tests connected to that database;
+  - `-e DB_DATABASE=qa_conflict_nonexistent_db`: the tests connected to that database.
+
+  Related Low finding #4 from security: with a cached config (`php artisan config:cache` in dev), the tests load
+  `DB_DATABASE=traveleasy`, and `RefreshDatabase` would wipe the dev DB.
+- **Likely cause:**
+  - `force="true"` in `phpunit.xml` sets putenv/`$_ENV`, but Laravel's env reader checks `$_SERVER` first, where
+    container env vars live in PHP CLI.
+  - `DB_URL` isn't forced at all.
+  - A cached config bypasses env entirely.
+- **Impact:** if a container env ever sets `DB_DATABASE=traveleasy`, `php artisan test` wipes the dev database.
+- **Expected fix (backend-developer):**
+  - Force the test connection to `pgsql` / `traveleasy_test` independently of `$_SERVER`/`$_ENV`/container env. Cover
+    `DB_URL`, and avoid or clear a cached config for tests (e.g. override in the test bootstrap, or refuse to run
+    while `bootstrap/cache/config.php` exists).
+  - Add a guard that runs before any migration and aborts unless the active connection is `pgsql` and the database is
+    exactly `traveleasy_test`.
+  - Make QA's three cases pass, and add the config-cache case.
+- **Criteria clarified in this round:**
+  - AC17: forced target, exact-name guard, the four proof cases, and no SQLite file. The guard now lives here;
+    TE-004 AC3 references it.
+  - AC10: reworded to use `docker inspect` `PortBindings`, because Compose v5.5.1's `docker compose port` prints
+    `invalid IP:0` with exit 0.
+  - TE-006 AC7a: the Adminer stop command is now `docker compose --profile tools rm -s -f adminer`.
+- **To verify in the re-test** (BLOCKED by disk space, not failed):
+  - AC2: fresh clone.
+  - AC8 and AC9: persistence across `-V`.
+  - AC16: runtime clone with `core.autocrlf=true`.
+  - AC19: fresh-clone run.
+  - AC23–AC27: Adminer at runtime.
+  - The CSS before/after build comparison for the `@import 'tailwindcss' source('../')` change.
+  - ESLint, `tsc` and Larastan runs.
+- **Follow-ups filed elsewhere (not part of this rework):**
+  - M1 trusted hosts: on the board, "Follow-ups for M1".
+  - Production hardening list: on the board, Epics notes.
+  - TE-006: the `docker compose config` secret warning, and the rebuild without dangling volumes.
+  - TE-003: require `symfony/yaml` directly as a dev dependency.
 
 ## Changelog
 (filled when done)

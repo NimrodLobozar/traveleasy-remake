@@ -60,6 +60,9 @@ containers, so that style and type errors are caught before review and CI can la
       that's acceptable, provided `check` is green and the choice is stated in the handoff.
 - [ ] AC12 (unused dev dependency): `laravel/sail` is removed from `require-dev` (we use our own compose files);
       `composer.lock` is updated and nothing references Sail.
+      Also, `symfony/yaml` is required **directly** in `require-dev`. QA's
+      `tests/Unit/DockerDevEnvironmentContractTest.php` (TE-002) parses the compose files with it, and today it is only
+      a transitive dependency. (Added after TE-002 round 1.)
 - [ ] AC13 (Vite advisory gap): because `vite` is an npm alias for `@voidzero-dev/vite-plus-core@0.3.3` (TE-001),
       `npm audit` can't see advisories for Vite. This is documented in a comment next to the alias in `package.json`
       or in `docs/testing.md` (via TE-006) and in the handoff for the CI/CD epic, together with:

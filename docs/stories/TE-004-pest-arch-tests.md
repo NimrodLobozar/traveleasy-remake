@@ -30,9 +30,10 @@ the original's security mistakes, so that those mistakes can't come back unnotic
 - [ ] AC1: Pest is the test runner (starter tests converted if they weren't); `docker compose exec app php artisan test`
       and `docker compose exec app ./vendor/bin/pest` both run the full suite, including the arch tests, and pass.
 - [ ] AC2 (PostgreSQL only): feature tests run against `traveleasy_test` on the `db` service, never SQLite.
-- [ ] AC3 (dev DB guard): Given the test environment points at a database whose name doesn't end in `_test`, when the
-      suite starts, then it aborts before any migration or `RefreshDatabase` runs, with a message naming the database.
-      (Protects the dev data from `RefreshDatabase`.)
+- [ ] AC3 (dev DB guard): **built in TE-002 AC17** (rework round 1): forced `pgsql`/`traveleasy_test` connection and a
+      guard that aborts before any migration unless the database is exactly `traveleasy_test`. This story doesn't add a
+      second guard; it only checks that the TE-002 guard and its contract test still pass with Pest and the arch suite
+      in place, and that `tests/Pest.php` / the base `TestCase` don't bypass it.
 - [ ] AC4 (no debugging leftovers): an arch test fails if `dd`, `dump`, `ddd`, `ray`, `var_dump`, `print_r` or
       `die`/`exit` are used in `App`, `Database`, `config/` or `routes/`.
 - [ ] AC5 (`env()` only in config): a test fails if `env(` is called anywhere outside `config/` (covers `app/`,
