@@ -1,13 +1,13 @@
 ---
 id: TE-003
 title: Code quality tooling (Pint, Larastan, ESLint, Prettier, tsc)
-status: in-progress
+status: rework
 priority: must
 epic: M0 Project scaffold and tooling
 agents: [backend-developer, frontend-developer]
 testers: [qa-engineer, security-privacy-reviewer]
 design: not-needed
-rework_rounds: 0
+rework_rounds: 1
 ---
 
 ## User story
@@ -79,8 +79,13 @@ containers, so that style and type errors are caught before review and CI can la
       (or one documented script) run all of the above in sequence and stop with a non-zero exit at the first failure.
 - [ ] AC8 (violations fail): for each tool, QA introduces one deliberate violation (bad formatting in a PHP file, a
       type error that Larastan catches, an `any` in a `.tsx` file, unformatted TS, a TS type error, an `<img>` without
-      `alt`) and the matching command exits non-zero with a message naming the file and line. The violations are not
-      committed.
+      `alt`) and the matching command exits non-zero. The violations are not committed.
+      *Clarified in rework round 1:* what the message must contain depends on the kind of tool.
+      - **Linters, static analysers and type checkers** (ESLint/oxlint, Larastan, `tsc`) must name the **file and
+        line**.
+      - **Formatters** must name the file, and the line wherever the tool can report one:
+        - `composer lint` runs Pint with `-v` (`pint --test -v`), so it prints diff hunks with line numbers;
+        - oxfmt (`npm run format:check` / `vp fmt`) has no line or diff option, so naming the file is enough.
 - [ ] AC9 (Windows friendliness): all commands work from PowerShell on Windows through `docker compose exec`, and none
       of them modifies line endings (files stay LF).
 
@@ -102,7 +107,36 @@ containers, so that style and type errors are caught before review and CI can la
 - (none)
 
 ## Rework log
-(empty)
+
+### Round 1 (2026-10-11)
+- **Verdicts:**
+  - **security-privacy-reviewer: PASS**, with one Low in scope (L1): paratest is pinned to 7.26.0 and misses the
+    7.26.1 hardening fix (PR #1148, worker files in a private per-run directory). Move back to `^7.26.1` once Pest
+    allows it, and never run `--parallel` on a shared multi-user host. This is documented through TE-006, not a
+    blocker.
+  - **qa-engineer: FAIL on AC8 only.** Everything else passes:
+    - 100/100 tests, with identical serial and parallel results;
+    - AC3: the type-aware rules fire, the rule list is proven real, and the 7 confirmed gaps are acceptable;
+    - the full check takes about 56 s.
+- **Failed criterion:** AC8, "message naming the file and line".
+- **Evidence:**
+  - **Pint:** `composer lint` exits 1 and names the file and the fixer rules, but gives no line, e.g.
+    `⨯ app/QaPintViolation.php single_space_around_construct, …`. `pint --test -v` prints diff hunks with line
+    numbers.
+  - **oxfmt:** `npm run format:check` exits 1 and names only the file. `vp fmt` has no line or diff option. Prettier
+    `--check`, which the AC was originally written for, doesn't print lines either.
+- **Cause:**
+  - Pint: the `-v` flag is missing from the `lint` script.
+  - oxfmt: the criterion was ambiguous, because it asked formatters for something they can't report.
+- **Criterion clarified:** AC8 now separates linters, analysers and type checkers (file + line) from formatters (file,
+  and the line where the tool can report it; Pint with `-v` shows hunks; oxfmt reports the file only).
+- **Expected fix (backend-developer):** add `-v` to **both** `pint --test` calls in the `composer.json` `lint` script.
+  QA re-runs the Pint violation and checks that the output contains a line-numbered hunk. No other change is needed.
+- **Follow-ups filed elsewhere:**
+  - TE-006: parallel/paratest notes, formatter output, the Vite advisory check, the vite-plus restart race,
+    `dev.md` lines 55–56, and the full command list.
+  - Board, "Follow-ups for M1": security F1/F2, and the auth-UI accessibility items.
+  - Board, "Notes for the production / deploy epics": security F3.
 
 ## Changelog
 (filled when done)

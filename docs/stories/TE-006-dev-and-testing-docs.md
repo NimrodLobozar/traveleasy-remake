@@ -85,6 +85,21 @@ database by accident.
       review is still required.
 - [ ] AC13 (testing.md, commands and gates): every test and quality command, and a "Planned CI gates" list copied from
       `docs/plan.md` § 2 row 2, marked as not yet wired (CI/CD epic).
+- [ ] AC13a (from TE-003 round 1): `docs/testing.md` and/or `docs/deploy/dev.md` cover the following.
+  - **Paratest pin (security L1):** paratest is pinned to 7.26.0, and why. Note to move back to `^7.26.1` (hardening
+    fix PR #1148) once Pest allows it. Never run `--parallel` on a shared multi-user host.
+  - **Parallel test databases:** each worker uses its own database, `traveleasy_test_test_N`.
+  - **Config before parallel runs (security F4):** run `php artisan config:clear` before
+    `--parallel --recreate-databases` or `--drop-databases`.
+  - **Formatter output:** formatters report files, not always lines. Pint `-v` shows hunks; oxfmt shows the file
+    only.
+  - **Vite advisories:** the manual Vite advisory check from TE-003 AC13 (`npm audit` can't see the aliased `vite`).
+  - **Troubleshooting:** rapid repeated edits of `vite.config.ts` or `lint.rules.ts` can hit a vite-plus restart race
+    ("Port 5173 is already in use"). The fix is `docker compose restart vite`.
+  - **Stale references:** `dev.md` lines 55–56 (current draft) point to `npm run check` / `npm run types`.
+  - **Full command list:**
+    - Composer: `composer lint`, `format`, `analyse`, `test`, `test:parallel`, `check`.
+    - npm: `npm run check`, `lint`, `lint:fix`, `format`, `format:check`, `types`, `types:check`, `check:fix`.
 - [ ] AC14 (CLAUDE.md): `CLAUDE.md` § Tech stack lists the exact installed versions (PHP, Laravel, Inertia, React,
       TypeScript, Tailwind, React Aria Components, laravel-data, typescript-transformer, Wayfinder, Pest, Vitest,
       Playwright, Node, PostgreSQL) and the install, dev, test, lint, build, migrate and seed commands; versions match

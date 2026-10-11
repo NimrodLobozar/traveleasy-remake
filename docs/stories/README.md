@@ -8,7 +8,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 |---|---|---|---|---|---|
 | [TE-001](TE-001-scaffold-laravel-react-starter-kit.md) | Scaffold the Laravel React starter kit (strict TS, PostgreSQL, no mail) | must | done | 0 | not-needed |
 | [TE-002](TE-002-docker-dev-environment.md) | Docker dev environment with hot reload and a PostgreSQL named volume | must | done | 1 | not-needed |
-| [TE-003](TE-003-code-quality-tooling.md) | Code quality tooling (Pint, Larastan, ESLint, Prettier, tsc) | must | in-progress | 0 | not-needed |
+| [TE-003](TE-003-code-quality-tooling.md) | Code quality tooling (Pint, Larastan, ESLint, Prettier, tsc) | must | rework | 1 | not-needed |
 | [TE-004](TE-004-pest-arch-tests.md) | Pest on PostgreSQL with arch tests that forbid the legacy anti-patterns | must | ready | 0 | not-needed |
 | [TE-005](TE-005-vitest-playwright-axe-harness.md) | Frontend test harness (Vitest + Testing Library, Playwright + axe) | must | ready | 0 | not-needed |
 | [TE-006](TE-006-dev-and-testing-docs.md) | Developer docs (dev.md, testing.md) and exact stack versions in CLAUDE.md | must | ready | 0 | not-needed |
@@ -32,6 +32,8 @@ and First home-server deploy stories are written.
   - a `HEALTHCHECK`.
 - **Production config:** `APP_DEBUG=false`, `INERTIA_DEVTOOLS_ENABLED=false`, `SESSION_SECURE_COOKIE=true`,
   TrustProxies limited to NPM.
+- **Devtools smoke check** (TE-003 security F3): the production stack sets `APP_ENV=production`, and a smoke check
+  asserts that `/_inertia/devtools/entries` returns 404.
 - **CI guards:**
   - `compose.yaml` has no `adminer` service, no `ports:` on `db` and no initdb mount;
   - image scan;
@@ -59,12 +61,24 @@ yet. When M1 stories are written, put each item below into the matching story as
 - **Trusted proxies:** limited to Nginx Proxy Manager (its address or network), never `*`.
 - **Trusted hosts** (from the TE-002 security review): `$middleware->trustHosts()` derived from the `APP_URL` host.
   Today DNS rebinding can reach `/_inertia/devtools/*` on `127.0.0.1:8000` while `APP_ENV=local`.
-- **Rate limits:** per-account login throttling across IPs, plus limits on register, confirm-password and
-  delete-account.
+- **Rate limits:**
+  - per-account login throttling across IPs, plus limits on register, confirm-password and delete-account;
+  - **per-IP login limit across usernames** (TE-003 security F1);
+  - check the two-factor limiter, whose key `session('login.id')` can be null (TE-003 security F1/F2).
 - **Passkeys (owner decides in M1):**
   - assumed **off** until `laravel/passkeys` 1.0, because a passkey login skips TOTP, which breaks mandatory 2FA for
     manager, admin and super_admin;
-  - if they stay, use a separate `PASSKEYS_USER_HANDLE_SECRET`.
+  - if they stay:
+    - add a per-IP cap on the passkeys limiter, which today is keyed by an attacker-chosen credential id
+      (TE-003 security F2);
+    - use a separate `PASSKEYS_USER_HANDLE_SECRET` (today it falls back to `APP_KEY`), documented in `.env.example`.
+- **Auth-UI accessibility** (found during TE-003; owner frontend-developer, checked by the accessibility-auditor):
+  - `resources/js/components/password-input.tsx:29`: the show-password toggle has `tabIndex={-1}`, so keyboard users
+    can't reach it. Make it focusable with an accessible name and pressed state (nl/en).
+  - The "copy" button on the 2FA setup page is icon-only, with no accessible name and no `type`. Give it an
+    accessible name (nl/en) and `type="button"`, and announce the copy result to screen readers.
+  - Review the 7 `no-autofocus` lint suppressions on the auth pages. Keep autofocus only where it helps (e.g. the
+    first field of a single-purpose form), and remove the suppression everywhere else.
 - **Case-insensitive unique e-mail on PostgreSQL:** a unique index on `lower(email)` (or `citext`), and lowercase
   the address in the register and `ProfileUpdateRequest` validation.
 - **Seeders:** split into `reference` and `demo`. The kit's `DatabaseSeeder` test user (`test@example.com` /
