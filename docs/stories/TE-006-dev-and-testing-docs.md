@@ -100,6 +100,13 @@ database by accident.
   - **Full command list:**
     - Composer: `composer lint`, `format`, `analyse`, `test`, `test:parallel`, `check`.
     - npm: `npm run check`, `lint`, `lint:fix`, `format`, `format:check`, `types`, `types:check`, `check:fix`.
+- [ ] AC13c (from TE-004 round 1, security L6; devops-engineer, a small config change in this story):
+  - **The problem.** The Vite dev server currently serves project files: `/config/app.php`, `/phpunit.xml` and
+    `/bootstrap/cache/services.php` return 200 on `127.0.0.1:5173`.
+  - **The change.** `vite.config.ts` adds `server.fs.deny` entries for at least `**/*.php`, `**/storage/**`,
+    `**/bootstrap/cache/**`, `**/phpunit.xml` and `**/.env*`, keeping Vite's defaults.
+  - **The check.** QA confirms that those three URLs return 403/404 and that HMR (TE-002 AC4) still works.
+  - **The docs.** `dev.md` mentions it under security notes.
 - [ ] AC13b (from TE-005 round 1):
   - **Parallel e2e output:** parallel or concurrent e2e runs share `test-results/`, so use `--output /tmp/...` for
     concurrent runs.
