@@ -9,8 +9,8 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-001](TE-001-scaffold-laravel-react-starter-kit.md) | Scaffold the Laravel React starter kit (strict TS, PostgreSQL, no mail) | must | done | 0 | not-needed |
 | [TE-002](TE-002-docker-dev-environment.md) | Docker dev environment with hot reload and a PostgreSQL named volume | must | done | 1 | not-needed |
 | [TE-003](TE-003-code-quality-tooling.md) | Code quality tooling (Pint, Larastan, ESLint, Prettier, tsc) | must | done | 1 | not-needed |
-| [TE-004](TE-004-pest-arch-tests.md) | Pest on PostgreSQL with arch tests that forbid the legacy anti-patterns | must | in-progress | 0 | not-needed |
-| [TE-005](TE-005-vitest-playwright-axe-harness.md) | Frontend test harness (Vitest + Testing Library, Playwright + axe) | must | ready | 0 | not-needed |
+| [TE-004](TE-004-pest-arch-tests.md) | Pest on PostgreSQL with arch tests that forbid the legacy anti-patterns | must | in-test | 0 | not-needed |
+| [TE-005](TE-005-vitest-playwright-axe-harness.md) | Frontend test harness (Vitest + Testing Library, Playwright + axe) | must | rework | 1 | not-needed |
 | [TE-006](TE-006-dev-and-testing-docs.md) | Developer docs (dev.md, testing.md) and exact stack versions in CLAUDE.md | must | ready | 0 | not-needed |
 
 ### Epics
@@ -45,6 +45,37 @@ and First home-server deploy stories are written.
 - **Outbound egress:** allow it for the HIBP range API, or confirm the M1 flag fails open.
 - **Env documentation:** `.env.example` and the Portainer env list include `SESSION_SECURE_COOKIE`,
   `PASSKEYS_USER_HANDLE_SECRET` and `INERTIA_DEVTOOLS_ENABLED`.
+
+### Notes for the CI/CD epic
+From the TE-005 security review (L3, 2026-10-12):
+- **Image pinning:** pin the Playwright image by digest in CI, kept current with Renovate or Dependabot.
+- **Scanning:** image scan (Trivy or Docker Scout) on the dev and Playwright images, plus `npm audit`.
+- **Artifacts:** upload Playwright artifacts only on failure, with 1–3 days retention, and never publicly. Traces can
+  contain cookies and typed passwords.
+- **Optional:** a Playwright guard that fails any request to a non-localhost origin.
+
+### Notes for the App shell epic
+From the TE-005 accessibility review (2026-10-12):
+- **Empty allow-list:** an AC that the axe allow-list ends empty (`expect(placeholderAllowList).toHaveLength(0)`),
+  after which the `allow` option is removed from the public helper.
+- **Scan coverage:**
+  - run axe in light **and** dark theme, and at 320 px width;
+  - scan after state changes: open menus, dialogs, validation errors, mobile navigation, and after Inertia
+    navigation.
+- **Best-practice pass:** a second axe pass with `region`, `landmark-one-main`, `landmark-unique`,
+  `page-has-heading-one`, `heading-order`, `skip-link` and `empty-heading`. Consider `label-content-name-mismatch`.
+
+### Notes for the design-system epic
+From the TE-005 accessibility review (2026-10-12). The Vitest/jsdom axe matcher can't check layout (see TE-005 AC3),
+so:
+- check contrast as token pairs in both themes (a unit test over the token file);
+- check target size in Playwright (real Chromium);
+- write separate tests for:
+  - keyboard and focus order;
+  - visible and unobscured focus;
+  - reduced motion;
+  - 400 % zoom and text spacing;
+  - live-region announcements.
 
 ## Follow-ups for M1
 Found while TE-001 was tested (2026-10-11; security-privacy-reviewer and qa-engineer). There are no M1 story files
@@ -85,6 +116,11 @@ yet. When M1 stories are written, put each item below into the matching story as
   `password`) must never run in production. Add a test for it.
 - **Inertia history:** `INERTIA_ENCRYPT_HISTORY=true`, and `clearHistory()` on logout.
 - **Security-event logging:** feeds the M1 audit-log story.
+- **Rule for auth and booking e2e tests** (from the TE-005 security review; applies from M1 on):
+  - fake users only, and never real 2FA secrets;
+  - traces and reports contain cookies and typed passwords, so treat `test-results/` and `playwright-report/` as
+    sensitive (git-ignored, never shared or uploaded publicly);
+  - Playwright `storageState` files only under `test-results/` or `/tmp`.
 - **Clean-up:**
   - remove the `password_reset_tokens` broker from `config/auth.php`;
   - remove the unused `status` prop in `ProfileController::edit`;

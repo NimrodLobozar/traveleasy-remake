@@ -100,6 +100,15 @@ database by accident.
   - **Full command list:**
     - Composer: `composer lint`, `format`, `analyse`, `test`, `test:parallel`, `check`.
     - npm: `npm run check`, `lint`, `lint:fix`, `format`, `format:check`, `types`, `types:check`, `check:fix`.
+- [ ] AC13b (from TE-005 round 1):
+  - **Parallel e2e output:** parallel or concurrent e2e runs share `test-results/`, so use `--output /tmp/...` for
+    concurrent runs.
+  - **AC4 command:** the e2e command needs `--config tests/e2e/playwright.config.ts`; the simplest form is
+    `docker compose run --rm e2e`.
+  - **What jsdom can't check** (F1), in `docs/testing.md`: the Vitest axe matcher does **not** check `color-contrast`,
+    `target-size`, `scrollable-region-focusable`, or any other layout-dependent rule. Those are checked in Playwright
+    and by the auditor. Also: how incomplete ("needs review") results are reported in Vitest and e2e.
+  - **The allow-list rules:** the central list only, the stale-entry check, and a reason that names an epic.
 - [ ] AC14 (CLAUDE.md): `CLAUDE.md` § Tech stack lists the exact installed versions (PHP, Laravel, Inertia, React,
       TypeScript, Tailwind, React Aria Components, laravel-data, typescript-transformer, Wayfinder, Pest, Vitest,
       Playwright, Node, PostgreSQL) and the install, dev, test, lint, build, migrate and seed commands; versions match
