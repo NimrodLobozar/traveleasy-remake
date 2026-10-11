@@ -1,17 +1,11 @@
-export type User = {
-    id: number;
-    name: string;
-    email: string;
-    avatar?: string;
-    email_verified_at: string | null;
-    two_factor_enabled?: boolean;
-    created_at: string;
-    updated_at: string;
-    [key: string]: unknown;
-};
+import type { SharedUserData } from '@/types/generated';
 
+/**
+ * The shared `auth` Inertia prop. `user` is generated from App\Data\SharedUserData
+ * (`npm run generate`) and is `null` for guests.
+ */
 export type Auth = {
-    user: User;
+    user: SharedUserData | null;
 };
 
 export type Passkey = {

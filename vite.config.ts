@@ -4,19 +4,16 @@ import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
-import { bunny } from 'laravel-vite-plugin/fonts';
 import { defineConfig, lazyPlugins } from 'vite-plus';
 
+// No `fonts` option: the kit's bunny() helper downloads fonts from a third-party host at build
+// time. We use a system font stack (resources/css/app.css) until the design system picks a
+// self-hosted font (CLAUDE.md: no runtime CDNs or third-party fonts).
 export default defineConfig({
     plugins: lazyPlugins(() => [
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
             refresh: true,
-            fonts: [
-                bunny('Instrument Sans', {
-                    weights: [400, 500, 600],
-                }),
-            ],
         }),
         inertia(),
         react(),
@@ -50,6 +47,7 @@ export default defineConfig({
             'resources/js/components/ui/*',
             'resources/js/routes/**',
             'resources/js/wayfinder/**',
+            'resources/js/types/generated/**',
         ],
         options: {
             denyWarnings: true,
@@ -66,7 +64,11 @@ export default defineConfig({
         ignorePatterns: [
             '.github/**',
             'composer.json',
+            'resources/js/actions/**',
             'resources/js/components/ui/*',
+            'resources/js/routes/**',
+            'resources/js/types/generated/**',
+            'resources/js/wayfinder/**',
             'resources/views/mail/*',
         ],
         sortTailwindcss: {

@@ -10,10 +10,10 @@ import { UserInfo } from '@/components/user-info';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
-import type { User } from '@/types';
+import type { SharedUserData } from '@/types/generated';
 
 type Props = {
-    user: User;
+    user: SharedUserData;
 };
 
 export function UserMenuContent({ user }: Props) {

@@ -12,6 +12,13 @@ test('profile page is displayed', function () {
     $response->assertOk();
 });
 
+test('the settings root redirects to the profile page on GET only', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get('/settings')->assertRedirect(route('profile.edit'));
+    $this->actingAs($user)->post('/settings')->assertMethodNotAllowed();
+});
+
 test('profile information can be updated', function () {
     $user = User::factory()->create();
 
