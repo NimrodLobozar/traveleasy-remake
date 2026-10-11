@@ -1,7 +1,7 @@
 ---
 id: TE-003
 title: Code quality tooling (Pint, Larastan, ESLint, Prettier, tsc)
-status: rework
+status: done
 priority: must
 epic: M0 Project scaffold and tooling
 agents: [backend-developer, frontend-developer]
@@ -31,53 +31,53 @@ containers, so that style and type errors are caught before review and CI can la
     a separate ESLint/Prettier setup, provided AC3, AC4 and AC8 still hold. State the choice in the handoff.
 
 ## Acceptance criteria
-- [ ] AC1 (Pint): `docker compose exec app composer lint` runs Pint in check mode (`pint --test`) and exits 0 on the
+- [x] AC1 (Pint): `docker compose exec app composer lint` runs Pint in check mode (`pint --test`) and exits 0 on the
       codebase; `composer format` applies fixes. The preset is `laravel` plus `declare_strict_types` on `app/`,
       `database/`, `routes/` and `tests/` (or a documented reason for not using it).
-- [ ] AC2 (Larastan): `docker compose exec app composer analyse` runs Larastan at **level 8 or higher** over `app/`,
+- [x] AC2 (Larastan): `docker compose exec app composer analyse` runs Larastan at **level 8 or higher** over `app/`,
       `config/`, `database/`, `routes/` and `tests/`, and exits 0 **without a baseline file**. The level is stated in
       the handoff; if it isn't `max`, say why.
-- [ ] AC3 (ESLint): `docker compose exec vite npm run lint` runs ESLint (flat config) with typescript-eslint
+- [x] AC3 (ESLint): `docker compose exec vite npm run lint` runs ESLint (flat config) with typescript-eslint
       type-aware `strict` rules, `react`, `react-hooks` and `jsx-a11y` (recommended) over `resources/js`, and exits 0.
       `@typescript-eslint/no-explicit-any` and `no-console` (allowing none) are errors. Generated files (Wayfinder,
       typescript-transformer output) are ignored.
-- [ ] AC4 (Prettier): `docker compose exec vite npm run format:check` exits 0; `npm run format` writes fixes. The
+- [x] AC4 (Prettier): `docker compose exec vite npm run format:check` exits 0; `npm run format` writes fixes. The
       Tailwind class-sorting plugin is enabled. ESLint and Prettier don't fight (eslint-config-prettier or
       equivalent).
-- [ ] AC5 (types): `docker compose exec vite npm run types` runs generation if needed (TE-001 AC7) and then
+- [x] AC5 (types): `docker compose exec vite npm run types` runs generation if needed (TE-001 AC7) and then
       `tsc --noEmit`, and exits 0.
-- [ ] AC6 (generated types up to date): TE-001 decided that generated output is **git-ignored** and produced by
+- [x] AC6 (generated types up to date): TE-001 decided that generated output is **git-ignored** and produced by
       `npm run generate`. So instead of a diff check, every type/lint entry point (AC5, AC7) runs `npm run generate`
       first, and a fresh clone passes `npm run types` without any manual step.
-- [ ] AC10 (generated folders ignored): ESLint and the formatter both ignore `resources/js/actions`,
+- [x] AC10 (generated folders ignored): ESLint and the formatter both ignore `resources/js/actions`,
       `resources/js/routes`, `resources/js/wayfinder` and `resources/js/types/generated`. Running `npm run format`
       leaves those folders untouched.
-- [ ] AC11 (formatter scope, Markdown and JSON): `vp check` (vite-plus) / `npm run check` currently fails only on Markdown
+- [x] AC11 (formatter scope, Markdown and JSON): `vp check` (vite-plus) / `npm run check` currently fails only on Markdown
       and JSON formatting in `docs/**`, `.claude/**` and `CLAUDE.md` (30 files, confirmed in the TE-002 re-test). Decision: **exclude** `docs/`, `.claude/`, `CLAUDE.md` and
       root `*.md` from the code formatter. They are hand-written prose maintained by the agents, and reflowing them
       would create noisy diffs. After the change, `vp check` / `npm run check` exits 0 on a clean tree, and a
       deliberately mis-formatted `.tsx` file still fails it. If the developer prefers to format them once instead,
       that's acceptable, provided `check` is green and the choice is stated in the handoff.
-- [ ] AC12 (unused dev dependency): `laravel/sail` is removed from `require-dev` (we use our own compose files);
+- [x] AC12 (unused dev dependency): `laravel/sail` is removed from `require-dev` (we use our own compose files);
       `composer.lock` is updated and nothing references Sail.
       Also, `symfony/yaml` is required **directly** in `require-dev`. QA's
       `tests/Unit/DockerDevEnvironmentContractTest.php` (TE-002) parses the compose files with it, and today it is only
       a transitive dependency. (Added after TE-002 round 1.)
-- [ ] AC14 (parallel tests; found in the TE-002 re-test): `php artisan test --parallel` currently crashes with
+- [x] AC14 (parallel tests; found in the TE-002 re-test): `php artisan test --parallel` currently crashes with
       `ArgumentCountError` in `ParaTest\WrapperRunner\WrapperWorker::__construct()`, caused by a Pest/Paratest version
       mismatch in `composer.lock`. Either align the versions so that `docker compose exec app php artisan test --parallel`
       passes with the same result as a serial run (including the TE-002 AC17 database guard, with per-process test
       databases still matching the guard's rule), or remove the parallel option from the scripts and state in the
       handoff (for `docs/testing.md`) that parallel testing isn't supported yet and why. No command may crash.
-- [ ] AC13 (Vite advisory gap): because `vite` is an npm alias for `@voidzero-dev/vite-plus-core@0.3.3` (TE-001),
+- [x] AC13 (Vite advisory gap): because `vite` is an npm alias for `@voidzero-dev/vite-plus-core@0.3.3` (TE-001),
       `npm audit` can't see advisories for Vite. This is documented in a comment next to the alias in `package.json`
       or in `docs/testing.md` (via TE-006) and in the handoff for the CI/CD epic, together with:
       - the manual check: review the vite-plus-core release notes and the Vite security advisories on every dependency
         update;
       - the intent to move to vite-plus 1.x, with a plain `vite` dependency, when the starter kit does.
-- [ ] AC7 (one entry point): `docker compose exec app composer check` and `docker compose exec vite npm run check`
+- [x] AC7 (one entry point): `docker compose exec app composer check` and `docker compose exec vite npm run check`
       (or one documented script) run all of the above in sequence and stop with a non-zero exit at the first failure.
-- [ ] AC8 (violations fail): for each tool, QA introduces one deliberate violation (bad formatting in a PHP file, a
+- [x] AC8 (violations fail): for each tool, QA introduces one deliberate violation (bad formatting in a PHP file, a
       type error that Larastan catches, an `any` in a `.tsx` file, unformatted TS, a TS type error, an `<img>` without
       `alt`) and the matching command exits non-zero. The violations are not committed.
       *Clarified in rework round 1:* what the message must contain depends on the kind of tool.
@@ -86,18 +86,18 @@ containers, so that style and type errors are caught before review and CI can la
       - **Formatters** must name the file, and the line wherever the tool can report one:
         - `composer lint` runs Pint with `-v` (`pint --test -v`), so it prints diff hunks with line numbers;
         - oxfmt (`npm run format:check` / `vp fmt`) has no line or diff option, so naming the file is enough.
-- [ ] AC9 (Windows friendliness): all commands work from PowerShell on Windows through `docker compose exec`, and none
+- [x] AC9 (Windows friendliness): all commands work from PowerShell on Windows through `docker compose exec`, and none
       of them modifies line endings (files stay LF).
 
 ## Quality criteria
-- [ ] Tests: AC8 is the test; QA records the command output in the verdict.
-- [ ] Accessibility: `jsx-a11y` is on (AC3) as an early, cheap safety net; no UI change, so no auditor.
-- [ ] Security/privacy: new packages are dev-only (`require-dev` / `devDependencies`) and pinned through the lockfiles;
+- [x] Tests: AC8 is the test; QA records the command output in the verdict.
+- [x] Accessibility: `jsx-a11y` is on (AC3) as an early, cheap safety net; no UI change, so no auditor.
+- [x] Security/privacy: new packages are dev-only (`require-dev` / `devDependencies`) and pinned through the lockfiles;
       `composer audit` and `npm audit --audit-level=high` show no new High/Critical advisories.
-- [ ] i18n: not applicable.
-- [ ] Performance: the full `check` runs in under 2 minutes on the dev PC (reported, not gated).
-- [ ] Docs updated: the handoff lists every command for TE-006 (`docs/testing.md`, `docs/deploy/dev.md`, `CLAUDE.md`).
-- [ ] Docker rebuild: yes, `docker compose up -d --build -V` after the `composer.json`/`package.json` changes.
+- [x] i18n: not applicable.
+- [x] Performance: the full `check` runs in under 2 minutes on the dev PC (reported, not gated).
+- [x] Docs updated: the handoff lists every command for TE-006 (`docs/testing.md`, `docs/deploy/dev.md`, `CLAUDE.md`).
+- [x] Docker rebuild: yes, `docker compose up -d --build -V` after the `composer.json`/`package.json` changes.
 
 ## Out of scope
 - Running the tools in CI (CI/CD epic), pre-commit hooks (could be a later chore), the SSR-safety lint rule (SSR epic),
@@ -139,4 +139,74 @@ containers, so that style and type errors are caught before review and CI can la
   - Board, "Notes for the production / deploy epics": security F3.
 
 ## Changelog
-(filled when done)
+Closed 2026-10-11 after 1 rework round.
+
+**Verdicts**
+- **qa-engineer: PASS** on the re-test after rework 1. AC1–AC14 and all quality criteria pass.
+  - **AC8** passes under the clarified wording: Pint shows `@@` hunks; oxlint, Larastan and `tsc` show file:line;
+    oxfmt shows the file.
+  - **Tests:** 100/100 (343 assertions), with identical serial and parallel results.
+  - **Timings:** `composer check` 28 s, `npm run check` 23 s.
+- **security-privacy-reviewer: PASS**, with Low L1 (the paratest pin). It's documented through TE-006 AC13a.
+
+**Commits**
+
+| Commit | Content |
+|---|---|
+| 5ab9017 | Tooling |
+| eb24776 | PHP `^8.5`, the kit's `setup` script removed, npm package name |
+| 91005f0 | Rework entry |
+| 4dd21e0 | `pint -v` fix |
+
+**Implementation note (AC3/AC4)**
+- **Choice:** the story's own context allowed the developer to build on vite-plus instead of adding ESLint and
+  Prettier. The developer chose vite-plus oxlint (type-aware) and oxfmt, and deliberately added **no** ESLint or
+  Prettier.
+- **Why:** eslint-plugin-react and jsx-a11y only support the deprecated ESLint 9.
+- **Coverage:** the rule intent is covered by an explicit 238-rule list in `lint.rules.ts`: TS strict-type-checked,
+  react, react-hooks and jsx-a11y, with `denyWarnings`. The 7 gaps are documented, and QA confirmed them as acceptable.
+- **Title:** the story title still says "ESLint, Prettier" for traceability.
+
+**Added**
+- **PHP formatting:**
+  - `pint.json`: the laravel preset plus `declare_strict_types` on `app/`, `database/`, `routes/` and `tests/`;
+  - `pint.no-strict-types.json` for `bootstrap/`, `config/` and `public/`.
+- **PHP static analysis:**
+  - Larastan at level **max**, with no baseline, plus `pest-plugin-phpstan`;
+  - `app/Support/CurrentUser`.
+- **Parallel tests:** paratest pinned to 7.26.0, and a parallel worker-DB guard (per-worker
+  `traveleasy_test_test_N`).
+- **Composer scripts:** `lint` (Pint `--test -v`), `format`, `analyse`, `test`, `test:parallel`, `check`.
+- **Frontend tooling:**
+  - vite-plus oxlint with type-aware rules, configured in `lint.rules.ts`;
+  - oxfmt with Tailwind class sorting.
+- **npm scripts:** `check`, `lint`, `lint:fix`, `format`, `format:check`, `types` (runs `npm run generate` first),
+  `types:check`, `check:fix`.
+- `symfony/yaml` as a direct dev dependency.
+
+**Changed**
+- **Larastan fixes:** 239 errors fixed across the codebase, with 3 inline ignores for `Route::inertia()`.
+- **Throttle keys:** they now handle non-string input.
+- **Lint fixes in kit code:** 81 issues fixed, including:
+  - the positive `tabIndex` removed on the login and register pages;
+  - `rel="noreferrer"` on external links;
+  - 10 justified suppressions.
+- **Formatter scope:** `docs/`, `.claude/` and root `*.md` are excluded.
+- **Generated folders:** ignored by the linter and the formatter.
+- **Requirements:** PHP is required as `^8.5`, and the npm package name is set.
+
+**Removed**
+- `laravel/sail`, the kit's `setup` composer script, and `tests/Unit/ExampleTest.php`.
+
+**Migrations:** none.
+
+**New env vars:** none.
+
+**Docker:** rebuilt after the `composer.json` changes, and the previous dev image was removed. Developers with an
+older checkout need `docker compose up -d --build -V`, or the clean variant documented by TE-006.
+
+**Follow-ups:** all already filed:
+- TE-006 AC13a (paratest pin, parallel DBs, `config:clear`, formatter output, the Vite advisory check, the vite-plus
+  restart race, the command list);
+- the board's "Follow-ups for M1" (security F1/F2, auth-UI accessibility);
+- the board's "Notes for the production / deploy epics" (F3).
