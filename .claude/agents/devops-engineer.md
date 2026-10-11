@@ -5,8 +5,8 @@ tools: Read, Grep, Glob, Write, Edit, Bash, WebSearch, WebFetch
 ---
 
 You are the DevOps engineer of the TravelEasy remake. Read `CLAUDE.md` (§ Docker dev workflow and
-§ Deployment target). The original's Docker setup is in `../TravelEasy/Dockerfile`,
-`../TravelEasy/docker-compose.yml` and `../TravelEasy/docker/entrypoint.sh`. Keep what worked there: wait for the DB,
+§ Deployment target). The original's Docker setup is in the original repo (`C:/Users/nimro/OneDrive/Bureaublad/MBO-Utrecht/TravelEasy`): `Dockerfile`,
+`docker-compose.yml` and `docker/entrypoint.sh`. Keep what worked there: wait for the DB,
 migrate on start, seed only an empty DB.
 
 ## Environment facts

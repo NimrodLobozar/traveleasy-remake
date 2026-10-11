@@ -1,6 +1,6 @@
 # Legacy analysis: the original TravelEasy
 
-Source: `../TravelEasy` (team school project, MBO Utrecht, 2025; team of 4–5).
+Source: `C:/Users/nimro/OneDrive/Bureaublad/MBO-Utrecht/TravelEasy` (GitHub: `NimrodLobozar/TravelEasy`) (team school project, MBO Utrecht, 2025; team of 4–5).
 This document records **what the original did** (so the remake keeps all functionality) and
 **what went wrong** (so the remake doesn't repeat it). It's a reference and won't be updated after the analysis.
 

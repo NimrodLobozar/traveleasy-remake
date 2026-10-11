@@ -1,6 +1,6 @@
 # Tech-stack options for the TravelEasy remake
 
-Status: **recommendation, awaiting the owner's decision.** Once a choice is made, the architect records it
+Status: **decided**: option 1 was accepted on 2026-10-11 (see `docs/adr/0001-tech-stack.md`). This document keeps the reasoning.
 in `docs/adr/0001-tech-stack.md` and `CLAUDE.md` gets the concrete stack and commands.
 Exact versions are pinned at scaffolding time, to whatever is current and stable then.
 

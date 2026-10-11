@@ -1,7 +1,8 @@
 # TravelEasy (remake)
 
 A solo rebuild of **TravelEasy**, a travel-agency web app first built as a team school project at
-MBO Utrecht (original at `../TravelEasy`). The aim is to beat the original on every front: design,
+MBO Utrecht (original: `C:/Users/nimro/OneDrive/Bureaublad/MBO-Utrecht/TravelEasy`, also on GitHub at
+`NimrodLobozar/TravelEasy`). The aim is to beat the original on every front: design,
 functionality, accessibility, privacy, security and code quality. It runs in Docker and is self-hosted on
 a **CasaOS home server via Portainer**.
 
@@ -14,7 +15,7 @@ had (all of them must come back, in better form) and every mistake that must not
 |---|---|
 | Legacy analysis | Done (`docs/legacy-analysis.md`) |
 | Agent team + workflow | Done (`.claude/agents/`, see § How work flows) |
-| Tech-stack decision | **Open**: options in `docs/stack-options.md`; decision goes in `docs/adr/0001-tech-stack.md` |
+| Tech-stack decision | Done: `docs/adr/0001-tech-stack.md` (Accepted) |
 | Product plan / roadmap | Not started (`docs/plan.md`) |
 | Design system | Not started (`docs/design/`, links in `docs/design/previews.md`) |
 | Scaffolding + Docker dev env | Not started |
@@ -28,13 +29,24 @@ Update this table when a phase changes.
 - 2026-10-11: Public access later goes through the existing **Nginx Proxy Manager** on CasaOS.
 - 2026-10-11: CI builds images and pushes them to **GHCR**; Portainer pulls a pinned tag.
 - 2026-10-11: The AI chatbot is **nice-to-have and built last** (`docs/backlog/ideas.md`).
+- 2026-10-11: Stack = **Laravel + Inertia + React + TypeScript + PostgreSQL** (ADR-0001).
+- 2026-10-11: Public repo `NimrodLobozar/traveleasy-remake`; project lives at `C:\dev\traveleasy-remake` (outside OneDrive).
 
 ## Tech stack
 
-**Not decided yet.** See `docs/stack-options.md` for the options and the recommendation. Until the owner
-accepts ADR-0001, **don't scaffold an application or install a framework**.
+Accepted in `docs/adr/0001-tech-stack.md` (reasoning in `docs/stack-options.md`):
+- **Backend:** Laravel (latest stable), started from the official React starter kit; Fortify auth, Policies,
+  Form Requests, queues (database driver), scheduler.
+- **Frontend:** Inertia + React + TypeScript (strict) + Tailwind CSS; **React Aria Components** for complex
+  accessible widgets; types generated with spatie/laravel-data + typescript-transformer, routes with Wayfinder.
+- **Database:** PostgreSQL.
+- **Tests and quality:** Pest, Vitest + Testing Library, Playwright + @axe-core/playwright, Pint, Larastan,
+  ESLint, Prettier, `tsc --noEmit`.
+- **Dev extras:** Mailpit.
 
-Fixed regardless of stack:
+Exact versions and commands (install, dev, test, lint, build, migrate, seed) are added here when the project is scaffolded.
+
+Fixed principles:
 - Everything runs in Docker. `compose.yaml` deploys as a Portainer stack; `compose.dev.yaml` adds dev overrides.
 - Relational database with versioned migrations. No business logic in stored procedures.
 - TypeScript (strict) for frontend code.
