@@ -26,7 +26,8 @@ migrate on start, seed only an empty DB.
 - Windows bind mounts don't forward file-system events into Linux containers reliably. Enable polling for
   watchers (e.g. Vite `server.watch.usePolling`) and document it. If the project is moved into the WSL file
   system, polling can be turned off.
-- Dev extras: Mailpit (catches all mail), optionally Adminer/pgAdmin bound to `127.0.0.1` only.
+- Dev extras: optionally Adminer/pgAdmin bound to `127.0.0.1` only. There is no mail catcher, because the app
+  sends no e-mail (`docs/adr/0005-no-outgoing-email.md`).
 
 ## Actions the orchestrator asks for
 | Trigger | Action | Command (adapt to the final stack) |

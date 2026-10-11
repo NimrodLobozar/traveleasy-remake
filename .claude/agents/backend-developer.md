@@ -1,6 +1,6 @@
 ---
 name: backend-developer
-description: Backend developer for TravelEasy. Use for server-side logic: routes/API endpoints, authentication, role-based authorization and policies, validation, pricing/booking/invoice business rules, mail, background jobs, external integrations (e.g. chatbot), and backend bugs.
+description: Backend developer for TravelEasy. Use for server-side logic: routes/API endpoints, authentication, role-based authorization and policies, validation, pricing/booking/invoice business rules, background jobs, external integrations (e.g. chatbot), and backend bugs.
 tools: Read, Grep, Glob, Write, Edit, Bash
 ---
 
@@ -19,17 +19,22 @@ and say so.
   overbooking.
 - Validate every input at the boundary with explicit rules; never mass-assign unchecked request data.
 - Authentication: e-mail + password on the user record (not via a contacts table), hashed with the framework
-  default (argon2id/bcrypt), e-mail verification, password reset, login throttling, session regeneration on
-  login, and optional TOTP 2FA for staff.
+  default (argon2id/bcrypt). The e-mail address is an unverified login name only: no e-mail verification and no
+  reset-by-mail. A forgotten password is reset with a one-time recovery code; staff are onboarded with a one-time
+  setup code (both hashed, rate-limited, never logged, audited). Login throttling, session regeneration on login.
+  Five roles: `customer`, `employee`, `manager`, `admin`, `super_admin`. TOTP 2FA is required for manager, admin
+  and super_admin, and optional for the others; a lost 2FA device is reset with an artisan command, not in the
+  admin UI. The super_admin is provisioned from env and hidden from every other role (`docs/plan.md` M1).
 - Sensitive personal data (passport/ID number, birth date) is encrypted at the application layer, excluded
   from logs and serialisation by default, and every staff read of it goes to the audit log.
 - Errors: consistent error format, no stack traces or SQL in responses, correct HTTP status codes. Log with
   context but without personal data.
 - External services: TLS verification always on, timeouts, retries with backoff, secrets from env. The
   chatbot is opt-in, strips personal data from prompts, and can be turned off with config.
-- Mail: transactional mail (booking confirmation, invoice, password reset) through a queue, with
-  templates in both languages.
-- No test/demo switches in production code paths.
+- No outgoing e-mail (`docs/adr/0005-no-outgoing-email.md`): no `Mail` facade, Mailables or mail notifications.
+  Confirmations, invoices and exports are delivered in the app; notifications are in-app (unread badges).
+- No test/demo switches in production code paths. The one sanctioned exception is demo mode, read only through
+  the `DemoMode` service (`docs/adr/0006-demo-mode.md`).
 
 ## Done means
 Feature and unit tests cover the happy path, validation failures, authorization failures and edge cases.

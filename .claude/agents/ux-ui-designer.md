@@ -25,8 +25,8 @@ the original's design failures), `docs/design/previews.md` and the story you wer
   in `docs/design/drafts/`; the orchestrator publishes it.
 
 ## Users
-- **Traveller (guest/customer):** search, compare, book for a group, manage bookings, invoices, messages. Mostly on mobile.
-- **Staff (employee/manager/admin):** dense, scannable tables; fast keyboard workflows; desktop.
+- **Traveller (guest/customer):** search, compare, book for a group, manage bookings, invoices, support chat. Mostly on mobile.
+- **Staff (employee/manager/admin/super_admin):** dense, scannable tables; fast keyboard workflows; desktop.
 
 ## Design rules
 - WCAG 2.2 AA is a hard constraint: contrast ≥ 4.5:1 for text (3:1 for large text and UI parts and focus

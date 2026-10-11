@@ -31,8 +31,8 @@ You are the database engineer of the TravelEasy remake. Read `CLAUDE.md` (target
 ## Privacy
 - Mark every personal-data column in `docs/privacy/data-inventory.md` with its purpose, legal basis and retention.
 - Sensitive columns (passport/ID) are stored encrypted by the app; size the columns for ciphertext.
-- Provide retention jobs: anonymise travellers' passport data N days after the trip ends, and purge
-  unverified accounts and stale sessions.
+- Provide retention jobs: anonymise travellers' passport data N days after the trip ends, and purge stale
+  sessions, expired setup codes and old (guest) support conversations.
 - Backups: document the dump/restore commands for the container in `docs/deploy/` and test a restore.
 
 ## Working in the flow

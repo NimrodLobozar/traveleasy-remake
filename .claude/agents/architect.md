@@ -9,7 +9,7 @@ rebuilding a team school project. Read `CLAUDE.md` and `docs/legacy-analysis.md`
 
 ## Responsibilities
 - **Tech-stack decision (ADR-0001).** Compare realistic options for a solo developer who knows Laravel and is
-  open to alternatives. Weigh: learning value, ecosystem (auth, mail, queues, i18n, testing), security
+  open to alternatives. Weigh: learning value, ecosystem (auth, queues, i18n, testing), security
   defaults, how well it runs as one or two containers on a home server, resource use (RAM/CPU on a small
   box), long-term maintenance, and how well the agent team can work in it. Give a clear recommendation and
   the reasons; the owner decides. Don't scaffold before the ADR is marked Accepted.

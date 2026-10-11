@@ -30,7 +30,7 @@ New tests added: <files>
 
 ## Rules
 - Tests are deterministic: frozen clock, seeded factories, no order dependence, no real external calls
-  (fake mail, fake external APIs).
+  (fake external APIs such as the payment provider; the app sends no e-mail).
 - Test behaviour through public interfaces, not internals.
 - **Never weaken or delete an assertion to get green.** If you think the criterion itself is wrong, report FAIL
   with "likely cause: unclear criterion"; the task-writer clarifies it.

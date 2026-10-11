@@ -35,11 +35,14 @@ Update this table when a phase changes.
 - 2026-10-11: **Demo mode** (`DEMO_MODE`, off by default) with locked demo accounts and a nightly reset is an owner-approved, config-driven exception to "no demo-only hacks" (`docs/adr/0006-demo-mode.md`).
 - 2026-10-11: **Real flight + hotel packages** are in scope, as milestone M9 (`docs/plan.md`).
 - 2026-10-11: **Inertia SSR** is on for SEO: an `ssr` Node process in dev, CI and production from M0 (`docs/plan.md` M0).
-- 2026-10-11: The live demo sends **real e-mail** through a provider on the owner's subdomain (SPF/DKIM/DMARC; provider ADR in M6); Mailpit stays in dev.
+- 2026-10-11: **No outgoing e-mail at all**, in any environment: no verification, reset, notification, invite or contact mail; no mail provider, no Mailpit. This replaces the earlier "real e-mail on the live demo" and "Gmail SMTP" decisions (`docs/adr/0005-no-outgoing-email.md`).
 - 2026-10-11: **ADR-0006 (demo mode) accepted**, with server-side masking of visitor data for all staff except super_admin (`docs/adr/0006-demo-mode.md`).
 - 2026-10-11: Fifth role **`super_admin`**: the owner's private account, above `admin`; created only by an artisan command or from env, never published, never a demo account (`docs/plan.md` § 7).
-- 2026-10-11: Mail provider = **Gmail SMTP** with an app password from env; the From address is the Gmail address, so there's no custom-domain SPF/DKIM/DMARC (this replaces the subdomain detail in the line above) (`docs/plan.md` M6, ADR-0005 in M6).
-- 2026-10-11: The demo's **nightly reset runs at 03:45 Europe/Amsterdam**; the DB dump follows without overlapping the owner's 04:00/04:15 jobs (ADR-0006 D10).
+- 2026-10-11: The demo's **nightly reset runs at 03:45 Europe/Amsterdam**; reset + DB dump must finish in under ~10 minutes, before the owner's other demo sites reset at 04:00/04:15, with an overrun alert (ADR-0006 D10).
+- 2026-10-11: The e-mail address is an **unverified login name** only: never verified, never mailed, masked for demo staff (ADR-0005, ADR-0006 D6).
+- 2026-10-11: **Forgot password = one-time recovery code** shown at registration (hashed, rate-limited, audited, regenerable from the profile); staff are onboarded with a one-time setup code handed over out of band (`docs/plan.md` M1).
+- 2026-10-11: A **support-chat widget** (bottom-right, every public/customer page; **guests allowed**, claimable after login) replaces the messages inbox and the contact form; notifications are in-app only (`docs/plan.md` M8).
+- 2026-10-11: The **super_admin is provisioned from env** (e-mail, password hash, TOTP secret) on every boot and after every nightly reset, is **hidden from all other roles**, and doesn't exist if the env vars are missing; there are never real staff on the demo. This replaces the "artisan command" creation detail above; owner-approved trade-off: Portainer stack access equals access to this account (`docs/plan.md` M1, ADR-0006).
 
 ## Tech stack
 
@@ -51,7 +54,7 @@ Accepted in `docs/adr/0001-tech-stack.md` (reasoning in `docs/stack-options.md`)
 - **Database:** PostgreSQL.
 - **Tests and quality:** Pest, Vitest + Testing Library, Playwright + @axe-core/playwright, Pint, Larastan,
   ESLint, Prettier, `tsc --noEmit`.
-- **Dev extras:** Mailpit.
+- **Dev extras:** none. There is no mail catcher, because the app sends no e-mail (ADR-0005).
 
 Exact versions and commands (install, dev, test, lint, build, migrate, seed) are added here when the project is scaffolded.
 
@@ -89,7 +92,7 @@ Owner → Orchestrator → task-writer → Orchestrator → [ux-ui-designer] →
 | `architect` | Stack choice, ADRs, roadmap, cross-cutting architecture |
 | `ux-ui-designer` | Flows, design system, Claude Design previews, UX copy |
 | `database-engineer` | Schema, migrations, seeders, indexes, retention jobs |
-| `backend-developer` | Server logic, auth, authorization, business rules, mail |
+| `backend-developer` | Server logic, auth, authorization, business rules, background jobs |
 | `frontend-developer` | UI, components, forms, i18n |
 | `devops-engineer` | Docker, dev environment, CI/CD, GHCR, Portainer/CasaOS, backups |
 | `qa-engineer` | Tests and the PASS/FAIL verdict |

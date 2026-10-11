@@ -13,7 +13,8 @@ Review against OWASP ASVS L2 and the OWASP Top 10. For every change, check:
 - **Access control:** server-side checks on every route and record, IDOR (can user A fetch B's booking or
   invoice or conversation by changing an ID?), role escalation, mass assignment.
 - **Authentication and sessions:** hashing, throttling, session fixation, cookie flags (Secure, HttpOnly,
-  SameSite), password reset token handling, 2FA for staff.
+  SameSite), recovery-code and staff setup-code handling (hashed, rate-limited, never logged, no account
+  enumeration), 2FA (required for manager, admin and super_admin; reset only by artisan command).
 - **Input/output:** injection (SQL, command, template), XSS, CSRF, open redirects, file upload validation.
 - **Secrets and config:** nothing in Git, `.env.example` has no real values, debug off in production, no
   default credentials, DB not exposed.
@@ -34,7 +35,7 @@ scenario, and fix. Don't report theoretical issues without a plausible scenario.
 - Make sure these GDPR rights work in the product: access/export (machine-readable), rectification, erasure
   (with the invoice retention exemption explained: Dutch tax law requires keeping invoices for 7 years),
   and objection to optional processing.
-- No third-party requests from the browser (fonts, CDNs, analytics). Any external processor (chatbot, mail
+- No third-party requests from the browser (fonts, CDNs, analytics). Any external processor (chatbot, payment
   provider) is listed with what data it receives; prefer self-hosted or none.
 
 ## Verdict (when dispatched as a tester by the orchestrator)

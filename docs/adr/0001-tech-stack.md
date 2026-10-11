@@ -3,6 +3,9 @@
 - **Status:** Accepted
 - **Date:** 2026-10-11
 - **Decided by:** owner
+- **Amended 2026-10-11:** the app sends no e-mail at all (`docs/adr/0005-no-outgoing-email.md`). Mail is no longer a
+  requirement, Laravel's mail component isn't used, and Mailpit (listed in `docs/stack-options.md` "Supporting
+  choices") is dropped. The rest of this decision is unchanged.
 
 ## Context
 The remake needs built-in authentication with 2FA, per-record authorization, mail, queues, scheduled jobs and
