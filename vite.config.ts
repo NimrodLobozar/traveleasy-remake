@@ -41,12 +41,30 @@ export default defineConfig({
     // Watch mode reuses `server.watch` below, so it polls in the container like the dev server.
     // Browser tests (Playwright + axe) live in tests/e2e and have their own playwright.config.ts.
     test: {
-        environment: 'jsdom',
-        include: ['resources/js/**/*.test.{ts,tsx}'],
-        setupFiles: ['resources/js/test/setup.ts'],
         restoreMocks: true,
         unstubEnvs: true,
         unstubGlobals: true,
+        projects: [
+            {
+                extends: true,
+                test: {
+                    name: 'components',
+                    environment: 'jsdom',
+                    include: ['resources/js/**/*.test.{ts,tsx}'],
+                    setupFiles: ['resources/js/test/setup.ts'],
+                },
+            },
+            {
+                // Static checks on the browser-test code (no browser, no app); the Playwright
+                // specs themselves are `*.spec.ts` and only run in the e2e container.
+                extends: true,
+                test: {
+                    name: 'e2e-rules',
+                    environment: 'node',
+                    include: ['tests/e2e/**/*.test.ts'],
+                },
+            },
+        ],
     },
     // Dev server settings come from env (set by compose.dev.yaml; documented in .env.example).
     // In Docker, Vite listens on 0.0.0.0 inside the container, but the browser reaches it through
@@ -79,6 +97,9 @@ export default defineConfig({
                 '**/public/build/**',
                 '**/public/hot',
                 '**/docs/**',
+                // Playwright output (TE-005): not source, and rewritten on every e2e run.
+                '**/playwright-report/**',
+                '**/test-results/**',
             ],
         },
     },

@@ -18,16 +18,22 @@ const isCi = process.env.CI !== undefined && process.env.CI !== '';
 
 export default defineConfig({
     testDir: '.',
+    // Only `*.spec.ts`: the `*.test.ts` files here are static Vitest checks (allow-usage.test.ts).
+    testMatch: '**/*.spec.ts',
     globalSetup: './global-setup.ts',
     fullyParallel: true,
     forbidOnly: isCi,
     retries: isCi ? 1 : 0,
-    // Paths are relative to this file: reports land in the repo root (bind-mounted, so they open
-    // on Windows; both folders are git-ignored).
-    outputDir: '../../test-results',
+    // Paths are relative to this file. Output goes one level below the repo's report folders: the
+    // e2e service mounts only those two folders writable, and Playwright can't clear a mount point.
+    // They are bind-mounted (open them on Windows) and git-ignored.
+    outputDir: '../../test-results/e2e',
     reporter: [
         ['list'],
-        ['html', { outputFolder: '../../playwright-report', open: 'never' }],
+        [
+            'html',
+            { outputFolder: '../../playwright-report/html', open: 'never' },
+        ],
     ],
     use: {
         baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:8000',

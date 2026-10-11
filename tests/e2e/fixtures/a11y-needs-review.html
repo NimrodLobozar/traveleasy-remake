@@ -1,0 +1,25 @@
+<!doctype html>
+<!--
+    Test fixture for tests/e2e/axe-helper.spec.ts (TE-005 AC5b). No violations, but text over a
+    gradient, whose contrast axe can't compute: an incomplete ("needs review") result ON PURPOSE.
+    Never served by the app.
+-->
+<html lang="nl">
+    <head>
+        <meta charset="utf-8" />
+        <title>
+            Fixture met een resultaat dat handmatig moet worden gecontroleerd
+        </title>
+    </head>
+    <body>
+        <main>
+            <h1>Fixture</h1>
+            <p
+                id="over-gradient"
+                style="background-image: linear-gradient(#ffffff, #777777)"
+            >
+                Tekst op een kleurverloop
+            </p>
+        </main>
+    </body>
+</html>
