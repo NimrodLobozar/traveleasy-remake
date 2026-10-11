@@ -1,6 +1,6 @@
 # Data inventory
 
-Owner: security-privacy-reviewer. Status: **draft**. It covers the scaffold (TE-001, Laravel React starter kit) only.
+Owner: security-privacy-reviewer. Status: **draft**. It covers the scaffold (TE-001, Laravel React starter kit) and the Docker dev environment (TE-002) only.
 Every story that adds a personal-data field, table, log line, export or external call updates this file in the same PR.
 The retention rules become `retention.md` (implemented as jobs by the database-engineer). The public
 `privacy-statement.md` (nl + en) is written in M1, when the account features it describes exist.
@@ -23,10 +23,23 @@ here security and abuse prevention.
 | `cache`, `cache_locks` | Rate-limiter keys (`email|ip` for login) | Brute-force protection | (f) | Nobody | Limiter decay (1 minute) | The cache key is an MD5 hash of the limiter name plus `email|ip` (Laravel default), so it is pseudonymous, not anonymous |
 | `jobs`, `failed_jobs` | Serialized job payloads | Background work (none yet) | Depends on the job | DB admins | M1: prune `failed_jobs` (for example 7 days) | Jobs must reference IDs, never embed personal data |
 | `storage/logs/laravel.log` | Exception context, may include request data | Debugging | (f) | Server admin | M1: daily rotation with a short retention | No personal data or secrets in log lines (see the logging rules) |
-| `storage/inertia-devtools/` | Recorded Inertia page props per request | Dev tooling only (enabled only when `APP_ENV=local`) | n/a (dev only) | Anyone who can reach the dev server (no auth in `local`) | 24 h TTL, max 100 entries | Must never be enabled in production; dev ports should bind to 127.0.0.1 |
+| `storage/inertia-devtools/` | Recorded Inertia page props, request bodies (password-like keys redacted) and redacted headers per request | Dev tooling only (enabled only when `APP_ENV=local`) | n/a (dev only) | Anyone who can reach the dev server (no auth in `local`) | 24 h TTL, max 100 entries | Must never be enabled in production. TE-002 binds the dev ports to 127.0.0.1; the app does not yet check the `Host` header, so a DNS-rebinding page could still read these entries (follow-up: trusted hosts) |
 
 The kit's `DatabaseSeeder` creates `test@example.com` with the factory password `password`. That is dev-only fake
-data and must never run in production (M1/M2 `reference` vs `demo` seeder split).
+data and must never run in production (M1/M2 `reference` vs `demo` seeder split). The TE-002 dev environment never
+seeds automatically (image, entrypoint and compose files checked).
+
+## Development environment (TE-002)
+
+The dev stack should hold **fake data only**. Never import a production dump into it: the dev tools below have weaker
+access control than production.
+
+| Where | What | Who can access | Retention | Notes |
+|---|---|---|---|---|
+| Named volume `traveleasy-remake_pgdata` | The dev databases `traveleasy` and `traveleasy_test` | The developer (DB superuser credentials from `.env`); the `app` container | Until `docker compose down -v` | DB has no published port; reachable only on the internal `backend` network |
+| Adminer (`tools` profile, `127.0.0.1:8081`) | Nothing stored; shows DB rows after login | Whoever knows `DB_USERNAME`/`DB_PASSWORD` and is on the dev PC | n/a | Opt-in, localhost only, no stored credentials; `version-noverify` stops its call to adminer.org. Dev only, never in `compose.yaml` |
+| Vite dev server (`127.0.0.1:5173`) | Serves project files from the bind mount | Local processes on the dev PC | n/a | Vite's CORS allow-list and host check block other origins and DNS rebinding; `.env*` files are denied |
+| `.env` on the developer's disk | `APP_KEY`, `DB_PASSWORD` | The developer | n/a | Git-ignored and excluded from the Docker build context (`.dockerignore`) |
 
 ## External processors and outgoing requests
 
