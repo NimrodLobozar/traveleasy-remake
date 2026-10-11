@@ -130,13 +130,31 @@ test('compose.dev.yaml publishes ports on 127.0.0.1 only and never on db', funct
     }
 });
 
-test('compose.dev.yaml has exactly the dev services, Adminer only behind the tools profile', function () {
+test('compose.dev.yaml has exactly the dev services, Adminer and e2e only behind their profiles', function () {
     $services = Arr::array(composeFile('compose.dev.yaml'), 'services');
 
-    expect(array_keys($services))->toEqualCanonicalizing(['db', 'app', 'vite', 'adminer'])
+    // e2e (TE-005): Playwright browser tests, one-shot via `docker compose run --rm e2e`.
+    expect(array_keys($services))->toEqualCanonicalizing(['db', 'app', 'vite', 'adminer', 'e2e'])
         ->and(Arr::get($services, 'adminer.profiles'))->toBe(['tools'])
+        // Profile-gated, so plain `docker compose up -d` never starts it; one-shot, so no restart policy.
+        ->and(Arr::get($services, 'e2e.profiles'))->toBe(['e2e'])
+        ->and($services['e2e'])->not->toHaveKey('restart')
         ->and($services['app'])->not->toHaveKey('profiles')
         ->and($services['vite'])->not->toHaveKey('profiles');
+});
+
+test('the e2e service sees no .env secrets, no database and publishes nothing', function () {
+    $e2e = Arr::array(composeFile('compose.dev.yaml'), 'services.e2e');
+    $masks = array_filter(
+        Arr::array($e2e, 'volumes'),
+        fn (mixed $volume): bool => is_array($volume) && ($volume['target'] ?? null) === '/var/www/html/.env',
+    );
+
+    expect($e2e)->not->toHaveKeys(['env_file', 'ports', 'networks', 'build'])
+        ->and($e2e['network_mode'] ?? null)->toBe('service:vite')
+        ->and(array_values($masks))->toBe([['type' => 'bind', 'source' => '/dev/null', 'target' => '/var/www/html/.env', 'read_only' => true]])
+        ->and(array_keys(Arr::array($e2e, 'environment')))->toEqualCanonicalizing(['E2E_BASE_URL', 'E2E_FORWARD', 'NPM_CONFIG_UPDATE_NOTIFIER', 'HOME'])
+        ->and($e2e['user'] ?? null)->toBe('1000:1000');
 });
 
 test('the adminer service stores no credentials, mounts nothing and is pinned', function () {

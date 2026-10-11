@@ -103,6 +103,58 @@ services:
             retries: 6
             start_period: 60s
 
+    e2e:
+        # Playwright + axe browser tests (TE-005), opt-in and one-shot: `docker compose run --rm e2e`.
+        # Runs `npm run test:e2e` in Chromium; extra args replace the command, e.g.
+        # `docker compose run --rm e2e npx playwright test --config tests/e2e/playwright.config.ts smoke`.
+        #
+        # VERSION SYNC: the image tag MUST equal @playwright/test in package.json/package-lock.json (pinned
+        # exactly). Bump both in one commit; tests/Unit/PlaywrightImageVersionSyncTest.php fails otherwise.
+        image: mcr.microsoft.com/playwright:v1.64.0-noble
+        profiles: ['e2e']
+        # Shares vite's network namespace: localhost:5173 is the real Vite dev server, so the page's JS really
+        # loads (the asset URLs in public/hot point at http://localhost:5173). Playwright's global setup
+        # forwards localhost:8000 to app:8000 (E2E_FORWARD), so the browser keeps the same origins as on the
+        # host. vite is on the `default` network only, so this container cannot reach the database.
+        network_mode: 'service:vite'
+        # The repo bind mount plus vite's node_modules volume (same image, same lockfile, includes
+        # @playwright/test). The bind mount is writable so the reports land on Windows.
+        volumes_from:
+            - vite
+        volumes:
+            # Secrets masking: the tests only need the base URL, never .env (APP_KEY, DB_PASSWORD). An empty
+            # read-only file hides it; storage/ (logs, private uploads) is hidden behind an empty tmpfs.
+            - type: bind
+              source: /dev/null
+              target: /var/www/html/.env
+              read_only: true
+        tmpfs:
+            - /var/www/html/storage:size=1m
+            - /tmp
+        working_dir: /var/www/html
+        # uid 1000 (`ubuntu` in the image) = `app` in the dev image: owns vite's node_modules, and report
+        # files are never root-owned (matters when the repo lives in the WSL file system).
+        user: '1000:1000'
+        init: true
+        # Chromium needs more than Docker's 64 MB /dev/shm; a larger shm avoids sharing the host IPC
+        # namespace (`ipc: host`).
+        shm_size: '1gb'
+        read_only: true
+        cap_drop: ['ALL']
+        security_opt: ['no-new-privileges:true']
+        # Only what the tests need. No env_file: nothing from .env reaches this container.
+        environment:
+            E2E_BASE_URL: http://localhost:8000
+            E2E_FORWARD: 8000=app:8000
+            NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+            HOME: /tmp
+        command: ['npm', 'run', 'test:e2e']
+        depends_on:
+            app:
+                condition: service_healthy
+            vite:
+                condition: service_healthy
+
     adminer:
         # Dev-only database GUI, opt-in: `docker compose --profile tools up -d`.
         # No credentials are stored here; log in with DB_USERNAME / DB_PASSWORD / DB_DATABASE from .env.

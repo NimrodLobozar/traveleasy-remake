@@ -1,0 +1,20 @@
+<!doctype html>
+<!--
+    Test fixture for tests/e2e/axe-helper.spec.ts (TE-005 AC9). It contains known WCAG
+    violations ON PURPOSE, so the axe helper can be proven to report them. Never served by the app.
+-->
+<html lang="nl">
+    <head>
+        <meta charset="utf-8" />
+        <title>Fixture met bekende toegankelijkheidsfouten</title>
+    </head>
+    <body>
+        <main>
+            <h1>Fixture</h1>
+            <!-- Violation 1 (image-alt): an image without a text alternative. -->
+            <img id="no-alt" src="data:," width="10" height="10" />
+            <!-- Violation 2 (label): an input without a label. -->
+            <input id="no-label" type="text" />
+        </main>
+    </body>
+</html>

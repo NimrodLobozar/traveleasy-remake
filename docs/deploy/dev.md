@@ -18,6 +18,7 @@ browser without a rebuild. The app sends no e-mail, so there is no mail catcher 
 | `vite` | Vite dev server with HMR (Node 24, plus PHP for Wayfinder) | http://localhost:5173 (`VITE_PORT`) | default |
 | `db` | PostgreSQL 18.6, named volume `traveleasy-remake_pgdata` | not published; host `db` inside Docker | default |
 | `adminer` | Adminer 6.1.1, database GUI | http://localhost:8081 (`ADMINER_PORT`) | `tools` |
+| `e2e` | Playwright 1.64.0 + axe browser tests (Chromium), one-shot | none (shares `vite`'s network) | `e2e` |
 
 All ports are bound to `127.0.0.1` only, so nothing is reachable from the LAN. `app` and `vite` use the same dev
 image (`traveleasy-remake-dev:local`, built from the `dev` stage of `Dockerfile`) and run as a non-root user.
@@ -52,6 +53,8 @@ only by hand if you want that account: `docker compose exec app php artisan db:s
 | npm | `docker compose exec vite npm <command>` |
 | Regenerate Wayfinder routes + TS types | `docker compose exec vite npm run generate` |
 | Tests (Pest, on PostgreSQL `traveleasy_test`) | `docker compose exec app php artisan test` |
+| Component tests (Vitest) | `docker compose exec vite npm run test` (watch: `npm run test:watch`) |
+| Browser tests (Playwright + axe) | `docker compose run --rm e2e` (see "Browser tests") |
 | Lint / format / type-aware checks | `docker compose exec vite npm run check` |
 | TypeScript | `docker compose exec vite npm run types:check` |
 | psql into the dev DB | `docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'` |
@@ -82,6 +85,27 @@ docker compose up -d --build
 ```
 
 Don't use `docker volume prune` to clean up: it also deletes dangling volumes of other projects on this PC.
+
+## Browser tests (Playwright + axe)
+- Run: `docker compose run --rm e2e` (needs `app` and `vite` healthy; it runs `npm run test:e2e` in Chromium and
+  removes its container afterwards). Plain `docker compose up -d` never starts it (profile `e2e`).
+- One file or extra flags: `docker compose run --rm e2e npx playwright test --config tests/e2e/playwright.config.ts smoke`
+  (a plain `npx playwright test` won't find the config).
+- Reports land in the repo: `playwright-report/index.html` (open it in a browser on Windows) and, on failure,
+  screenshots, `error-context.md` and `trace.zip` in `test-results/`. Both are git-ignored and can be deleted from
+  Windows. Traces can hold page content: don't upload them to online trace viewers.
+- How it reaches the app: the container shares `vite`'s network namespace, so `localhost:5173` is the real Vite
+  server and the page's JavaScript really loads; Playwright forwards `localhost:8000` to `app:8000`.
+- Isolation: the official image `mcr.microsoft.com/playwright:v1.64.0-noble`, uid 1000, read-only root file system,
+  no capabilities. `.env` is masked (an empty read-only file) and `storage/` is an empty tmpfs; the only variables
+  are `E2E_BASE_URL` and `E2E_FORWARD`. It can't reach the database. Don't create other secret files such as
+  `.env.testing` in the repo: they would be visible to it.
+- **Upgrading Playwright.** The image tag must equal `@playwright/test` (pinned exactly, no `^`). Change the version
+  in `package.json`, run `docker compose exec vite npm install`, set the same version in the `e2e` image tag in
+  `compose.dev.yaml`, then rebuild (`docker compose up -d --build -V`). `tests/Unit/PlaywrightImageVersionSyncTest.php`
+  fails while they differ.
+- If `app` runs an older image than the latest build, `docker compose run --rm e2e` first recreates `app`
+  (dependencies are brought up to date). Add `--no-deps` to leave running services alone.
 
 ## Database GUI (Adminer, dev only)
 - Start: `docker compose --profile tools up -d`

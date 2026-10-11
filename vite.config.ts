@@ -13,22 +13,41 @@ const devServerPort = Number(process.env.VITE_PORT ?? 5173);
 // No `fonts` option: the kit's bunny() helper downloads fonts from a third-party host at build
 // time. We use a system font stack (resources/css/app.css) until the design system picks a
 // self-hosted font (CLAUDE.md: no runtime CDNs or third-party fonts).
+// Vitest (`vp test`) sets VITEST. Component tests only need the plugins that change how
+// components compile or resolve: laravel (the `@/` alias, exactly as in dev; it skips its
+// hot-file and server hooks under Vitest), React and the React Compiler (so components behave
+// as in production). Left out under Vitest: inertia (page resolution in app.tsx), tailwindcss
+// (Vitest doesn't process CSS) and wayfinder (would run `php artisan` on every test run).
+const isVitest = process.env.VITEST !== undefined;
+
 export default defineConfig({
     plugins: lazyPlugins(() => [
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
             refresh: true,
         }),
-        inertia(),
+        !isVitest && inertia(),
         react(),
         babel({
             presets: [reactCompilerPreset()],
         }),
-        tailwindcss(),
-        wayfinder({
-            formVariants: true,
-        }),
+        !isVitest && tailwindcss(),
+        !isVitest &&
+            wayfinder({
+                formVariants: true,
+            }),
     ]),
+    // Component tests (TE-005): `npm run test` = `vp test run`, `npm run test:watch` = `vp test watch`.
+    // Watch mode reuses `server.watch` below, so it polls in the container like the dev server.
+    // Browser tests (Playwright + axe) live in tests/e2e and have their own playwright.config.ts.
+    test: {
+        environment: 'jsdom',
+        include: ['resources/js/**/*.test.{ts,tsx}'],
+        setupFiles: ['resources/js/test/setup.ts'],
+        restoreMocks: true,
+        unstubEnvs: true,
+        unstubGlobals: true,
+    },
     // Dev server settings come from env (set by compose.dev.yaml; documented in .env.example).
     // In Docker, Vite listens on 0.0.0.0 inside the container, but the browser reaches it through
     // the 127.0.0.1-only published port, so the HMR host is `localhost`; laravel-vite-plugin derives

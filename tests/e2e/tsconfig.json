@@ -1,0 +1,9 @@
+{
+    // Browser tests run in Node (Playwright), not in the browser bundle: Node types on,
+    // DOM types kept for page.evaluate callbacks. Checked by `npm run types:check`.
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "types": ["node"]
+    },
+    "include": ["./**/*.ts"]
+}
