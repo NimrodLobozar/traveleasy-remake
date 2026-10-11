@@ -1,7 +1,7 @@
 ---
 id: TE-001
 title: Scaffold the Laravel React starter kit (strict TS, PostgreSQL, no mail)
-status: in-progress
+status: in-test
 priority: must
 epic: M0 Project scaffold and tooling
 agents: [backend-developer, frontend-developer]
