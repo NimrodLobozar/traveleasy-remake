@@ -1,0 +1,29 @@
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies & build output
+node_modules/
+vendor/
+public/build/
+public/hot
+dist/
+coverage/
+playwright-report/
+test-results/
+
+# Runtime
+storage/*.key
+*.log
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
