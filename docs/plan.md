@@ -2,7 +2,8 @@
 
 - **Owner of this file:** `architect` (stories are written from it by the `task-writer`)
 - **Status:** Accepted (2026-10-11). The owner's answers are recorded in § 9 (first round), § 10 (follow-up round)
-  and § 11 (third round: **no outgoing e-mail**, recovery codes, support chat). Open questions are in § 12.
+  § 11 (third round: **no outgoing e-mail**, recovery codes, support chat) and § 12 (fourth round). There are no
+  open questions.
 - **Inputs:** `CLAUDE.md`, `docs/legacy-analysis.md`, `docs/adr/0001-tech-stack.md`, `docs/stack-options.md`,
   `docs/adr/0005-no-outgoing-email.md`, `docs/adr/0006-demo-mode.md`, `docs/backlog/ideas.md`
 
@@ -129,7 +130,7 @@ switch, skip link, light/dark theme, error pages) on the home server from your L
   the first paint is correct and there's no flash. An ESLint rule and the SSR smoke test enforce this.
 - **CI:** builds both bundles, and the Playwright suite runs against the SSR build.
 - **Failure mode:** if the SSR process is down, Inertia falls back to client-side rendering. The health check
-  alerts on it, but the site stays usable.
+  reports it, but the site stays usable.
 
 **Agents:** devops-engineer (lead), ux-ui-designer, frontend-developer, backend-developer, qa-engineer
 (`docs/testing.md`), accessibility-auditor (design system + shell), security-privacy-reviewer (headers, compose,
@@ -560,9 +561,9 @@ Everything after M6 ships to the public site.
   account; there are no real staff (§ 11 Q-C).
 - **Reset timing (§ 11 Q-E).** The owner's 04:00 and 04:15 jobs reset two other demo sites on the same server, so
   reset + dump must finish **well before 04:00**, with a target of **under about 10 minutes** in total, to avoid
-  CPU/IO contention. The reset and the dump record start, end and duration. If they take longer than the configured
-  threshold (default 10 min), or are still running at 03:58, they log an error and write an audit entry, and the
-  super_admin dashboard shows a warning. There is no e-mail, so the alert is in the app and the logs. The demo
+  CPU/IO contention. The reset and the dump measure their own duration, and they write structured log entries (JSON on stdout) with clear event names such as
+  `demo.reset.finished`, `demo.reset.failed`, `backup.finished` and `backup.failed`, including start, end, duration
+  and status, so a future external logging project can pick them up. There is **no alerting** (§ 12 Q-H). The demo
   dataset is sized to keep the reset short. `docs/deploy/casaos-portainer.md` documents the schedule and the shared
   machine's other jobs.
 - **Visitor-data masking (N2, ADR-0006 D6).** Registration stays open. In demo mode, every staff account except
@@ -610,7 +611,8 @@ review), qa, a11y.
 **Exit criteria:** DoD; the site is reachable over HTTPS on the subdomain; a reset test proves that visitor data is
 gone, demo data is back and the super_admin is re-provisioned from env (and absent when the env vars are missing),
 and that the command refuses when `DEMO_MODE` is off; on the server, three consecutive nightly runs of reset + dump
-each finish in under 10 minutes (well before 04:00), and a test proves that the overrun alert fires; masking
+each finish in under 10 minutes (well before 04:00), verified from the `demo.reset.finished` and `backup.finished`
+log entries, and a test proves those entries (and the `*.failed` ones) are written with duration and status; masking
 tests prove that, for every demo staff account (incl. demo admin), no visitor's real name or e-mail appears in any
 Inertia response, PDF or export, and that super_admin sees them unmasked; an erasure test seeds a customer with data
 in every module and asserts that nothing identifying remains; the export download works only for its owner and
@@ -623,7 +625,7 @@ expires; the exposure review has no open High/Critical findings. **`v0.6.0` is t
   - Staff account creation for super_admin only in demo mode
   - Show the demo accounts on the login page
   - Nightly reset at 03:45, guarded by demo mode, re-provisioning the super_admin
-  - Reset and dump timing check with an in-app and log alert
+  - Structured log entries with duration and status for the reset and the dump
 - Epic: Abuse protection
   - Rate limits on registration, login, recovery and setup codes
   - Global registration cap with audit entry
@@ -645,7 +647,7 @@ expires; the exposure review has no open High/Critical findings. **`v0.6.0` is t
 - Brute force against recovery codes on a public site. Mitigation: the M1 limits and lock-out, plus monitoring of
   the audit log.
 - The reset or dump overrunning into the other demo sites' 04:00/04:15 jobs on the same machine. Mitigation: a small
-  demo dataset, measured durations, the overrun alert, and the 10-minute target.
+  demo dataset, measured durations in the logs, and the 10-minute target.
 - The nightly reset running against the wrong database. Mitigation: two guards (scheduler registration + command
   check), a confirmation of `APP_ENV`/`DEMO_MODE` in the log, and on/off tests.
 - Visitors entering real personal data despite warnings. Mitigation: warnings at every collection point,
@@ -1104,7 +1106,9 @@ These are the default constraints stories refer to. Items marked *ADR* get their
   `chatbot.enabled`) in `config/traveleasy.php`; there are no mail settings (the mailer is `array`, ADR-0005);
   `.env.example` documents all of them.
 - **Logging:** JSON to stdout in production, with a request ID; no personal data or secrets in log lines; security
-  events go to the `AuditLog` table, not the app log.
+  events go to the `AuditLog` table, not the app log. Scheduled operations (demo reset, backup, retention jobs) log
+  `<area>.<action>.finished` / `.failed` events with duration and status. There is no alerting (§ 12 Q-H); a separate
+  logging project may consume these later.
 - **Background jobs:** database queue driver; `worker` and `scheduler` services run from the same image; exports
   and PDFs are queued (there are no mails); jobs are idempotent and retried with backoff. The nightly demo reset is a
   scheduled command at 03:45 Europe/Amsterdam (the scheduler's time zone; stored times stay UTC), registered
@@ -1226,23 +1230,22 @@ compatible with the previous tag for one release, so a rollback doesn't need a d
 | R6 | **Export and invoices in the app only** | GDPR export is an in-app download; invoices are in-app views and PDF downloads. | M5, M6 |
 | Q-C | Masking for non-demo staff? | There will **never be real staff**. The only real account is the owner's super_admin; every other staff account is a demo account. Masking applies to all non-super_admin staff. The setup-code onboarding stays as a generic mechanism for non-demo installs; on the demo only super_admin could use it, and in practice it won't be used. | M1, M6; ADR-0006 D6, D8 |
 | Q-D | Real staff and the reset | The super_admin doesn't need to survive the reset as a row: it's **(re)created from env** on every boot and after every nightly reset. Env holds a **password hash** (`SUPER_ADMIN_PASSWORD_HASH`), never the plain password, with an artisan command to print a hash; the **TOTP secret** is in env too (`SUPER_ADMIN_TOTP_SECRET`), so the authenticator keeps working. Accepted risk: access to the Portainer stack equals access to this account (acceptable for a demo). The super_admin is **hidden everywhere** from other roles and from the demo login hints, proven by a test. Without the env vars there is no super_admin, and the app still works. | M1; M6; § 7; ADR-0006 D1, D9, D10 |
-| Q-E | The owner's 04:00 and 04:15 jobs | They reset and reseed two other demo sites on the same CasaOS server. Unrelated, but they share the machine. The 03:45 reset + DB dump must finish well before 04:00 (**target under ~10 min**), with a timing check and alert. | M6 (exit criteria, alert); deploy docs |
+| Q-E | The owner's 04:00 and 04:15 jobs | They reset and reseed two other demo sites on the same CasaOS server. Unrelated, but they share the machine. The 03:45 reset + DB dump must finish well before 04:00 (**target under ~10 min**), with a timing check and alert. *Alerting dropped in § 12 Q-H: durations are logged instead.* | M6 (exit criteria, logged durations); deploy docs |
 
 Notes:
 - Bot protection (ADR-0007) stays: on registration (M6) and on guest chat (M8).
 - `/contact` stays as a page with the agency's details and a "Start a chat" button.
-- Alerts can't be e-mailed, so operational alerts (e.g. a slow reset) are shown in the app to the super_admin and
-  written to the logs.
+- There is no alerting at all (§ 12 Q-H); operational events are structured log entries only.
 
-## 12. Open questions for the owner
+## 12. Owner answers, fourth round (2026-10-11)
 
-Each has a working assumption; stories will use it unless the owner says otherwise.
+There are no open questions left.
 
-| # | Question | Needed by | Working assumption |
+| # | Question | Answer | Where it landed |
 |---|---|---|---|
-| Q-F | **Chat widget in the back office.** Should the floating chat button also appear on staff pages, or do staff only get the support inbox and an unread count in the navigation? | M8 | Hidden in the back office; staff use the inbox |
-| Q-G | **How long can a guest come back to a conversation?** The guest's conversation is tied to a functional cookie in their browser. How long should it last? (On the demo, the nightly reset ends it anyway.) | M8 | Until the conversation is closed, at most 7 days (configurable) |
-| Q-H | **Alerts without e-mail.** Is an in-app warning for the super_admin plus log entries enough for operational problems (a slow or failed reset, a failed backup)? Or do you want a self-hosted push channel (e.g. an ntfy server on CasaOS)? | M6 | In-app warning + logs only |
+| Q-F | Chat widget in the back office? | As assumed: **no chat button in the back office**; staff get the support inbox and an unread count in the navigation. | M8 |
+| Q-G | How long can a guest come back to a conversation? | As assumed: **until it's closed, at most 7 days** (configurable); on the demo the nightly reset ends it anyway. | M8 |
+| Q-H | Alerts without e-mail? | **No alerting at all.** The owner has no notifications for any other CasaOS job and may build a separate logging project later. The reset and dump durations and failures are **structured log entries** (JSON on stdout, e.g. `demo.reset.finished`, `backup.finished`, with duration and status). The "well before 04:00, under ~10 min" target and the three-measured-runs exit criterion stay, verified from the logs. | M6; § 7 Logging; ADR-0006 D10 |
 
 Things the owner should know (no decision needed):
 - **Env holds the super_admin's keys.** `SUPER_ADMIN_PASSWORD_HASH` and `SUPER_ADMIN_TOTP_SECRET` in the Portainer

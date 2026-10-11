@@ -9,7 +9,7 @@
   - guest support chat is masked and wiped by the reset;
   - there are never real staff on the demo;
   - the super_admin is provisioned from env, re-created after every reset, and hidden from all other roles;
-  - reset + dump must finish in under ~10 minutes, with an alert.
+  - reset + dump must finish in under ~10 minutes, measured in structured log entries (no alerting; § 12 Q-H).
 - **Date:** 2026-10-11
 - **Author:** architect
 - **Numbering:** ADRs are numbered in the order they're written. When this ADR was written, 0002–0005 were reserved
@@ -83,13 +83,14 @@ listed here in full; it's tested on and off; and it never weakens security.
   4. Re-provision the super_admin from env (see the super_admin section below).
   5. Maintenance mode off.
   6. Run the DB dump of the clean state, chained.
-  7. Write an audit/log line with durations.
+  7. Write a structured log entry (`demo.reset.finished` / `demo.reset.failed`; the dump writes `backup.finished` /
+     `backup.failed`) with start, end, duration and status.
 - **Guards:** it's registered in the scheduler **only** when demo mode is on, and the command itself refuses to run if
   demo mode is off.
 - **Timing:** reset + dump must finish **well before 04:00**, with a target of **under ~10 minutes**, because the
-  owner's other demo sites on the same server reset at 04:00 and 04:15. If the run goes over the configured threshold
-  or is still running at 03:58, it logs an error, writes an audit entry and shows a warning on the super_admin
-  dashboard. There is no e-mail (ADR-0005), so alerts go to the app and the logs.
+  owner's other demo sites on the same server reset at 04:00 and 04:15. Durations and failures are only **logged** as
+  structured JSON on stdout, so a future external logging project can pick them up. There is no alerting (owner
+  decision, `docs/plan.md` § 12 Q-H).
 
 ### D6 masking: how it works
 
@@ -155,7 +156,8 @@ listed here in full; it's tested on and off; and it never weakens security.
   - all sessions are invalid;
   - the command refuses (and changes nothing) when demo mode is off;
   - the scheduler doesn't list it when demo mode is off;
-  - the overrun alert fires when the run is too slow.
+  - the `demo.reset.finished` / `demo.reset.failed` and `backup.finished` / `backup.failed` log entries are written
+    with duration and status.
 - CI runs the full suite with demo mode off (the default), plus the demo-mode tests with it on.
 
 ## Consequences
