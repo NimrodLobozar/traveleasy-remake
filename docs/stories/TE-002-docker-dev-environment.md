@@ -1,7 +1,7 @@
 ---
 id: TE-002
 title: Docker dev environment with hot reload and a PostgreSQL named volume
-status: ready
+status: in-progress
 priority: must
 epic: M0 Docker dev environment
 agents: [devops-engineer, backend-developer, frontend-developer]
@@ -26,7 +26,7 @@ matches how the app runs on the home server.
   (confirmed 2026-10-11, see Answered questions). Bind mounts from NTFS don't deliver file events reliably, hence
   polling.
 - **Database GUI (owner request 2026-10-11).** The owner wants to browse the dev database in a web GUI. phpMyAdmin is
-  MySQL/MariaDB-only, so this story adds **Adminer** (supports PostgreSQL) as a dev-only, opt-in tool (AC18–AC22).
+  MySQL/MariaDB-only, so this story adds **Adminer** (supports PostgreSQL) as a dev-only, opt-in tool (AC23–AC27).
 - **`compose.yaml` vs `compose.dev.yaml`.** `compose.yaml` holds what dev and production share: the `db` service
   (pinned image, named volume, health check, no host port, secrets from env) and the network. The production
   `app` definition (GHCR image, `ssr`, `worker`, `scheduler`, limits, NPM network) is added by the "First
@@ -44,7 +44,7 @@ matches how the app runs on the home server.
 - [ ] AC2 (first run): Given a fresh clone on Windows 11 with Docker Desktop, `.env` copied from `.env.example` and
       only `DB_PASSWORD` filled in, when the developer runs `docker compose up -d --build`, then
       `docker compose ps` shows every service running and `db` as `healthy` within 5 minutes; after
-      `docker compose exec app php artisan key:generate` and `docker compose exec app php artisan migrate`,
+      `docker compose exec app php artisan migrate` (and the APP_KEY step from AC19),
       `http://localhost:8000` shows the starter-kit welcome page with its CSS and JS loaded (no 404s or console
       errors for assets).
 - [ ] AC3 (required secret): Given `DB_PASSWORD` is empty or missing, when the developer runs `docker compose up`,
@@ -78,6 +78,8 @@ matches how the app runs on the home server.
       to create it on an existing volume (init scripts only run on an empty volume).
 - [ ] AC12 (localhost only): The app (`APP_PORT`, default 8000) and Vite (`VITE_PORT`, default 5173) ports are
       published on `127.0.0.1` only, so the dev server isn't reachable from the LAN. Both are in `.env.example`.
+      This also protects the Inertia DevTools endpoints (`/_inertia/devtools/*`), which have no authentication when
+      `APP_ENV=local`. QA checks from another device on the LAN that port 8000 and port 5173 can't be reached.
 - [ ] AC13 (in-container commands): these work from the repo root and are listed in the handoff:
       `docker compose exec app php artisan <cmd>`, `docker compose exec app composer <cmd>`,
       `docker compose exec vite npm <cmd>`, `docker compose exec app php artisan test`.
@@ -90,29 +92,51 @@ matches how the app runs on the home server.
       LF via `.gitattributes`, which already forces LF by default; any entrypoint script is covered).
 - [ ] AC17 (starter tests on PostgreSQL): `docker compose exec app php artisan test` runs the starter-kit tests
       against PostgreSQL and passes: `phpunit.xml` sets `DB_CONNECTION=pgsql` and `DB_DATABASE=traveleasy_test`
-      (no SQLite in-memory). TE-004 then adds the safety guard and the arch tests.
-- [ ] AC18 (Adminer, dev-only and opt-in): an `adminer` service exists **only** in `compose.dev.yaml` (never in
+      (no SQLite in-memory). *Note from TE-001:* `phpunit.xml` currently still uses in-memory SQLite, so this switch
+      is real work in this story. TE-004 then adds the safety guard and the arch tests.
+- [ ] AC18 (one dev image with PHP and Node): the dev image contains **PHP 8.5** (the lock was resolved on 8.5.11)
+      and **Node 24** (24.21.x, with npm 11) together, on a glibc base (not Alpine/musl). Reason: `vp build` and the
+      Vite dev server run `php artisan wayfinder:generate`, so the `vite` service needs PHP too. Both `app` and `vite`
+      use this image (different commands). `docker compose exec vite php -v` and `docker compose exec app node -v`
+      both work, and `docker compose exec vite npm run generate` succeeds.
+- [ ] AC19 (APP_KEY on first run): given `APP_KEY=` is empty in `.env`, a first-run step generates it into `.env`.
+      This is either automatic in the container entrypoint when the key is empty (it never overwrites an existing
+      key) or one documented command. After that step, `docker compose exec app php artisan test` passes on a fresh
+      clone (tests fail without a key). The handoff says which variant was chosen.
+- [ ] AC20 (reproducible installs): Node dependencies are installed with `npm ci` from `package-lock.json` (never
+      `npm install`), and the repo's `.npmrc` (`ignore-scripts=true`) is respected: no lifecycle scripts run, and any
+      step the build really needs (e.g. `npm run generate`) is called explicitly. PHP dependencies are installed with
+      `composer install` from `composer.lock`.
+- [ ] AC21 (no automatic seeding): neither the image, the entrypoint nor any compose command runs `db:seed`,
+      `migrate --seed` or `migrate:fresh --seed` automatically. The kit's `DatabaseSeeder` creates
+      `test@example.com` / `password`. Seeding is only ever a manual, documented command (the seeder split comes in
+      M1).
+- [ ] AC22 (clean-up of TE-001 leftovers): once this environment works, the throwaway resources from TE-001 are
+      removed: the Docker volumes `te-vendor`, `te-node-modules`, `qa-vendor` and `qa-node-modules`, and the image
+      `te-toolbox:te001`. `docker volume ls` and `docker image ls` no longer show them. Only these named resources are
+      removed (no `docker system prune`, no volume of this stack).
+- [ ] AC23 (Adminer, dev-only and opt-in): an `adminer` service exists **only** in `compose.dev.yaml` (never in
       `compose.yaml` or any production file) and is assigned to the `tools` profile. Plain `docker compose up -d`
       does not start it (`docker compose ps` doesn't list it); `docker compose --profile tools up -d` starts it.
       `.env.example` does not set `COMPOSE_PROFILES=tools` (it may document it, commented out).
-- [ ] AC19 (Adminer image): uses the official `adminer` image pinned to at least major.minor (e.g. `adminer:5.x`,
+- [ ] AC24 (Adminer image): uses the official `adminer` image pinned to at least major.minor (e.g. `adminer:5.x`,
       no `latest`). `ADMINER_DESIGN` and plugins are used only if they ship inside that image; the login page loads
       no resource from outside `localhost` (browser network tab shows no external request).
-- [ ] AC20 (Adminer, localhost only): published on `127.0.0.1` only (`ADMINER_PORT`, default 8081, in
+- [ ] AC25 (Adminer, localhost only): published on `127.0.0.1` only (`ADMINER_PORT`, default 8081, in
       `.env.example`), never `0.0.0.0`; `docker compose --profile tools port adminer 8080` shows `127.0.0.1:8081`.
       From another device on the LAN, `http://<pc-ip>:8081` is not reachable.
-- [ ] AC21 (Adminer → db internally): with the `tools` profile running, the developer opens `http://localhost:8081`,
+- [ ] AC26 (Adminer → db internally): with the `tools` profile running, the developer opens `http://localhost:8081`,
       chooses system "PostgreSQL", server `db`, and the username, password and database from `.env`
       (`DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`), and can browse the tables and rows created by `migrate`
       (e.g. `users`, `migrations`). `traveleasy_test` is reachable the same way. AC10 still holds: `db` has no
       published port in either file, also with `--profile tools`.
-- [ ] AC22 (no stored credentials): no username or password for Adminer or the DB is set in the `adminer` service
+- [ ] AC27 (no stored credentials): no username or password for Adminer or the DB is set in the `adminer` service
       definition, in an Adminer plugin/config file or in the image (e.g. no auto-login or `login-password-less`
       plugin); a wrong password shows Adminer's login error and grants no access. Pre-filling only the server name
       (`ADMINER_DEFAULT_SERVER=db`) is allowed.
 
 ## Quality criteria
-- [ ] Tests: QA runs AC2–AC22 manually on Windows and records timings for AC4 and AC5 in the verdict.
+- [ ] Tests: QA runs AC2–AC27 manually on Windows and records timings for AC4 and AC5 in the verdict.
 - [ ] Accessibility: not applicable (no UI change).
 - [ ] Security/privacy:
   - No default or example passwords in compose files, Dockerfiles or `.env.example`; secrets only from `.env`.
@@ -123,7 +147,7 @@ matches how the app runs on the home server.
   - No secrets are baked into images (`docker history` shows no `.env` content); `.dockerignore` excludes `.env`,
     `vendor`, `node_modules`, `.git`, `storage/logs`.
   - The DB health check doesn't print the password.
-  - Adminer (security-privacy-reviewer checks AC18–AC22): dev-only file, opt-in `tools` profile, pinned official
+  - Adminer (security-privacy-reviewer checks AC23–AC27, plus AC21 no automatic seeding and AC22 clean-up): dev-only file, opt-in `tools` profile, pinned official
     image, bound to `127.0.0.1`, no published DB port, no stored/default credentials, no auto-login plugin, no
     runtime CDN or external request, no bind mounts into the `adminer` container. The reviewer confirms nothing
     Adminer-related can reach `compose.yaml` or a production image.
@@ -150,7 +174,7 @@ matches how the app runs on the home server.
   polling-based HMR criteria (AC4, AC5) stay as written.
 - Q2 (owner): Do you want a GUI for the dev database? **Yes, a web GUI.** phpMyAdmin is MySQL-only, so Adminer
   (PostgreSQL support) is added as a dev-only service behind the opt-in `tools` profile on `127.0.0.1:8081`,
-  connecting to `db` over the internal network; the DB port stays unpublished. Added AC18–AC22 and the matching
+  connecting to `db` over the internal network; the DB port stays unpublished. Added AC23–AC27 and the matching
   security/privacy and docs criteria; checked by the security-privacy-reviewer (already a tester on this story).
 
 ## Rework log

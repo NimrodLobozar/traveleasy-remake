@@ -57,12 +57,28 @@ the original's security mistakes, so that those mistakes can't come back unnotic
       has a comment linking its source (legacy § 3 item or ADR).
 - [ ] AC12: the arch and file-scan tests live together (e.g. `tests/Arch/`) and run in the default suite, not behind a
       group or flag.
+- [ ] AC13 (mail rule covers everything; added after the TE-001 review): the AC8 rule forbids the **whole** `Mail`
+      facade, not just named mailers. That includes `Mail::build(...)`, `Mail::raw`, `Mail::send`, `Mail::to` and
+      `Mail::mailer`. It also forbids any use of the `Illuminate\Mail\*` and `Symfony\Component\Mailer\*` namespaces
+      in `App`, `Database`, `config/` and `routes/`. Each part is proven failing as in AC11, including a
+      `Mail::build([...])` on-demand mailer and a direct `Symfony\Component\Mailer\Transport` use. (The runtime pin
+      from TE-001 stays as a second line of defence.)
+- [ ] AC14 (unused third-party stores; added after the TE-001 review): the framework-default `AWS_*` and `SQS_*` env
+      reads, and the stores and connections that use them, are removed from `config/queue.php` and
+      `config/cache.php`:
+      - the `sqs` queue connection;
+      - the `dynamodb` cache store;
+      - any other store that would need cloud credentials, unless it is used.
+
+      The database queue and cache drivers stay. A grep for `AWS_` and `SQS_` over `config/` returns nothing, and the
+      suite still passes. (The backend-developer does this here because it shrinks the env surface the arch rules
+      protect. It's small and has no runtime effect.)
 
 ## Quality criteria
 - [ ] Tests: the suite is deterministic (two consecutive runs give the same result) and runs in under 60 seconds on the
       dev PC.
 - [ ] Accessibility: not applicable (no UI).
-- [ ] Security/privacy: the security-privacy-reviewer confirms the rule set matches `docs/plan.md` § 4 M0 and ADR-0005/0006
+- [ ] Security/privacy: `.env.example` has no `AWS_*` or `SQS_*` entries after AC14. The security-privacy-reviewer confirms the rule set matches `docs/plan.md` § 4 M0 and ADR-0005/0006
       and that the file scans can't be bypassed trivially (e.g. a fully qualified `\Illuminate\Support\Facades\Mail::`
       call or an aliased import is also caught).
 - [ ] i18n: not applicable.

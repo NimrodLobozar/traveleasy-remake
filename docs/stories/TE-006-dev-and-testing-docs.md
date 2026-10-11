@@ -46,7 +46,7 @@ database by accident.
 - [ ] AC7 (troubleshooting): covers at least: HMR not updating (polling env vars), port 8000/5173 already in use
       (`APP_PORT`/`VITE_PORT`), slow file access on bind mounts and the option of cloning into the WSL file system
       (with its trade-offs), CRLF line-ending errors in scripts, and the Playwright image/version mismatch.
-- [ ] AC7a (database GUI): `dev.md` documents Adminer from TE-002 (AC18–AC22): that it is dev-only and opt-in, how to
+- [ ] AC7a (database GUI): `dev.md` documents Adminer from TE-002 (AC23–AC27): that it is dev-only and opt-in, how to
       start and stop it (`docker compose --profile tools up -d` / `docker compose stop adminer`), the URL
       (`http://localhost:8081`, `ADMINER_PORT`), and the login values (system PostgreSQL, server `db`, and
       `DB_USERNAME` / `DB_PASSWORD` / `DB_DATABASE` from `.env`; no stored credentials).
@@ -72,6 +72,13 @@ database by accident.
       devops-engineer's report.
 - [ ] AC15 (links): `docs/deploy/dev.md` and `docs/testing.md` link each other and are linked from a root `README.md`
       (created if missing: one paragraph about the project and a "Getting started" link to `dev.md`).
+- [ ] AC16 (license, owner decision 2026-10-11): the repo root has a `LICENSE` file with the standard MIT license
+      text, `Copyright (c) 2026 Nimród Lobozár`. `composer.json` has `"license": "MIT"`, `package.json` has
+      `"license": "MIT"` (or `"private": true` with the license field, but no conflicting value), and the README
+      mentions the license. The orchestrator/architect adds one line to `CLAUDE.md` § Decisions so far
+      ("2026-10-11: The project is licensed under **MIT**.") in the same edit as the AC14 stack versions.
+- [ ] AC17 (versions from TE-001): the versions recorded in the TE-001 changelog are the starting point for AC14
+      (PHP 8.5.11, Laravel 13.35.0, Node 24.21.0, …). Update any that TE-002 to TE-005 changed.
 
 ## Quality criteria
 - [ ] Tests: QA runs every command in both documents on a fresh clone on Windows and lists any that failed or needed an
