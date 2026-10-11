@@ -1,8 +1,8 @@
 # TravelEasy remake: roadmap
 
 - **Owner of this file:** `architect` (stories are written from it by the `task-writer`)
-- **Status:** Accepted (2026-10-11). The owner answered the open questions; the answers are recorded in § 9.
-  New questions raised by those answers are in § 10.
+- **Status:** Accepted (2026-10-11). The owner answered the open questions; the answers are recorded in § 9
+  (first round) and § 10 (follow-up round). New questions raised by those answers are in § 11.
 - **Inputs:** `CLAUDE.md`, `docs/legacy-analysis.md`, `docs/adr/0001-tech-stack.md`, `docs/stack-options.md`,
   `docs/adr/0006-demo-mode.md`, `docs/backlog/ideas.md`
 
@@ -59,7 +59,7 @@ How we get there:
 | # | Milestone | Size | Depends on | Ends with |
 |---|---|---|---|---|
 | M0 | Foundation and walking skeleton | L | none | Dev env, **SSR**, CI→GHCR, design system, **first home-server deploy (LAN only)** |
-| M1 | Accounts, authentication and roles | M | M0 | Register/login, roles + policies, 2FA (required for manager/admin), admin invites staff, audit log, **demo-mode core** |
+| M1 | Accounts, authentication and roles | M | M0 | Register/login, 5 roles incl. **super_admin** + policies, 2FA (required for manager/admin/super_admin), staff invites, audit log, **demo-mode core** |
 | M2 | Airports and trip catalogue | M | M1 | Airports reference data, staff manage trips, public trip list + detail |
 | M3 | Search and public site | M | M2 | Dependent search on the home page, destinations, about, real content, SEO |
 | M4 | Booking flow with offers | L | M3 | Customers book end to end; server-side pricing; offer codes; **payment-provider interface + simulated provider** |
@@ -180,22 +180,29 @@ healthy services and no host-exposed DB port.
 
 **Goal:** people can have accounts, and every request is authorized by one consistent model.
 **After this you can:** register as a customer, verify your e-mail, log in, reset your password, and edit or delete
-your profile. As admin you can invite employees and managers. Managers and admins must use 2FA. With `DEMO_MODE`
-on, you can log in with the four demo accounts, which skip 2FA and can't change their credentials.
+your profile. As admin you can invite employees and managers; as super_admin (the owner's private account) you can
+also manage admins. Managers, admins and the super_admin must use 2FA. With `DEMO_MODE` on, you can log in with the
+four demo accounts, which skip 2FA and can't change their credentials.
 
 **Scope**
 - Fortify: register (open to anyone, Q5), verify e-mail, login, forgot/reset password, profile edit, password change,
   account deletion (extended to all modules in M6). E-mail is the login on `users`.
   *(legacy §2 Auth; §3 Security: login via contacts table)*
-- **2FA (Q8):** TOTP **required** for `manager` and `admin` (enrolment is forced at first login, and the staff area is
-  blocked until it's done); **optional** for `employee` and `customer`. Recovery codes, plus an admin reset
-  command. Login throttling, session regeneration, Secure/HttpOnly/SameSite cookies.
-- Roles `customer`, `employee`, `manager`, `admin` as one enum on the user. Policies for every model,
-  deny by default, and no blanket `Gate::before` bypass for admins. Authorization props are sent to Inertia for
-  display only. Role matrix in § 7. *(legacy §3 Security: no authorization; role checked three ways)*
-- The owner's own admin is created with an artisan command that prompts for credentials. This is a normal,
-  non-demo account and needs 2FA. There are no seeded production accounts. *(legacy §2 test accounts; §3 Security)*
-- Admin: list staff, invite a staff account by e-mail (the invitee sets a password), change role, deactivate.
+- **2FA (Q8):** TOTP **required** for `manager`, `admin` and `super_admin` (enrolment is forced at first login,
+  and the staff area is blocked until it's done); **optional** for `employee` and `customer`. Recovery codes, plus
+  an artisan reset command (server access only). Login throttling, session regeneration, Secure/HttpOnly/SameSite cookies.
+- Roles `customer`, `employee`, `manager`, `admin`, `super_admin` as one enum on the user. Policies for every
+  model, deny by default, and no blanket `Gate::before` bypass, not even for `super_admin` (its extra rights are
+  explicit policy abilities). Authorization props are sent to Inertia for display only. Role matrix in § 7.
+  *(legacy §3 Security: no authorization; role checked three ways)*
+- **`super_admin` (§ 10):** the owner's private account. Created **only** by an artisan command that prompts for
+  credentials, or by the `reference` seeder from env (`SUPER_ADMIN_EMAIL` + `SUPER_ADMIN_PASSWORD`, only when no
+  super_admin exists, and it never overwrites one). Never created, promoted to, demoted, deactivated or deleted
+  through the UI. Never a demo account: a DB CHECK enforces `role <> 'super_admin' OR is_demo = false`. Its
+  credentials are never published. There are no other seeded production accounts. *(legacy §2 test accounts; §3 Security)*
+- Staff management: admin lists staff, invites `employee`/`manager` accounts by e-mail (the invitee sets a password),
+  changes their role between those two, deactivates them. Only super_admin can invite, promote, demote or
+  deactivate `admin` accounts. In demo mode, only super_admin can invite at all (ADR-0006 D8).
 - **Demo-mode core (ADR-0006, changes D1–D4):** the `DemoMode` service and `DEMO_MODE` config (off by default);
   `users.is_demo`; the `demo` seeder creates the four published demo accounts only when demo mode is on; demo
   accounts are exempt from mandatory 2FA and locked against credential and account changes; `is_demo` accounts
@@ -227,10 +234,11 @@ route); the demo-mode tests pass with the flag on and off; a restore from a back
   - Role-based navigation and staff area shell
   - Authorization test matrix in CI
 - Epic: Staff accounts
-  - Create the owner's admin via artisan command
-  - Admin invites staff and assigns roles
+  - Create the super_admin via artisan command or reference seeder from env
+  - Admin invites employees and managers and assigns their roles
+  - Super_admin manages admin accounts
   - Admin deactivates and reactivates staff
-  - TOTP 2FA: required for manager/admin, optional for others
+  - TOTP 2FA: required for manager/admin/super_admin, optional for others
 - Epic: Demo-mode core (ADR-0006)
   - `DemoMode` service, config flag and `is_demo` accounts
   - Demo accounts skip mandatory 2FA and can't change credentials
@@ -463,14 +471,37 @@ audit log). This milestone adds what public exposure itself needs. Everything af
 
 **Scope**
 - **Demo mode, public parts (ADR-0006, changes D5–D10):** site-wide demo banner (nl/en); warnings on the
-  registration form and the booking travellers step (and the passport fields once they exist, M10); visitor-data
-  isolation from the published demo staff accounts; staff invitations disabled in demo mode; demo accounts listed
-  on the login page; the **nightly reset** job (`demo:reset`: maintenance mode → wipe → `reference` + `demo`
-  seeders → owner's non-demo staff accounts kept → backup of the clean state → maintenance mode off). It's
-  registered in the scheduler only when demo mode is on, and the command refuses to run otherwise.
-- **Real e-mail (Q11): ADR-0005: transactional mail provider** for the live demo: sending from the owner's
-  subdomain with SPF, DKIM and DMARC records. Mailpit stays in dev. The provider is listed as a processor in
-  `docs/privacy/data-inventory.md` (it receives e-mail addresses and mail content).
+  registration form and the booking travellers step (and the passport fields once they exist, M10);
+  **server-side masking of visitor personal data** for every staff account except super_admin (D6, see below);
+  staff invitations disabled for every demo account (only super_admin can invite); demo accounts listed on the
+  login page; the **nightly reset** job at **03:45 Europe/Amsterdam** (the server's time zone) (`demo:reset`:
+  maintenance mode → wipe, logging everyone out → `reference` + `demo` seeders → super_admin kept → maintenance
+  mode off → trigger the DB dump of the clean state). It's registered in the scheduler only when demo mode is on,
+  and the command refuses to run otherwise.
+- **Visitor-data masking (N2, ADR-0006 D6).** Registration stays open. In demo mode, every staff account except
+  `super_admin` gets visitor personal data **masked on the server**: the masked value replaces the real one before
+  it leaves PHP (in the laravel-data objects, PDFs, exports and CSVs), so the real value never reaches the browser.
+  This applies to every self-registered (non-demo) customer, whatever their address; there is no "test vs real"
+  detection. Masked fields: name, e-mail, phone, address, date of birth, traveller names, special requests, and
+  later message content (M8) and passport data (M10). Searching and sorting on masked fields doesn't match visitor
+  records, so search can't be used to confirm whether an address is registered.
+- **Real e-mail through Gmail (Q11, N7).** The provider is decided: **Gmail SMTP**, set up by the owner.
+  ADR-0005 records the setup and its consequences at the start of M6:
+  - SMTP (`smtp.gmail.com`, port 587, STARTTLS) with a Google **app password**. That needs 2-Step Verification on
+    the Google account. The app password lives only in env (`MAIL_USERNAME`/`MAIL_PASSWORD`), never in Git.
+  - **Sending limit:** a consumer Gmail account allows about 500 recipients per rolling 24 hours, and going over
+    it blocks sending from the account for up to a day. The global mail budget defaults well below that (e.g.
+    300/day and 50/hour, configurable).
+  - **From address:** the Gmail address itself (recommended), or a verified "Send mail as" alias. Custom-domain
+    DKIM needs Google Workspace, so with consumer Gmail the mail is authenticated as gmail.com: SPF/DKIM pass for
+    gmail.com, and **no SPF/DKIM/DMARC records are added for the subdomain**. A custom-domain alias would fail
+    DMARC alignment, so it isn't used.
+  - **Recipients see the owner's Gmail address**, and replies and bounces go to that mailbox.
+  - Google becomes a **processor** of recipient addresses and mail content (outside the EU). This goes in
+    `docs/privacy/data-inventory.md` and the privacy statement.
+  - Gmail keeps a copy of every sent mail in "Sent", so visitor addresses stay there after the nightly reset
+    unless they are cleaned up (§ 11 Q-A).
+  - Mailpit stays in dev; tests use `Mail::fake()`.
 - **Abuse protection for open registration with real mail (Q11):**
   - Rate limits per IP, per e-mail address and per /24 (or /64 for IPv6) on registration, verification resend,
     password reset and the contact form (M8). These run in every mode, not only in demo mode.
@@ -491,32 +522,38 @@ audit log). This milestone adds what public exposure itself needs. Everything af
   on; https URLs. Devops checks whether the home IP is static or dynamic and sets up DDNS if needed (Q12). The SSR
   and web services are the only ones on the NPM network.
 - Local scheduled DB dump with rotation (Q13). In demo mode the dump runs right after the nightly reset, so it
-  contains seeded data only and never keeps visitor data beyond 24 hours.
+  contains seeded data only (plus the super_admin) and never keeps visitor data beyond 24 hours. **Timing (N6):**
+  the dump must not run at the same time as the owner's existing jobs at 04:00 and 04:15. Devops sets the exact
+  time after measuring how long the reset and the dump take (e.g. 03:50, or chained right after the reset with
+  a check that it finishes before 04:00).
 - **Exposure review:** a security-privacy-reviewer pass over the internet-facing surface (ASVS L2 chapters for
   authentication, session, access control, validation, configuration), and a rollback rehearsal (deploy
   `v0.6.0`, roll back to `v0.5.x`, roll forward).
 
-**Agents:** devops-engineer (lead: NPM, DNS/DDNS, mail DNS records, reset schedule, backups), backend-developer
-(demo mode, reset, mail, rate limits, bot protection, export/erasure), frontend-developer (banner, warnings,
-challenge widget), database-engineer (reset, export/erasure queries), ux-ui-designer (banner and warning copy),
-security-privacy-reviewer (lead on the privacy statement and the exposure review), qa, a11y.
+**Agents:** devops-engineer (lead: NPM, DNS/DDNS, Gmail SMTP env, reset and dump schedule, backups),
+backend-developer (demo mode, masking, reset, mail, rate limits, bot protection, export/erasure),
+frontend-developer (banner, warnings, challenge widget), database-engineer (reset, export/erasure queries),
+ux-ui-designer (banner and warning copy, masked-value display), security-privacy-reviewer (lead on the privacy
+statement, masking and the exposure review), qa, a11y.
 **Depends on:** M5.
-**Exit criteria:** DoD; the site is reachable over HTTPS on the subdomain; a verification e-mail arrives at a real
-mailbox and passes SPF/DKIM/DMARC; a reset test proves that visitor data is gone and demo data is back, and that
-the command refuses when `DEMO_MODE` is off; an erasure test seeds a customer with data in every module and asserts
+**Exit criteria:** DoD; the site is reachable over HTTPS on the subdomain; a verification e-mail sent through Gmail
+arrives at a real mailbox outside the spam folder; a reset test proves that visitor data is gone, demo data is back
+and the super_admin is kept, and that the command refuses when `DEMO_MODE` is off; masking tests prove that, for
+every demo staff account (incl. demo admin), no visitor's real name or e-mail appears in any Inertia response, PDF or
+export, and that super_admin sees them unmasked; an erasure test seeds a customer with data in every module and asserts
 that nothing identifying remains; the exposure review has no open High/Critical findings. **`v0.6.0` is the first
 public release.**
 
 **Candidate epics / stories**
 - Epic: Demo mode (public parts, ADR-0006)
   - Demo banner and "don't enter real data" warnings
-  - Hide self-registered visitors' data from demo staff accounts
-  - Disable staff invitations in demo mode
+  - Server-side masking of visitor personal data for all staff except super_admin
+  - Disable staff invitations for demo accounts (super_admin only)
   - Show the demo accounts on the login page
-  - Nightly reset command and schedule, guarded by demo mode
+  - Nightly reset at 03:45, guarded by demo mode, keeping the super_admin
 - Epic: Real e-mail and abuse protection
-  - ADR-0005: transactional mail provider
-  - Sender domain with SPF, DKIM and DMARC
+  - ADR-0005: Gmail SMTP as the transactional mail provider
+  - Gmail SMTP with an app password from env, and mail-budget defaults below Gmail's limit
   - Rate limits on registration, resends and resets
   - Global outgoing-mail budget with alert
   - ADR-0007: self-hosted bot protection
@@ -532,12 +569,18 @@ public release.**
   - Exposure security review and rollback rehearsal
 
 **Risks**
-- Mail abuse or the sender domain landing on blocklists. Mitigation: rate limits, global budget, bot protection,
-  verified-only actions, DMARC reports.
+- Mail abuse, or Gmail blocking the account for spam or for going over the sending limit (which also blocks the
+  owner's own mail if it's a personal account). Mitigation: rate limits, a global budget below Gmail's limit, bot
+  protection, verified-only actions, and a dedicated Gmail account for the demo (§ 11 Q-B).
+- Google may restrict app passwords further. Mitigation: the mailer is config-only, so switching provider is an env
+  change plus an ADR update.
 - The nightly reset running against the wrong database. Mitigation: two guards (scheduler registration + command
   check), a confirmation of `APP_ENV`/`DEMO_MODE` in the log, and on/off tests.
 - Visitors entering real personal data despite warnings. Mitigation: warnings at every collection point,
-  isolation from demo staff accounts, and deletion within 24 hours.
+  server-side masking for every staff account except super_admin, and deletion within 24 hours.
+- A masking gap: one staff view or download that serialises an unmasked field. Mitigation: masking lives in the
+  data objects (not in React), and a generic test logs in as each demo staff account, crawls every staff route and
+  checks that no seeded visitor's name or e-mail appears in the response.
 - The home connection's upload speed or IP changes. Mitigation: DDNS, the uptime check from M11.
 
 ### M7: Staff back office (L)
@@ -557,15 +600,16 @@ manage staff and read the audit log.
   pricing/capacity/payment services as M4. No seat selection (Q6). *(legacy §2 Bookings; §3 Domain: broken search)*
 - Employee profile (`Employee` record: job title, department); staff management extended from M1.
 - Audit log viewer (admin), with staff reads of customer detail logged. *(legacy §3 Security: no audit of who viewed data)*
-- Demo mode: every new staff list and detail respects visitor-data isolation (ADR-0006 D6).
+- Demo mode: every new staff list, detail, dashboard widget, audit log entry and download masks visitor personal
+  data server-side for every staff account except super_admin (ADR-0006 D6).
 - The legacy `is_active` + `note` on every table is replaced by explicit statuses / deactivation where the business
   needs it, and a staff note only on customers and bookings. *(legacy §2 Data model)*
 
 **Agents:** ux-ui-designer (dense staff screens), database-engineer, backend-developer, frontend-developer, qa,
 a11y, security.
 **Depends on:** M6.
-**Exit criteria:** DoD; the authorization matrix covers every back-office route for all four roles; the staff
-journeys work keyboard-only (the auditor's staff walkthrough); the isolation tests cover every new staff query.
+**Exit criteria:** DoD; the authorization matrix covers every back-office route for all five roles; the staff
+journeys work keyboard-only (the auditor's staff walkthrough); the masking crawl test covers every new staff route.
 
 **Candidate epics / stories**
 - Epic: Dashboard
@@ -604,7 +648,8 @@ contact form and someone actually receives it.
 - Mail notification of new replies (queued, opt-out in profile, counted against the mail budget).
 - Contact form: validated, rate-limited, bot-protected with the ADR-0007 measure. It creates a conversation for
   logged-in users, and a staff inbox item for guests. *(legacy §2 Contact: sent nothing)*
-- Demo mode: visitors' conversations are hidden from demo staff accounts (D6); the contact form never sends mail
+- Demo mode: visitors' names, e-mails and message content are masked server-side for every staff account except
+  super_admin (D6). Demo staff see that a visitor conversation exists, but not what it says. The contact form never sends mail
   to the address a guest enters (only to the configured staff address), so it can't be used to mail third parties.
 
 **Agents:** ux-ui-designer, database-engineer, backend-developer, frontend-developer, qa, a11y (thread + live
@@ -635,8 +680,8 @@ type and extras, book it for your group and get one invoice with itemised lines.
 room allotments, extras and packages.
 
 **Scope** *(legacy §2 Packages: static placeholder, now built for real)*
-- **ADR-0008: package domain model** (written at the start of the milestone, after the open questions in § 10 N4
-  are answered). Working model:
+- **ADR-0008: package domain model** (written at the start of the milestone; the package definition was accepted in
+  § 10 N4). Model:
   - `Hotel` (name, destination airport/city, address, star rating, description nl/en, images) with `RoomType`
     (occupancy, price per night in cents) and a per-night **allotment** (rooms available).
   - `Package`: outbound trip + return trip + hotel + nights, a package discount (optional), a status, and
@@ -652,8 +697,7 @@ room allotments, extras and packages.
 - **Invoices:** one invoice with a line per component.
 - **Back office:** hotels, room types and allotments, extras and packages (manager); package bookings in the
   booking table.
-- **Images:** hotel photos are bundled static assets for the demo seed. Staff image upload is out of scope while
-  "no user uploads in v1" stands (§ 10 N5).
+- **Images:** hotel photos ship with the app as bundled static assets; there are no uploads (§ 10 N5).
 - Offers can target a package as well as a trip.
 
 **Agents:** architect (ADR-0008), ux-ui-designer, database-engineer, backend-developer (lead), frontend-developer,
@@ -701,7 +745,8 @@ non-demo install, unverified accounts, old sessions and exports, and old audit e
 **Scope**
 - Passport/ID data on `BookingTraveller`: optional, purpose explained in the UI, `encrypted` cast, hidden from
   serialisation and logs, policy-limited to the roles in § 7, every read audited. In demo mode the field shows a
-  prominent "don't enter real passport data" warning (D7). *(legacy §3 Security: passport in plain text)*
+  prominent "don't enter real passport data" warning (D7), and visitors' passport data is masked for every staff
+  account except super_admin (D6). *(legacy §3 Security: passport in plain text)*
 - **Retention (Q14):** the GDPR storage-limitation principle ("no longer than necessary"). Retention periods are
   config values in `config/traveleasy.php`, with defaults that the security-privacy-reviewer justifies in
   `docs/privacy/retention.md`. Scheduled jobs on every install: purge passport data after the trip, purge
@@ -833,8 +878,8 @@ per public visitor. The ADR decides.
 | Messages: delete conversation, delete last message | Hide own conversation; retract last unread message | M8 |
 | Data model: people/customers/contacts/employees | `User` + `Person` + `Customer` + `Employee`; e-mail on `users` | M1, M7 |
 | Data model: `is_active` + `note` on every table | Explicit statuses/deactivation where needed; staff note on customers and bookings | M2, M7 |
-| Employee types Manager / Administrator / Desk Employee | Roles `manager` / `admin` / `employee` | M1 |
-| Seeder test accounts + 300 fake users | `demo` seeder with fake data; **published demo accounts only in demo mode** (ADR-0006), locked and reset nightly; the owner's real admin via command with 2FA | M1, M6 |
+| Employee types Manager / Administrator / Desk Employee | Roles `manager` / `admin` / `employee`, plus a new `super_admin` for the owner | M1 |
+| Seeder test accounts + 300 fake users | `demo` seeder with fake data; **published demo accounts only in demo mode** (ADR-0006), locked and reset nightly; the owner's private `super_admin` via command or env seeder, with 2FA | M1, M6 |
 | §4 kept: Compose + Portainer deploy | Portainer stack from `compose.yaml` with a pinned GHCR tag | M0, M6 |
 | §4 kept: entrypoint waits for DB, migrates, seeds empty DB | Same, in the production entrypoint | M0 |
 | §4 kept: dependent search idea | Core of the search | M3 |
@@ -844,13 +889,13 @@ per public visitor. The ADR decides.
 
 | Mistake | Prevented by | Where |
 |---|---|---|
-| No authorization; customers could see everything | Deny-by-default policies; authorization matrix test in CI; an IDOR test per resource in every story; demo staff accounts isolated from visitor data | M1, M6, then every milestone |
+| No authorization; customers could see everything | Deny-by-default policies; authorization matrix test in CI; an IDOR test per resource in every story; visitor personal data masked server-side for all staff except super_admin in demo mode | M1, M6, then every milestone |
 | Admin role checked three different ways | One role enum, policies only; Pest arch test forbids ad-hoc role string checks | M0 (arch tests), M1 |
 | Passport details in plain text | Not collected before M10; then optional, `encrypted` cast, role-limited, audited, auto-purged; demo warning | M10 |
 | Login e-mail in `contacts` with a custom UserProvider | E-mail on `users`; standard Fortify provider | M1 |
 | CSRF disabled for the chatbot; TLS verification off | Arch tests forbid CSRF exceptions (one documented allow-list entry: the Mollie webhook) and `withoutVerifying()` | M0, M11, M12 |
 | Prompts sent to a third-party AI without notice | Opt-in, notice, no personal data, feature flag off by default | M12 |
-| Default DB passwords; demo credentials in the README | `${VAR:?}` secrets, no defaults. Demo credentials **are** published now, but deliberately: they exist only when `DEMO_MODE` is on, are locked (no credential changes), can't log in when demo mode is off, have only their role's rights, and the owner's real admin is a separate account with 2FA (ADR-0006) | M0, M1, M6 |
+| Default DB passwords; demo credentials in the README | `${VAR:?}` secrets, no defaults. Demo credentials **are** published now, but deliberately: they exist only when `DEMO_MODE` is on, are locked (no credential changes), can't log in when demo mode is off, have only their role's rights, and the owner's `super_admin` is a separate, never-published account with 2FA (ADR-0006) | M0, M1, M6 |
 | Developer checkboxes (`dev_connection`, `simulate_error`) in production | Error states tested with fakes, never with UI switches. Demo mode is the opposite of those checkboxes: one documented env flag, off by default, owner-approved, tested on and off, and it never weakens security (ADR-0006). The simulated payment provider is a configured adapter, not a form switch | M0, M1, M4, M6 |
 | No rate limiting, security headers or audit log | Headers/CSP in M0; rate limits in M1 (auth), M6 (registration/mail budget/bot protection), M8 (contact); audit log from M1, viewer in M7 | M0, M1, M6, M7, M8 |
 | No GDPR features (export, deletion, retention, privacy statement) | Privacy statement, export and erasure before public exposure; retention jobs and passport handling later; nightly wipe on the demo | M6, M10 |
@@ -880,7 +925,7 @@ All items in `legacy-analysis.md` §2, §3 and §4 are placed. Nothing is droppe
 |---|---|---|---|
 | **i18n nl/en** | No hard-coded UI strings; nl is the default; dates/money via `Intl` (SSR-consistent); times in the airport's time zone with a label; mails in the recipient's language | frontend-developer | CI missing-key check; reviewers |
 | **WCAG 2.2 AA** | Design approved before build; React Aria for complex widgets; keyboard path and screen-reader announcements in the ACs; 320 px reflow / 400 % zoom | accessibility-auditor | axe in Playwright (CI); auditor verdict per UI story and per milestone |
-| **GDPR / privacy** | Minimum data; every new personal-data field in `data-inventory.md` with purpose, basis and retention; **every story that adds personal data extends the export, erasure and nightly-reset tests (from M6 on) and is protected from first storage** (policies, no logs, no serialisation by default); demo-staff isolation for visitor data | security-privacy-reviewer | Reviewer verdict |
+| **GDPR / privacy** | Minimum data; every new personal-data field in `data-inventory.md` with purpose, basis and retention; **every story that adds personal data extends the export, erasure and nightly-reset tests (from M6 on) and is protected from first storage** (policies, no logs, no serialisation by default); server-side masking of visitor data for all staff except super_admin in demo mode | security-privacy-reviewer | Reviewer verdict |
 | **Security (ASVS L2)** | Authorization AC in every data story; Form Request validation; no mass assignment; rate limits on public writes; secrets only from env; audit sensitive actions; public from M6, so every milestone gets a security review | security-privacy-reviewer | Arch tests, `composer`/`npm audit`, Trivy, reviewer verdict |
 | **Demo mode** | Any behaviour that differs in demo mode goes through the `DemoMode` service, is listed in ADR-0006, and is tested on **and** off | backend-developer | Arch test; qa |
 | **Testing** | Unit for rules, feature per endpoint (happy, validation, unauthenticated, unauthorized, not found), e2e per journey with axe on the SSR build; deterministic (frozen clock, fakes, fake payment and mail providers); bug fixes start with a failing test | qa-engineer (`docs/testing.md`) | CI blocks the image publish |
@@ -892,12 +937,13 @@ All items in `legacy-analysis.md` §2, §3 and §4 are placed. Nothing is droppe
 These are the default constraints stories refer to. Items marked *ADR* get their own record when decided.
 
 - **Authentication:** Fortify, session cookies (Secure, HttpOnly, SameSite=Lax), e-mail verification required
-  before booking or messaging, TOTP 2FA **required for manager and admin** and optional for employee and customer
-  (Q8), login throttling, and no "remember me" for staff accounts. Demo accounts: see ADR-0006.
+  before booking or messaging, TOTP 2FA **required for manager, admin and super_admin** and optional for employee and
+  customer (Q8), login throttling, and no "remember me" for staff accounts. Demo accounts: see ADR-0006.
 - **Authorization:** one `role` enum on `users`; Laravel Policies for every model, Gates for non-model abilities;
   every controller action is authorized (a Pest arch/feature check). The client receives `can` flags for display
   only. Hiding a button is never the access control. Demo mode never grants extra rights; it only removes some
-  (credential changes, invites, visitor data).
+  (credential changes, invites, unmasked visitor data). Visitor-data masking is applied server-side in the
+  data objects, so masked values never reach the browser (ADR-0006 D6).
 - **Request/API shape:** Inertia pages, server-rendered (SSR); no public JSON API. A few typed JSON endpoints for
   dependent search options, with rate limits; the Mollie webhook (M11). Data to the client goes through
   spatie/laravel-data objects (generated TS types), never raw models. Routes are referenced via Wayfinder.
@@ -918,7 +964,8 @@ These are the default constraints stories refer to. Items marked *ADR* get their
   events go to the `AuditLog` table, not the app log.
 - **Background jobs:** database queue driver; `worker` and `scheduler` services run from the same image; mails,
   exports and PDFs are queued; jobs are idempotent and retried with backoff. The nightly demo reset is a
-  scheduled command, registered only in demo mode.
+  scheduled command at 03:45 Europe/Amsterdam (the scheduler's time zone; stored times stay UTC), registered
+  only in demo mode.
 - **File storage:** a private local disk on a named volume (`storage`): invoice PDFs (if stored) and data exports.
   Downloads go through policy-checked routes or signed, expiring URLs. Public assets (incl. demo hotel images) are
   built into the image; no user uploads in v1 (accepted).
@@ -926,33 +973,46 @@ These are the default constraints stories refer to. Items marked *ADR* get their
   ADR-0002 needs it) are on the NPM network.
 - **ADRs:** numbered in the order they're written, with 0002–0005 reserved for the decisions planned below.
   Written: 0001 tech stack, **0006 demo mode** (the next free number after the reserved ones). Expected: 0002 production runtime + SSR packaging (M0), 0003 payment-provider
-  interface (M4), 0004 PDF library (M5), 0005 transactional mail provider (M6), 0007 bot protection (M6), 0008
+  interface (M4), 0004 PDF library (M5), 0005 transactional mail: **Gmail SMTP, decided by the owner** (written in M6 to record the setup), 0007 bot protection (M6), 0008
   package domain model (M9), then the chatbot provider (M12).
 
 ### Role matrix (accepted, Q7)
 
-Hierarchy: `employee` ⊂ `manager` ⊂ `admin` (each has everything of the role before it). "Own" = records linked
-to the user's customer profile. In demo mode, the published demo staff accounts have exactly these rights, minus
-visitor data and invitations (ADR-0006).
+Hierarchy: `employee` ⊂ `manager` ⊂ `admin` ⊂ `super_admin` (each has everything of the role before it). "Own" =
+records linked to the user's customer profile. In demo mode, the published demo accounts have exactly their role's
+rights, minus credential changes, invitations and unmasked visitor data (ADR-0006).
 
-| Resource / action | Guest | Customer | Employee | Manager | Admin |
-|---|---|---|---|---|---|
-| Search, trips, packages, offers, destinations, about, contact | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Own profile, password, 2FA, export, delete | – | ✔ | ✔ | ✔ | ✔ |
-| Book a trip or package | – (account at checkout) | own | on behalf of a customer | on behalf | on behalf |
-| Bookings: view | – | own | all | all | all |
-| Bookings: change status / cancel | – | own, within policy | ✔ | ✔ | ✔ |
-| Invoices: view / download | – | own | all | all | all |
-| Invoices: mark paid, credit note | – | – | mark paid | ✔ | ✔ |
-| Customers: view / edit contact data / note | – | – | ✔ | ✔ | ✔ |
-| Customers: deactivate | – | – | – | ✔ | ✔ |
-| Passport data (M10): view | – | own travellers | ✔ (audited) | ✔ (audited) | ✔ (audited) |
-| Conversations | – | own | staff inbox | staff inbox | staff inbox |
-| Trips, airports, hotels, extras, packages, offers: create / edit / status | – | – | view only | ✔ | ✔ |
-| Dashboard | – | – | basic | + revenue/occupancy | + revenue/occupancy |
-| Staff accounts and roles | – | – | – | – | ✔ (no invites in demo mode) |
-| Audit log | – | – | – | – | ✔ |
-| 2FA | – | optional | optional | **required** | **required** |
+**`super_admin`** is the owner's private account: never published, never a demo account, created only by the artisan
+command or the `reference` seeder from env, never through the UI, and kept by the nightly reset. It deliberately holds
+only three things that `admin` doesn't:
+1. managing `admin` accounts (invite, promote to or demote from admin, deactivate);
+2. inviting staff while demo mode is on;
+3. seeing visitor personal data unmasked while demo mode is on.
+
+Everything else it can do, an admin can do too. No role (including super_admin) can create, promote to, demote, deactivate or delete a
+super_admin through the UI.
+
+| Resource / action | Guest | Customer | Employee | Manager | Admin | Super admin |
+|---|---|---|---|---|---|---|
+| Search, trips, packages, offers, destinations, about, contact | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Own profile, password, 2FA, export | – | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Delete own account | – | ✔ | ✔ | ✔ | ✔ | – (server only) |
+| Book a trip or package | – (account at checkout) | own | on behalf of a customer | on behalf | on behalf | on behalf |
+| Bookings: view | – | own | all | all | all | all |
+| Bookings: change status / cancel | – | own, within policy | ✔ | ✔ | ✔ | ✔ |
+| Invoices: view / download | – | own | all | all | all | all |
+| Invoices: mark paid, credit note | – | – | mark paid | ✔ | ✔ | ✔ |
+| Customers: view / edit contact data / note | – | – | ✔ | ✔ | ✔ | ✔ |
+| Customers: deactivate | – | – | – | ✔ | ✔ | ✔ |
+| Passport data (M10): view | – | own travellers | ✔ (audited) | ✔ (audited) | ✔ (audited) | ✔ (audited) |
+| Conversations | – | own | staff inbox | staff inbox | staff inbox | staff inbox |
+| Trips, airports, hotels, extras, packages, offers: create / edit / status | – | – | view only | ✔ | ✔ | ✔ |
+| Dashboard | – | – | basic | + revenue/occupancy | + revenue/occupancy | + revenue/occupancy |
+| Staff accounts: invite, role change, deactivate `employee`/`manager` | – | – | – | – | ✔ (not in demo mode) | ✔ (also in demo mode) |
+| Staff accounts: manage `admin` accounts | – | – | – | – | – | ✔ |
+| Visitor personal data in demo mode | – | – | masked | masked | masked | **unmasked** |
+| Audit log | – | – | – | – | ✔ | ✔ |
+| 2FA | – | optional | optional | **required** | **required** | **required** (never exempt) |
 
 ## 8. Release and deploy cadence
 
@@ -982,7 +1042,7 @@ compatible with the previous tag for one release, so a rollback doesn't need a d
 | Q8 | 2FA? | Required for manager and admin, optional for employee and customer. **`DEMO_MODE`** (on for the live demo, off by default): only the published demo accounts are exempt from mandatory 2FA; they can't change password, e-mail or 2FA; the nightly reset restores them. An explicit, documented, owner-approved feature. | M1 (2FA, demo-mode core), M6 (public parts), ADR-0006 |
 | Q9 | VAT? | 21 % in one config value. | M4 |
 | Q10 | Cancellation policy? | As assumed: free self-cancel until 14 days before departure; after that, only staff. | M4, M5 |
-| Q11 | Production mail? | A **real provider** on the live demo (owner's subdomain, SPF/DKIM) so verification and reset mails arrive; Mailpit in dev; provider chosen in an ADR before go-live. Plan rate limits and self-hosted/privacy-friendly bot protection against abuse. | M6 (ADR-0005 mail, ADR-0007 bot protection, mail budget) |
+| Q11 | Production mail? | A **real provider** on the live demo (owner's subdomain, SPF/DKIM) so verification and reset mails arrive; Mailpit in dev; provider chosen in an ADR before go-live. Plan rate limits and self-hosted/privacy-friendly bot protection against abuse. | M6 (ADR-0005 mail, ADR-0007 bot protection, mail budget). Refined by N7 in § 10: Gmail, no subdomain SPF/DKIM. |
 | Q12 | Domain/DNS? | A subdomain of the owner's domain. Static vs dynamic IP unknown; devops checks at deploy time, DDNS as fallback. | M6 |
 | Q13 | Off-site backups? | None. A local scheduled DB dump is enough, because the demo resets nightly. | M1 (local backup), M6 (dump after reset), M11 (restore drill) |
 | Q14 | Retention periods? | Follow GDPR storage limitation. On the live demo, the nightly reset wipes visitor data within 24 hours; the privacy statement says so and warns not to enter real personal data, especially passport data. Configurable retention for non-demo installs, defaults justified by the security-privacy-reviewer. | M6 (statement v1), M10 (retention jobs, statement v2) |
@@ -991,17 +1051,37 @@ compatible with the previous tag for one release, so a rollback doesn't need a d
 | Q17 | Messaging order? | Messaging stays after the back office. | M8 after M7 |
 | Other | Login to book, EUR only, no URL locale prefix, no user uploads in v1 | Accepted. | § 7 |
 
-## 10. New questions for the owner
+## 10. Owner answers, follow-up round (2026-10-11)
 
-These came out of the answers above. Each has a working assumption; stories that depend on them will be written
+| # | Question | Answer | Where it landed |
+|---|---|---|---|
+| N1 | Accept the ADR-0006 change list? | **Accepted** (2026-10-11), with the changes below folded in. Plus a new fifth role, **`super_admin`**: the owner's private account, above `admin`, never published, never a demo account, created only by an artisan command or the `reference` seeder from env, never through the UI, kept by the nightly reset. Only super_admin can manage admin accounts, invite staff in demo mode and see unmasked visitor data. | ADR-0006 (Accepted); M1; § 7 role matrix |
+| N2 | Visitor data and the public demo staff accounts | Registration stays **open** in demo mode. Visitors' personal data (at least name and e-mail, plus any other visitor PII on staff screens) is **masked for all demo accounts**, including demo admin and demo manager, whatever the address. Only super_admin sees it unmasked. No "test vs real" address detection. Masking happens **server-side**; masked values never reach the browser. | ADR-0006 D6; M6, extended in M7, M8, M10 |
+| N3 | Staff invitations in demo mode | **Disabled for every demo account.** Only super_admin can invite, also in demo mode. | ADR-0006 D8; M1; M6 |
+| N4 | Package definition | Accepted as assumed: outbound + return flight always included, nights fixed by the package, price computed from the parts minus an optional package discount, extras = transfer, extra luggage, excursion. | M9, ADR-0008 |
+| N5 | Hotel images | Hotel photos ship with the app; no uploads. | M9 |
+| N6 | Nightly reset time and kept accounts | **03:45 server time** (Europe/Amsterdam). Not 04:00: the owner has other jobs at 04:00 and 04:15. The DB dump runs after the reset; it doesn't have to finish before 04:00, but it must not collide with the owner's jobs (devops sets the exact time with that constraint). Everyone is logged out; **super_admin is kept**. | ADR-0006 D10; M6 |
+| N7 | Mail provider | **Gmail**, set up by the owner: SMTP with an app password held only in env; the mail budget stays below Gmail's daily limit; From = the Gmail address (or a verified "send as" alias); custom-domain DKIM would need Workspace, so the subdomain SPF/DKIM/DMARC items are dropped; recipients see the owner's address. | M6 (ADR-0005 records the setup) |
+
+## 11. New questions for the owner
+
+These came out of the follow-up answers. Each has a working assumption; stories that depend on them will be written
 with the assumption unless the owner says otherwise.
 
 | # | Question | Needed by | Working assumption |
 |---|---|---|---|
-| N1 | **ADR-0006 change list.** Please read `docs/adr/0006-demo-mode.md` § Decision and accept it (or amend). It is Proposed until you do. | M1 | As written |
-| N2 | **Visitor data and the public demo staff accounts.** Anyone can log in as the demo admin, so they would see every other visitor's name and e-mail. Proposal: in demo mode, demo staff accounts don't see records owned by self-registered visitors (D6). OK? | M6 | Yes, isolate |
-| N3 | **Staff invitations in demo mode.** The demo admin is public, so invites could be used to send mail to anyone. Proposal: invites are disabled in demo mode (D8); the owner creates real staff via the artisan command. OK? | M6 | Disabled |
-| N4 | **Package definition.** Does a package always include a return flight? Fixed nights or chosen by the customer? Price computed from components (with an optional package discount) or a fixed package price? Which extras (e.g. transfer, extra luggage, excursions)? | M9 | Always outbound + return, nights fixed by the package, price computed from components minus an optional discount, extras = transfer, extra luggage, excursion |
-| N5 | **Hotel images.** "No user uploads in v1" means staff can't upload hotel photos; demo hotels use bundled images. Is that fine, or should staff image upload (validated, re-encoded, stored on the private volume) be added in M9? | M9 | Bundled images only |
-| N6 | **Nightly reset time and the owner's own accounts.** Proposal: 04:00 Europe/Amsterdam, all sessions logged out; the reset **keeps** non-demo staff accounts (the owner's real admin with 2FA) and wipes everything else. OK? | M6 | As proposed |
-| N7 | **Mail provider shortlist.** Any preference or constraint (EU-based, free tier, a provider you already use)? The ADR in M6 compares options. | M6 | EU-based provider with a free tier and DKIM on a custom domain |
+| Q-A | **Gmail keeps copies.** Every mail sent through Gmail SMTP is kept in the account's "Sent" folder, and bounces and replies land in the inbox. Those contain visitor e-mail addresses (and verification/reset links), and **they survive the nightly reset**, so "deleted within 24 hours" wouldn't be true for them. Options: (a) you set up a daily clean-up in the Google account (e.g. a Google Apps Script that deletes Sent/bounce mail older than 1 day); (b) you delete them by hand on a schedule; (c) the privacy statement says mail copies are kept in the mailbox for N days. Which? | M6 | (a) a daily clean-up script in the Google account, and the privacy statement mentions it |
+| Q-B | **Dedicated Gmail account?** If the demo sends from your personal Gmail and Google throttles or suspends sending (limit exceeded, spam reports from abuse), your personal mail is affected too, and every visitor sees your personal address. A separate account (e.g. a TravelEasy demo address) avoids both. | M6 | A dedicated Gmail account for the demo, with 2-Step Verification on |
+| Q-C | **Masking for non-demo staff.** You said only super_admin sees visitor data unmasked. I've applied that to **every** staff account other than super_admin in demo mode, including any real (non-demo) employee/manager/admin you might invite, not only the four demo accounts. OK? | M6 | Yes: in demo mode everyone except super_admin sees masked data |
+| Q-D | **Other real staff on reset.** The reset keeps super_admin. If you invite real (non-demo) staff on the live demo, should they also survive the reset, or be wiped with everything else? | M6 | Wiped; only super_admin is kept |
+| Q-E | **Your 04:00 and 04:15 jobs.** What are they (e.g. a server or volume backup, updates, a restart)? If they back up Docker volumes or restart containers, devops needs to know, to avoid contention and to make sure they capture the clean post-reset state. | M6 | Unrelated to TravelEasy; the reset and dump just must not overlap them |
+
+Things the owner should know (no decision needed):
+- A Google **app password needs 2-Step Verification** on the Google account. It gives full mail access to that
+  account, so it must stay only in the server's env (Portainer stack variables), and it can be revoked in the Google
+  account at any time.
+- Google is a **processor outside the EU** for the demo's outgoing mail (recipient addresses and mail content). The
+  privacy statement and data inventory will say so.
+- Creating the super_admin **from env** means its password sits in the stack's env vars. The safer path is the
+  artisan command; if the env seeder is used for the first boot, remove `SUPER_ADMIN_PASSWORD` from the stack
+  afterwards and change the password at first login. The deploy docs will say this.

@@ -36,6 +36,10 @@ Update this table when a phase changes.
 - 2026-10-11: **Real flight + hotel packages** are in scope, as milestone M9 (`docs/plan.md`).
 - 2026-10-11: **Inertia SSR** is on for SEO: an `ssr` Node process in dev, CI and production from M0 (`docs/plan.md` M0).
 - 2026-10-11: The live demo sends **real e-mail** through a provider on the owner's subdomain (SPF/DKIM/DMARC; provider ADR in M6); Mailpit stays in dev.
+- 2026-10-11: **ADR-0006 (demo mode) accepted**, with server-side masking of visitor data for all staff except super_admin (`docs/adr/0006-demo-mode.md`).
+- 2026-10-11: Fifth role **`super_admin`**: the owner's private account, above `admin`; created only by an artisan command or from env, never published, never a demo account (`docs/plan.md` § 7).
+- 2026-10-11: Mail provider = **Gmail SMTP** with an app password from env; the From address is the Gmail address, so there's no custom-domain SPF/DKIM/DMARC (this replaces the subdomain detail in the line above) (`docs/plan.md` M6, ADR-0005 in M6).
+- 2026-10-11: The demo's **nightly reset runs at 03:45 Europe/Amsterdam**; the DB dump follows without overlapping the owner's 04:00/04:15 jobs (ADR-0006 D10).
 
 ## Tech stack
 
@@ -117,7 +121,8 @@ volumes, including the database.
 2. **Accessible by default: WCAG 2.2 AA.** Semantic HTML, full keyboard support, visible focus, contrast,
    reduced motion, labelled forms with linked errors, works at 400% zoom. Part of "done", not a later pass.
 3. **Secure by default.** Server-side authorization on every route and record (deny by default). Roles:
-   `customer`, `employee`, `manager`, `admin`. Target OWASP ASVS L2. Rate limiting, CSP, secrets only from env.
+   `customer`, `employee`, `manager`, `admin`, `super_admin` (the owner's private account; never published, never
+   created through the UI). Target OWASP ASVS L2. Rate limiting, CSP, secrets only from env.
 4. **Customers can actually book.** Search → trip → travellers → (offer code) → review → confirm → invoice.
    Prices are computed server-side; the VAT rate lives in one place.
 5. **Bilingual.** UI in Dutch (default) and English via i18n keys. Code, comments, commits and docs in English.
@@ -152,8 +157,12 @@ docs/deploy/                dev.md, casaos-portainer.md
 
 - Git: `main` is always deployable; work on `feat/…`, `fix/…`, `chore/…` branches; use Conventional Commits.
 - Every feature ships with tests; a bug fix starts with a failing test.
-- No demo-only hacks in production code (the original had `dev_connection` / `simulate_error` checkboxes).
-- Seeders: `reference` (airports, roles; also used in production) and `demo` (fake data, dev only).
+- No hidden test or demo toggles in production code (the original had `dev_connection` / `simulate_error`
+  checkboxes in its forms). The one sanctioned exception is **demo mode** (`docs/adr/0006-demo-mode.md`): a
+  documented, config-driven `DEMO_MODE` env flag, off by default, read only through the `DemoMode` service, tested
+  on and off, and never weakening security.
+- Seeders: `reference` (airports, roles; also used in production) and `demo` (fake data). `demo` runs in dev, and in
+  production only when `DEMO_MODE` is on (the live demo, together with the nightly reset; ADR-0006).
 - `.env.example` documents every variable; `.env` is never committed.
 - When a decision is made, add one line to § Decisions so far and link the ADR.
 
