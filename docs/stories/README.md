@@ -6,7 +6,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 
 | ID | Title | Priority | Status | Rework rounds | Design |
 |---|---|---|---|---|---|
-| [TE-001](TE-001-scaffold-laravel-react-starter-kit.md) | Scaffold the Laravel React starter kit (strict TS, PostgreSQL, no mail) | must | ready | 0 | not-needed |
+| [TE-001](TE-001-scaffold-laravel-react-starter-kit.md) | Scaffold the Laravel React starter kit (strict TS, PostgreSQL, no mail) | must | in-progress | 0 | not-needed |
 | [TE-002](TE-002-docker-dev-environment.md) | Docker dev environment with hot reload and a PostgreSQL named volume | must | ready | 0 | not-needed |
 | [TE-003](TE-003-code-quality-tooling.md) | Code quality tooling (Pint, Larastan, ESLint, Prettier, tsc) | must | ready | 0 | not-needed |
 | [TE-004](TE-004-pest-arch-tests.md) | Pest on PostgreSQL with arch tests that forbid the legacy anti-patterns | must | ready | 0 | not-needed |

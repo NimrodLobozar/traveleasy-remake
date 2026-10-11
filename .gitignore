@@ -27,3 +27,25 @@ desktop.ini
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Laravel (merged from the starter kit's .gitignore; AI-tool entries such as
+# /.claude and /CLAUDE.md deliberately left out, those are part of this repo)
+/.phpunit.cache
+.phpunit.result.cache
+/auth.json
+/bootstrap/ssr
+/public/fonts-manifest.dev.json
+/public/storage
+/storage/pail
+.phpactor.json
+Homestead.json
+Homestead.yaml
+/.fleet
+/.nova
+/.zed
+
+# Generated code (regenerate with `npm run generate`)
+/resources/js/actions
+/resources/js/routes
+/resources/js/wayfinder
+/resources/js/types/generated
