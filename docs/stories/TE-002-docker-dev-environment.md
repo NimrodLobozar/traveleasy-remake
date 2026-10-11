@@ -43,7 +43,10 @@ matches how the app runs on the home server.
       root, then both `compose.yaml` and `compose.dev.yaml` are used.
 - [ ] AC2 (first run): Given a fresh clone on Windows 11 with Docker Desktop, `.env` copied from `.env.example` and
       only `DB_PASSWORD` filled in, when the developer runs `docker compose up -d --build`, then
-      `docker compose ps` shows every service running and `db` as `healthy` within 5 minutes; after
+      `docker compose ps` shows every service running and `db` as `healthy`. *Timing (clarified 2026-10-11):* once the
+      dev image has been built, `docker compose up -d` reaches "all services running, `db` healthy" **within
+      5 minutes** (QA measured 149 s on a fresh clone). The image build itself (about 271 s without cache) is
+      **reported, not gated** (see Performance). After that, and after
       `docker compose exec app php artisan migrate` (and the APP_KEY step from AC19),
       `http://localhost:8000` shows the starter-kit welcome page with its CSS and JS loaded (no 404s or console
       errors for assets).
@@ -94,10 +97,11 @@ matches how the app runs on the home server.
       LF via `.gitattributes`, which already forces LF by default; any entrypoint script is covered).
 - [ ] AC17 (starter tests on PostgreSQL, isolated from the dev DB; clarified in rework round 1):
       `docker compose exec app php artisan test` runs the starter-kit tests against PostgreSQL and passes.
-      - **Forced target.** The test run always uses connection `pgsql` and database `traveleasy_test`, whatever is set
-        in `$_SERVER`, `$_ENV`, `putenv` or the container environment. That covers `DB_CONNECTION`, `DB_DATABASE`,
-        `DB_URL` and `DB_HOST`. It also holds when a cached config exists (`bootstrap/cache/config.php` from
-        `php artisan config:cache`).
+      - **Forced target (reworded 2026-10-11, QA's wording, agreed by security).** `DB_CONNECTION`, `DB_DATABASE`
+        and `DB_URL` are forced (to `pgsql`, `traveleasy_test` and empty), whatever is set in `$_SERVER`, `$_ENV`,
+        `putenv` or the container environment. `DB_HOST`, `DB_PORT` and the credentials come from env. An unreachable
+        server, or a database not named exactly `traveleasy_test`, aborts the run through the guard below. This also
+        holds when a cached config exists (`php artisan config:cache`).
       - **Why `force="true"` isn't enough.** `force="true"` in `phpunit.xml` is not sufficient on its own: Laravel's
         env reader checks `$_SERVER` first, and container env vars live there in PHP CLI.
       - **Guard.** Before any migration or `RefreshDatabase` runs, a guard checks the **active** connection. It aborts
@@ -172,7 +176,7 @@ matches how the app runs on the home server.
     runtime CDN or external request, no bind mounts into the `adminer` container. The reviewer confirms nothing
     Adminer-related can reach `compose.yaml` or a production image.
 - [ ] i18n: not applicable.
-- [ ] Performance: AC4 (≤ 3 s HMR) and AC5 (idle CPU) are the budget. First `up --build` time is reported, not gated.
+- [ ] Performance: AC4 (≤ 3 s HMR) and AC5 (idle CPU) are the budget. The dev image build time (no cache, about 271 s measured) is reported, not gated; `up -d` to healthy after the build is gated at 5 minutes by AC2.
 - [ ] Docs updated: the handoff lists the commands, ports, service names, image versions and the "existing volume →
       create test DB" step for TE-006, plus the Adminer start/stop commands (`--profile tools`), URL, `ADMINER_PORT`
       and which `.env` values to enter on the login page.

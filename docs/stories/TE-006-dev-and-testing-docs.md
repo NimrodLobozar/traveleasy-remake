@@ -43,6 +43,18 @@ database by accident.
       `docker compose up -d --build` (the DB volume is untouched), plus how to list and remove dangling anonymous
       volumes safely. In the same edit as AC14, the orchestrator/architect updates the `CLAUDE.md` § Docker dev
       workflow table to match.
+- [ ] AC4b (dangling volumes and images; found in the TE-002 re-test):
+  - **What to document.** `dev.md` explains that plain `docker compose down`, not only `up -V`, leaves the `app`/`vite`
+    anonymous volumes dangling, and that every rebuild leaves the previous `traveleasy-remake-dev:local` image
+    dangling (about 1.4 GB).
+  - **Clean-up command.** It gives a clean-up that only targets this project: for example
+    `docker image prune --filter label=com.docker.compose.project=traveleasy-remake`, if the image carries that label
+    (verify it), and an equivalent project-filtered command for the anonymous volumes. Otherwise it documents a safe
+    alternative that lists and removes only this project's resources by name or label.
+  - **Never global.** It never suggests a global `docker system prune`, `docker volume prune` or `image prune -a`.
+    The named DB volume is never matched by the commands.
+  - **Check.** QA runs the commands and confirms the dev DB data survives and that resources of other projects are
+    untouched.
 - [ ] AC4a (secrets in `docker compose config`): `dev.md` warns that `docker compose config` prints resolved values
       including `POSTGRES_PASSWORD` in plain text. Its output must never be pasted into docs, issues or CI logs; use
       `docker compose config --quiet` to only validate.

@@ -34,6 +34,12 @@ the original's security mistakes, so that those mistakes can't come back unnotic
       guard that aborts before any migration unless the database is exactly `traveleasy_test`. This story doesn't add a
       second guard; it only checks that the TE-002 guard and its contract test still pass with Pest and the arch suite
       in place, and that `tests/Pest.php` / the base `TestCase` don't bypass it.
+- [ ] AC3a (config-cache case without a real cache file; security Low from TE-002, owners qa-engineer +
+      backend-developer): the config-cache case of the isolation test (TE-002 AC17) no longer writes
+      `bootstrap/cache/config.php`. It points `APP_CONFIG_CACHE` at a temp file under `storage/framework/testing/` and
+      deletes it afterwards, so a run that is killed mid-test can't leave a cache that the running dev server would
+      load. After a full run, and after a run interrupted with Ctrl+C during that case, `bootstrap/cache/config.php`
+      does not exist.
 - [ ] AC4 (no debugging leftovers): an arch test fails if `dd`, `dump`, `ddd`, `ray`, `var_dump`, `print_r` or
       `die`/`exit` are used in `App`, `Database`, `config/` or `routes/`.
 - [ ] AC5 (`env()` only in config): a test fails if `env(` is called anywhere outside `config/` (covers `app/`,

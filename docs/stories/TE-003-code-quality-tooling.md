@@ -52,8 +52,8 @@ containers, so that style and type errors are caught before review and CI can la
 - [ ] AC10 (generated folders ignored): ESLint and the formatter both ignore `resources/js/actions`,
       `resources/js/routes`, `resources/js/wayfinder` and `resources/js/types/generated`. Running `npm run format`
       leaves those folders untouched.
-- [ ] AC11 (formatter scope, Markdown): `vp check` (vite-plus) / `npm run check` currently fails only on Markdown
-      formatting in `docs/`, `.claude/` and `CLAUDE.md`. Decision: **exclude** `docs/`, `.claude/`, `CLAUDE.md` and
+- [ ] AC11 (formatter scope, Markdown and JSON): `vp check` (vite-plus) / `npm run check` currently fails only on Markdown
+      and JSON formatting in `docs/**`, `.claude/**` and `CLAUDE.md` (30 files, confirmed in the TE-002 re-test). Decision: **exclude** `docs/`, `.claude/`, `CLAUDE.md` and
       root `*.md` from the code formatter. They are hand-written prose maintained by the agents, and reflowing them
       would create noisy diffs. After the change, `vp check` / `npm run check` exits 0 on a clean tree, and a
       deliberately mis-formatted `.tsx` file still fails it. If the developer prefers to format them once instead,
@@ -63,6 +63,12 @@ containers, so that style and type errors are caught before review and CI can la
       Also, `symfony/yaml` is required **directly** in `require-dev`. QA's
       `tests/Unit/DockerDevEnvironmentContractTest.php` (TE-002) parses the compose files with it, and today it is only
       a transitive dependency. (Added after TE-002 round 1.)
+- [ ] AC14 (parallel tests; found in the TE-002 re-test): `php artisan test --parallel` currently crashes with
+      `ArgumentCountError` in `ParaTest\WrapperRunner\WrapperWorker::__construct()`, caused by a Pest/Paratest version
+      mismatch in `composer.lock`. Either align the versions so that `docker compose exec app php artisan test --parallel`
+      passes with the same result as a serial run (including the TE-002 AC17 database guard, with per-process test
+      databases still matching the guard's rule), or remove the parallel option from the scripts and state in the
+      handoff (for `docs/testing.md`) that parallel testing isn't supported yet and why. No command may crash.
 - [ ] AC13 (Vite advisory gap): because `vite` is an npm alias for `@voidzero-dev/vite-plus-core@0.3.3` (TE-001),
       `npm audit` can't see advisories for Vite. This is documented in a comment next to the alias in `package.json`
       or in `docs/testing.md` (via TE-006) and in the handoff for the CI/CD epic, together with:

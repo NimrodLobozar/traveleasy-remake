@@ -37,6 +37,8 @@ and First home-server deploy stories are written.
   - image scan;
   - `composer audit` / `npm audit`;
   - `docker compose config --quiet`.
+- **Production build:** install with `composer install --no-dev` (plus `--optimize-autoloader`), and keep `tests/` out
+  of the build context and the image (`.dockerignore` or the build stage).
 - **Migrate-on-start:** make a deliberate decision (ADR-0002 or the deploy story), including rollback compatibility.
 - **Outbound egress:** allow it for the HIBP range API, or confirm the M1 flag fails open.
 - **Env documentation:** `.env.example` and the Portainer env list include `SESSION_SECURE_COOKIE`,
