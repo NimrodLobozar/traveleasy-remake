@@ -139,45 +139,60 @@ test('a conflicting environment never redirects the run and never touches the de
     'DB_URL=dev' => [['DB_URL' => 'pgsql://te002_fake_user:te002-fake-password@db:5432/'.TE002_DEV_DATABASE]],
 ]);
 
+/*
+| TE-004 AC3a: the cached dev config is written to a temp file under storage/framework/testing/ (git-ignored),
+| never to bootstrap/cache/config.php. A run killed during this case can therefore never leave a cache that
+| the running dev server would load. Leftovers of a killed run are removed at the start of the next one.
+*/
+const TE004_CONFIG_CACHE_PREFIX = 'storage/framework/testing/te002-config-cache-';
+
 test('a cached dev config (DB_DATABASE=traveleasy) is ignored and never touches the dev database', function () {
     skipInsideNestedRun();
 
-    $cachePath = base_path('bootstrap/cache/config.php');
-    $existing = is_file($cachePath) ? file_get_contents($cachePath) : null;
+    foreach (glob(base_path(TE004_CONFIG_CACHE_PREFIX.'*.php')) ?: [] as $stale) {
+        @unlink($stale);
+    }
+
+    $realCachePath = base_path('bootstrap/cache/config.php');
+    $realCacheBefore = is_file($realCachePath) ? hash_file('xxh128', $realCachePath) : null;
+    $cachePath = base_path(TE004_CONFIG_CACHE_PREFIX.getmypid().'-'.bin2hex(random_bytes(4)).'.php');
 
     $before = devDatabaseSnapshot();
     $sqliteBefore = sqliteFiles();
 
     // The dev environment, not the phpunit.xml one: drop what this test process put into env.
     $devEnv = array_fill_keys([
-        'APP_CONFIG_CACHE', 'APP_ENV', 'DB_URL', 'APP_MAINTENANCE_DRIVER', 'BCRYPT_ROUNDS', 'BROADCAST_CONNECTION',
+        'APP_ENV', 'DB_URL', 'APP_MAINTENANCE_DRIVER', 'BCRYPT_ROUNDS', 'BROADCAST_CONNECTION',
         'CACHE_STORE', 'QUEUE_CONNECTION', 'SESSION_DRIVER', 'PULSE_ENABLED', 'TELESCOPE_ENABLED', 'NIGHTWATCH_ENABLED',
     ], false);
 
     try {
         $cache = new Process(['php', 'artisan', 'config:cache'], base_path(),
-            ['DB_CONNECTION' => 'pgsql', 'DB_DATABASE' => TE002_DEV_DATABASE] + $devEnv, null, 60);
+            ['DB_CONNECTION' => 'pgsql', 'DB_DATABASE' => TE002_DEV_DATABASE, 'APP_CONFIG_CACHE' => $cachePath] + $devEnv, null, 60);
         $cache->run();
 
-        expect($cache->isSuccessful())->toBeTrue($cache->getErrorOutput().$cache->getOutput());
+        expect($cache->isSuccessful())->toBeTrue($cache->getErrorOutput().$cache->getOutput())
+            ->and(is_file($cachePath))->toBeTrue('config:cache did not write the temp cache file.');
 
         // The scenario is real: the cache points the default connection at the dev database.
         $cached = asArray(require $cachePath);
         expect(Arr::get($cached, 'database.default'))->toBe('pgsql')
             ->and(Arr::get($cached, 'database.connections.pgsql.database'))->toBe(TE002_DEV_DATABASE);
 
-        // The nested run inherits no DB overrides, so only the cached config could redirect it.
-        $process = runNestedProbe(['DB_CONNECTION' => false, 'DB_DATABASE' => false, 'DB_URL' => false, 'APP_CONFIG_CACHE' => false]);
+        // The nested run inherits no DB overrides and is told to load the dev cache, so only the cached config
+        // could redirect it; TestDatabase::forceEnvironment() must make it ignore that cache.
+        $process = runNestedProbe(['DB_CONNECTION' => false, 'DB_DATABASE' => false, 'DB_URL' => false, 'APP_CONFIG_CACHE' => $cachePath]);
 
         expect($process->isSuccessful())->toBeTrue(
             "Nested run with a cached dev config did not stay on traveleasy_test:\n"
             .substr($process->getOutput().$process->getErrorOutput(), -1500),
         );
     } finally {
-        $existing === null ? @unlink($cachePath) : file_put_contents($cachePath, $existing);
+        @unlink($cachePath);
     }
 
-    expect(is_file($cachePath))->toBe($existing !== null)
+    expect(is_file($cachePath))->toBeFalse()
+        ->and(is_file($realCachePath) ? hash_file('xxh128', $realCachePath) : null)->toBe($realCacheBefore)
         ->and(devDatabaseSnapshot())->toBe($before)
         ->and(sqliteFiles())->toBe($sqliteBefore);
 });
