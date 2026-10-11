@@ -6,6 +6,9 @@ import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
 import { defineConfig, lazyPlugins } from 'vite-plus';
 
+// Vite dev-server port, inside the container and on 127.0.0.1 of the host (VITE_PORT in .env).
+const devServerPort = Number(process.env.VITE_PORT ?? 5173);
+
 // No `fonts` option: the kit's bunny() helper downloads fonts from a third-party host at build
 // time. We use a system font stack (resources/css/app.css) until the design system picks a
 // self-hosted font (CLAUDE.md: no runtime CDNs or third-party fonts).
@@ -25,14 +28,37 @@ export default defineConfig({
             formVariants: true,
         }),
     ]),
+    // Dev server settings come from env (set by compose.dev.yaml; documented in .env.example).
+    // In Docker, Vite listens on 0.0.0.0 inside the container, but the browser reaches it through
+    // the 127.0.0.1-only published port, so the HMR host is `localhost`; laravel-vite-plugin derives
+    // the dev-server URL in public/hot (and its CORS allow-list from APP_URL) from it.
+    // Polling: file events from a Windows (NTFS) bind mount don't reach the Linux container, so the
+    // watcher polls. Turn VITE_USE_POLLING off when the repo lives in the WSL file system.
     server: {
+        host: process.env.VITE_HOST ?? 'localhost',
+        port: devServerPort,
+        strictPort: true,
+        hmr: {
+            host: 'localhost',
+            clientPort: devServerPort,
+        },
         watch: {
+            usePolling: process.env.VITE_USE_POLLING === 'true',
+            interval: Number(process.env.VITE_POLLING_INTERVAL ?? 1000),
+            binaryInterval: Number(process.env.VITE_POLLING_INTERVAL ?? 1000),
             ignored: [
                 '**/.agents/**',
                 '**/.claude/**',
                 '**/.cursor/**',
                 '**/.junie/**',
+                '**/.git/**',
                 '**/vendor/**',
+                '**/node_modules/**',
+                '**/storage/**',
+                '**/bootstrap/cache/**',
+                '**/public/build/**',
+                '**/public/hot',
+                '**/docs/**',
             ],
         },
     },

@@ -1,0 +1,45 @@
+# TravelEasy: base Compose file, shared by development and production (Portainer stack).
+#
+# Development: `.env` sets COMPOSE_FILE so plain `docker compose ...` also loads compose.dev.yaml.
+# This file must stand alone (`docker compose -f compose.yaml config`): no source bind mounts, no dev
+# ports, no dev tools. The production `app`, `ssr`, `worker` and `scheduler` services, resource limits
+# and the Nginx Proxy Manager network are added by the CI/CD and home-server deploy epics.
+#
+# The project name is explicit so resource names are predictable. It is NOT `traveleasy`, because the
+# original school project already uses that name (volumes traveleasy_db-data etc.) on the dev machine.
+name: traveleasy-remake
+
+services:
+    db:
+        image: postgres:18.6-alpine
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: ${DB_DATABASE:-traveleasy}
+            POSTGRES_USER: ${DB_USERNAME:-traveleasy}
+            POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required. Set a strong password in .env (see .env.example).}
+        volumes:
+            # PostgreSQL 18+ images keep data under /var/lib/postgresql/<major>/docker; mount the parent.
+            - pgdata:/var/lib/postgresql
+        networks:
+            - backend
+        # No `ports:` on purpose: the database is reachable only inside the internal network as host `db`.
+        healthcheck:
+            # pg_isready only checks that the server accepts connections; it never prints the password.
+            test:
+                [
+                    'CMD-SHELL',
+                    'pg_isready -q -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"',
+                ]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+            start_period: 20s
+
+networks:
+    # Internal: no route to the outside world. Only services that need the DB join it.
+    backend:
+        internal: true
+
+volumes:
+    # Named volume: survives `docker compose down` and `up --build -V`. Only `down -v` deletes it.
+    pgdata:

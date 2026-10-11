@@ -1,0 +1,137 @@
+# TravelEasy: development overrides. Never used in production.
+#
+# Loaded together with compose.yaml through COMPOSE_FILE in .env, or explicitly:
+#   docker compose -f compose.yaml -f compose.dev.yaml up -d --build
+#
+# - Source is bind-mounted; `app` serves PHP (changes visible on refresh), `vite` serves assets with HMR.
+# - vendor/ and node_modules/ come from the image as ANONYMOUS volumes over the bind mount, so they
+#   never land on Windows. `docker compose up -d --build -V` renews them; the named DB volume stays.
+# - Ports are published on 127.0.0.1 only (the dev server and /_inertia/devtools are unauthenticated).
+# - Optional tools run behind profiles: `docker compose --profile tools up -d` starts Adminer.
+
+# Shared definition for every container that runs the dev image (app, vite and, later, an `ssr`
+# profile service): add a service with `<<: *dev-image` and its own command/ports/environment.
+# Only `app` has a `build:` section, so the image is built once; the others reuse the local tag.
+x-dev-image: &dev-image
+    image: traveleasy-remake-dev:local
+    init: true
+    restart: unless-stopped
+    volumes:
+        - .:/var/www/html
+        # Anonymous volumes: filled from the image, hide the (empty) host folders.
+        - /var/www/html/vendor
+        - /var/www/html/node_modules
+
+services:
+    db:
+        volumes:
+            # Creates the `traveleasy_test` database on first initialisation of the volume (dev/test only).
+            - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+
+    app:
+        <<: *dev-image
+        build:
+            context: .
+            target: dev
+        environment:
+            CONTAINER_ROLE: app
+            # Run pending migrations when the container starts (never seeds). Set to false in .env to disable.
+            MIGRATE_ON_START: ${MIGRATE_ON_START:-true}
+            # Lets `php artisan serve` handle parallel requests (requires --no-reload; Laravel still reads
+            # .env on every request, so .env edits apply without a restart).
+            PHP_CLI_SERVER_WORKERS: ${PHP_CLI_SERVER_WORKERS:-4}
+        command:
+            [
+                'php',
+                'artisan',
+                'serve',
+                '--host=0.0.0.0',
+                '--port=8000',
+                '--no-reload',
+            ]
+        ports:
+            - '127.0.0.1:${APP_PORT:-8000}:8000'
+        networks:
+            - default
+            - backend
+        depends_on:
+            db:
+                condition: service_healthy
+        healthcheck:
+            test:
+                [
+                    'CMD',
+                    'curl',
+                    '-fsS',
+                    '-o',
+                    '/dev/null',
+                    'http://127.0.0.1:8000/up',
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 6
+            start_period: 90s
+
+    vite:
+        <<: *dev-image
+        pull_policy: never
+        environment:
+            CONTAINER_ROLE: vite
+            # Read by vite.config.ts. Inside the container Vite listens on all interfaces; the browser reaches it
+            # through the 127.0.0.1-only published port, so asset URLs use http://localhost:<VITE_PORT>.
+            VITE_HOST: 0.0.0.0
+            VITE_PORT: ${VITE_PORT:-5173}
+            VITE_USE_POLLING: ${VITE_USE_POLLING:-true}
+            VITE_POLLING_INTERVAL: ${VITE_POLLING_INTERVAL:-1000}
+        command: ['npm', 'run', 'dev']
+        ports:
+            # Same port inside and outside, so the URL Vite advertises (hot file, HMR socket) matches.
+            - '127.0.0.1:${VITE_PORT:-5173}:${VITE_PORT:-5173}'
+        networks:
+            - default
+        depends_on:
+            app:
+                condition: service_healthy
+        healthcheck:
+            test:
+                [
+                    'CMD-SHELL',
+                    'curl -fsS -o /dev/null "http://127.0.0.1:$${VITE_PORT}/@vite/client"',
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 6
+            start_period: 60s
+
+    adminer:
+        # Dev-only database GUI, opt-in: `docker compose --profile tools up -d`.
+        # No credentials are stored here; log in with DB_USERNAME / DB_PASSWORD / DB_DATABASE from .env.
+        image: adminer:6.1.1
+        profiles: ['tools']
+        restart: unless-stopped
+        environment:
+            # Only pre-fills the server field on the login page.
+            ADMINER_DEFAULT_SERVER: db
+            # Plugin bundled in the image: disables Adminer's version check, which otherwise calls
+            # https://www.adminer.org/version/ from the browser (no external requests in dev tools either).
+            ADMINER_PLUGINS: version-noverify
+        ports:
+            - '127.0.0.1:${ADMINER_PORT:-8081}:8080'
+        networks:
+            - default
+            - backend
+        depends_on:
+            db:
+                condition: service_healthy
+        healthcheck:
+            test:
+                [
+                    'CMD',
+                    'php',
+                    '-r',
+                    "exit(@file_get_contents('http://127.0.0.1:8080/') === false ? 1 : 0);",
+                ]
+            interval: 15s
+            timeout: 5s
+            retries: 3
+            start_period: 10s

@@ -1,0 +1,45 @@
+# Keep secrets, VCS data, dependency folders and local runtime state out of every image.
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+# Dependencies are installed inside the image from the lockfiles.
+vendor
+node_modules
+
+# Build output and runtime state
+public/build
+public/hot
+public/storage
+bootstrap/cache/*.php
+bootstrap/ssr
+storage/logs
+storage/framework/cache/data
+storage/framework/sessions/*
+storage/framework/testing
+storage/framework/views/*.php
+storage/inertia-devtools
+storage/pail
+storage/*.key
+.phpunit.cache
+.phpunit.result.cache
+coverage
+playwright-report
+test-results
+
+# Generated code (regenerated with `npm run generate`)
+resources/js/actions
+resources/js/routes
+resources/js/wayfinder
+resources/js/types/generated
+
+# Tooling and docs not needed in an image
+.claude
+.idea
+.vscode
+docs
+*.md
+!README.md
+compose*.yaml

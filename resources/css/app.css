@@ -1,4 +1,6 @@
-@import 'tailwindcss';
+/* Scan only resources/ for class names (plus the @source paths below), not the whole repo: keeps
+   CSS rebuilds fast on Windows bind mounts and keeps docs/ text out of the generated CSS. */
+@import 'tailwindcss' source('../');
 
 @import 'tw-animate-css';
 
