@@ -50,8 +50,8 @@
             "@php artisan dev"
         ],
         "lint": [
-            "pint --test",
-            "pint --test --config=pint.no-strict-types.json bootstrap config public"
+            "pint --test -v",
+            "pint --test -v --config=pint.no-strict-types.json bootstrap config public"
         ],
         "format": [
             "pint",
