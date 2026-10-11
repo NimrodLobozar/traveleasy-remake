@@ -46,6 +46,10 @@ database by accident.
 - [ ] AC7 (troubleshooting): covers at least: HMR not updating (polling env vars), port 8000/5173 already in use
       (`APP_PORT`/`VITE_PORT`), slow file access on bind mounts and the option of cloning into the WSL file system
       (with its trade-offs), CRLF line-ending errors in scripts, and the Playwright image/version mismatch.
+- [ ] AC7a (database GUI): `dev.md` documents Adminer from TE-002 (AC18–AC22): that it is dev-only and opt-in, how to
+      start and stop it (`docker compose --profile tools up -d` / `docker compose stop adminer`), the URL
+      (`http://localhost:8081`, `ADMINER_PORT`), and the login values (system PostgreSQL, server `db`, and
+      `DB_USERNAME` / `DB_PASSWORD` / `DB_DATABASE` from `.env`; no stored credentials).
 - [ ] AC8 (no mail): states that there is no mail catcher because the app sends no e-mail (link ADR-0005).
 - [ ] AC9 (`docs/testing.md`, strategy): describes the layers (Pest unit, Pest feature, Pest arch, Vitest component +
       axe, Playwright e2e + axe) with what belongs in each, where the files live, naming conventions, and the rules from

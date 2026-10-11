@@ -22,8 +22,11 @@ matches how the app runs on the home server.
 - ADR-0005: no mail catcher (no Mailpit).
 - **Depends on:** TE-001 (the image installs its `composer.json` / `package.json`). **Blocks:** TE-003, TE-004,
   TE-005 (their commands run in these containers) and TE-006.
-- The repo lives at `C:\dev\traveleasy-remake` on NTFS (outside OneDrive); Docker Desktop is assumed to use the
-  WSL 2 backend (see Open questions). Bind mounts from NTFS don't deliver file events reliably, hence polling.
+- The repo lives at `C:\dev\traveleasy-remake` on NTFS (outside OneDrive); Docker Desktop uses the WSL 2 backend
+  (confirmed 2026-10-11, see Answered questions). Bind mounts from NTFS don't deliver file events reliably, hence
+  polling.
+- **Database GUI (owner request 2026-10-11).** The owner wants to browse the dev database in a web GUI. phpMyAdmin is
+  MySQL/MariaDB-only, so this story adds **Adminer** (supports PostgreSQL) as a dev-only, opt-in tool (AC18–AC22).
 - **`compose.yaml` vs `compose.dev.yaml`.** `compose.yaml` holds what dev and production share: the `db` service
   (pinned image, named volume, health check, no host port, secrets from env) and the network. The production
   `app` definition (GHCR image, `ssr`, `worker`, `scheduler`, limits, NPM network) is added by the "First
@@ -78,18 +81,38 @@ matches how the app runs on the home server.
 - [ ] AC13 (in-container commands): these work from the repo root and are listed in the handoff:
       `docker compose exec app php artisan <cmd>`, `docker compose exec app composer <cmd>`,
       `docker compose exec vite npm <cmd>`, `docker compose exec app php artisan test`.
-- [ ] AC14 (services): `docker compose config --services` lists exactly the dev services (`app`, `vite`, `db`, or
-      equivalent names stated in the handoff). There is no mail catcher, no `ssr`, worker or scheduler service yet.
+- [ ] AC14 (services): without a profile, `docker compose config --services` lists exactly the dev services (`app`,
+      `vite`, `db`, or equivalent names stated in the handoff); with `--profile tools` it additionally lists `adminer`.
+      There is no mail catcher, no `ssr`, worker or scheduler service yet.
 - [ ] AC15 (base file stands alone): `docker compose -f compose.yaml config` succeeds with the required env set,
-      and `compose.yaml` contains no bind mounts of the source, no Vite service and no dev ports.
+      and `compose.yaml` contains no bind mounts of the source, no Vite service, no `adminer` service and no dev ports.
 - [ ] AC16 (line endings): Given a clone made with `core.autocrlf=true`, the containers still start (shell scripts are
       LF via `.gitattributes`, which already forces LF by default; any entrypoint script is covered).
 - [ ] AC17 (starter tests on PostgreSQL): `docker compose exec app php artisan test` runs the starter-kit tests
       against PostgreSQL and passes: `phpunit.xml` sets `DB_CONNECTION=pgsql` and `DB_DATABASE=traveleasy_test`
       (no SQLite in-memory). TE-004 then adds the safety guard and the arch tests.
+- [ ] AC18 (Adminer, dev-only and opt-in): an `adminer` service exists **only** in `compose.dev.yaml` (never in
+      `compose.yaml` or any production file) and is assigned to the `tools` profile. Plain `docker compose up -d`
+      does not start it (`docker compose ps` doesn't list it); `docker compose --profile tools up -d` starts it.
+      `.env.example` does not set `COMPOSE_PROFILES=tools` (it may document it, commented out).
+- [ ] AC19 (Adminer image): uses the official `adminer` image pinned to at least major.minor (e.g. `adminer:5.x`,
+      no `latest`). `ADMINER_DESIGN` and plugins are used only if they ship inside that image; the login page loads
+      no resource from outside `localhost` (browser network tab shows no external request).
+- [ ] AC20 (Adminer, localhost only): published on `127.0.0.1` only (`ADMINER_PORT`, default 8081, in
+      `.env.example`), never `0.0.0.0`; `docker compose --profile tools port adminer 8080` shows `127.0.0.1:8081`.
+      From another device on the LAN, `http://<pc-ip>:8081` is not reachable.
+- [ ] AC21 (Adminer → db internally): with the `tools` profile running, the developer opens `http://localhost:8081`,
+      chooses system "PostgreSQL", server `db`, and the username, password and database from `.env`
+      (`DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`), and can browse the tables and rows created by `migrate`
+      (e.g. `users`, `migrations`). `traveleasy_test` is reachable the same way. AC10 still holds: `db` has no
+      published port in either file, also with `--profile tools`.
+- [ ] AC22 (no stored credentials): no username or password for Adminer or the DB is set in the `adminer` service
+      definition, in an Adminer plugin/config file or in the image (e.g. no auto-login or `login-password-less`
+      plugin); a wrong password shows Adminer's login error and grants no access. Pre-filling only the server name
+      (`ADMINER_DEFAULT_SERVER=db`) is allowed.
 
 ## Quality criteria
-- [ ] Tests: QA runs AC2–AC17 manually on Windows and records timings for AC4 and AC5 in the verdict.
+- [ ] Tests: QA runs AC2–AC22 manually on Windows and records timings for AC4 and AC5 in the verdict.
 - [ ] Accessibility: not applicable (no UI change).
 - [ ] Security/privacy:
   - No default or example passwords in compose files, Dockerfiles or `.env.example`; secrets only from `.env`.
@@ -100,10 +123,15 @@ matches how the app runs on the home server.
   - No secrets are baked into images (`docker history` shows no `.env` content); `.dockerignore` excludes `.env`,
     `vendor`, `node_modules`, `.git`, `storage/logs`.
   - The DB health check doesn't print the password.
+  - Adminer (security-privacy-reviewer checks AC18–AC22): dev-only file, opt-in `tools` profile, pinned official
+    image, bound to `127.0.0.1`, no published DB port, no stored/default credentials, no auto-login plugin, no
+    runtime CDN or external request, no bind mounts into the `adminer` container. The reviewer confirms nothing
+    Adminer-related can reach `compose.yaml` or a production image.
 - [ ] i18n: not applicable.
 - [ ] Performance: AC4 (≤ 3 s HMR) and AC5 (idle CPU) are the budget. First `up --build` time is reported, not gated.
 - [ ] Docs updated: the handoff lists the commands, ports, service names, image versions and the "existing volume →
-      create test DB" step for TE-006.
+      create test DB" step for TE-006, plus the Adminer start/stop commands (`--profile tools`), URL, `ADMINER_PORT`
+      and which `.env` values to enter on the login page.
 - [ ] Docker rebuild: n/a (this story creates the environment).
 
 ## Out of scope
@@ -113,10 +141,17 @@ matches how the app runs on the home server.
 - Running the dev environment from the WSL file system (documented as an option in TE-006, not built).
 
 ## Open questions
-- Q1 (owner): Do you run Docker Desktop with the WSL 2 backend? *Assumption: yes.*
-- Q2 (owner): Do you want the dev database reachable from Windows for a GUI client (e.g. DBeaver) on
-  `127.0.0.1:5432` only, through an opt-in profile? *Assumption: no; use `docker compose exec db psql`. Easy to add
-  later.*
+- (none)
+
+### Answered (2026-10-11)
+- Q1 (owner): Do you run Docker Desktop with the WSL 2 backend? **Yes, confirmed.** `docker info` shows Docker
+  Desktop with kernel `6.18.40.1-microsoft-standard-WSL2`; `wsl -l -v` shows `docker-desktop` at version 2; Docker
+  29.8.2, Compose v5.5.1. The repo stays on the Windows file system (`C:\dev\traveleasy-remake`), so the
+  polling-based HMR criteria (AC4, AC5) stay as written.
+- Q2 (owner): Do you want a GUI for the dev database? **Yes, a web GUI.** phpMyAdmin is MySQL-only, so Adminer
+  (PostgreSQL support) is added as a dev-only service behind the opt-in `tools` profile on `127.0.0.1:8081`,
+  connecting to `db` over the internal network; the DB port stays unpublished. Added AC18–AC22 and the matching
+  security/privacy and docs criteria; checked by the security-privacy-reviewer (already a tester on this story).
 
 ## Rework log
 (empty)
