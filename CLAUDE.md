@@ -16,7 +16,7 @@ had (all of them must come back, in better form) and every mistake that must not
 | Legacy analysis | Done (`docs/legacy-analysis.md`) |
 | Agent team + workflow | Done (`.claude/agents/`, see § How work flows) |
 | Tech-stack decision | Done: `docs/adr/0001-tech-stack.md` (Accepted) |
-| Product plan / roadmap | Not started (`docs/plan.md`) |
+| Product plan / roadmap | Done: `docs/plan.md` (Accepted); ADR-0006 demo mode Proposed, open points in § 10 |
 | Design system | Not started (`docs/design/`, links in `docs/design/previews.md`) |
 | Scaffolding + Docker dev env | Not started |
 
@@ -31,6 +31,11 @@ Update this table when a phase changes.
 - 2026-10-11: The AI chatbot is **nice-to-have and built last** (`docs/backlog/ideas.md`).
 - 2026-10-11: Stack = **Laravel + Inertia + React + TypeScript + PostgreSQL** (ADR-0001).
 - 2026-10-11: Public repo `NimrodLobozar/traveleasy-remake`; project lives at `C:\dev\traveleasy-remake` (outside OneDrive).
+- 2026-10-11: The live site is a **public portfolio demo** (open customer registration, published demo accounts); first internet exposure at the end of M6 (`docs/plan.md`).
+- 2026-10-11: **Demo mode** (`DEMO_MODE`, off by default) with locked demo accounts and a nightly reset is an owner-approved, config-driven exception to "no demo-only hacks" (`docs/adr/0006-demo-mode.md`).
+- 2026-10-11: **Real flight + hotel packages** are in scope, as milestone M9 (`docs/plan.md`).
+- 2026-10-11: **Inertia SSR** is on for SEO: an `ssr` Node process in dev, CI and production from M0 (`docs/plan.md` M0).
+- 2026-10-11: The live demo sends **real e-mail** through a provider on the owner's subdomain (SPF/DKIM/DMARC; provider ADR in M6); Mailpit stays in dev.
 
 ## Tech stack
 
