@@ -1,7 +1,7 @@
 ---
 id: TE-002
 title: Docker dev environment with hot reload and a PostgreSQL named volume
-status: in-progress
+status: in-test
 priority: must
 epic: M0 Docker dev environment
 agents: [devops-engineer, backend-developer, frontend-developer]
