@@ -18,7 +18,7 @@ had (all of them must come back, in better form) and every mistake that must not
 | Tech-stack decision | Done: `docs/adr/0001-tech-stack.md` (Accepted) |
 | Product plan / roadmap | Done: `docs/plan.md` (Accepted); ADR-0006 demo mode Proposed, open points in § 10 |
 | Design system | Not started (`docs/design/`, links in `docs/design/previews.md`) |
-| Scaffolding + Docker dev env | Not started |
+| Scaffolding + Docker dev env | In progress: TE-001, TE-002 done; TE-003 to TE-006 open (`docs/stories/`) |
 
 Update this table when a phase changes.
 
