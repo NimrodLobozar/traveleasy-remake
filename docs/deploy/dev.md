@@ -89,23 +89,38 @@ Don't use `docker volume prune` to clean up: it also deletes dangling volumes of
 ## Browser tests (Playwright + axe)
 - Run: `docker compose run --rm e2e` (needs `app` and `vite` healthy; it runs `npm run test:e2e` in Chromium and
   removes its container afterwards). Plain `docker compose up -d` never starts it (profile `e2e`).
-- One file or extra flags: `docker compose run --rm e2e npx playwright test --config tests/e2e/playwright.config.ts smoke`
-  (a plain `npx playwright test` won't find the config).
-- Reports land in the repo: `playwright-report/index.html` (open it in a browser on Windows) and, on failure,
-  screenshots, `error-context.md` and `trace.zip` in `test-results/`. Both are git-ignored and can be deleted from
-  Windows. Traces can hold page content: don't upload them to online trace viewers.
+- One file or extra flags: `docker compose run --rm e2e npx playwright test --config tests/e2e/playwright.config.ts --output=test-results/e2e smoke`.
+  Keep `--output=test-results/e2e` in custom commands (see "Reports"); a plain `npx playwright test` won't find the
+  config.
+- Reports land in the repo, one level down: `playwright-report/html/index.html` (open it in a browser on Windows)
+  and, on failure, screenshots, `error-context.md` and `trace.zip` in `test-results/e2e/`. Both folders are
+  git-ignored and can be deleted from Windows. Traces can hold page content: don't upload them to online trace
+  viewers. Why one level down: the repo is mounted read-only, and Playwright deletes and recreates its output
+  folders, which fails on a mount point (`EROFS`).
 - How it reaches the app: the container shares `vite`'s network namespace, so `localhost:5173` is the real Vite
   server and the page's JavaScript really loads; Playwright forwards `localhost:8000` to `app:8000`.
-- Isolation: the official image `mcr.microsoft.com/playwright:v1.64.0-noble`, uid 1000, read-only root file system,
-  no capabilities. `.env` is masked (an empty read-only file) and `storage/` is an empty tmpfs; the only variables
-  are `E2E_BASE_URL` and `E2E_FORWARD`. It can't reach the database. Don't create other secret files such as
-  `.env.testing` in the repo: they would be visible to it.
+- Isolation:
+  - Official image `mcr.microsoft.com/playwright:v1.64.0-noble`, uid 1001, read-only root file system, no
+    capabilities, `no-new-privileges`. It can't reach the database.
+  - The repo is mounted **read-only** (it can't change code or `.git`). `node_modules`/`vendor` come from `vite` and
+    belong to uid 1000, so it can only read them. The only writable folders are `playwright-report/` and
+    `test-results/`.
+  - `.env` is masked (an empty read-only file); `storage/` and `bootstrap/cache/` are empty tmpfs mounts. The only
+    variables are the `E2E_*` ones, `HOME` and `PLAYWRIGHT_HTML_OUTPUT_DIR`.
+  - **Adding another `.env*` file** in the repo root (other than `.env.example`): add a read-only `/dev/null` mask
+    for it to the `e2e` service. The compose contract test (`tests/Unit/DockerDevEnvironmentContractTest.php`) fails
+    until you do.
 - **Upgrading Playwright.** The image tag must equal `@playwright/test` (pinned exactly, no `^`). Change the version
   in `package.json`, run `docker compose exec vite npm install`, set the same version in the `e2e` image tag in
   `compose.dev.yaml`, then rebuild (`docker compose up -d --build -V`). `tests/Unit/PlaywrightImageVersionSyncTest.php`
   fails while they differ.
 - If `app` runs an older image than the latest build, `docker compose run --rm e2e` first recreates `app`
   (dependencies are brought up to date). Add `--no-deps` to leave running services alone.
+- **One run at a time.** All runs share `vite`'s network namespace and the same report folders; a second run started
+  while one is going fails with `EADDRINUSE 127.0.0.1:8000`.
+- `EACCES` on the report folders: they were created by another user (e.g. uid 1000 from an older setup). Delete
+  `playwright-report/` and `test-results/` from Windows and run again; Docker recreates them writable. In the WSL file
+  system, create them yourself and make them writable for uid 1001.
 
 ## Database GUI (Adminer, dev only)
 - Start: `docker compose --profile tools up -d`

@@ -106,7 +106,7 @@ services:
     e2e:
         # Playwright + axe browser tests (TE-005), opt-in and one-shot: `docker compose run --rm e2e`.
         # Runs `npm run test:e2e` in Chromium; extra args replace the command, e.g.
-        # `docker compose run --rm e2e npx playwright test --config tests/e2e/playwright.config.ts smoke`.
+        # `docker compose run --rm e2e npx playwright test --config tests/e2e/playwright.config.ts --output=test-results/e2e smoke`.
         #
         # VERSION SYNC: the image tag MUST equal @playwright/test in package.json/package-lock.json (pinned
         # exactly). Bump both in one commit; tests/Unit/PlaywrightImageVersionSyncTest.php fails otherwise.
@@ -117,24 +117,37 @@ services:
         # forwards localhost:8000 to app:8000 (E2E_FORWARD), so the browser keeps the same origins as on the
         # host. vite is on the `default` network only, so this container cannot reach the database.
         network_mode: 'service:vite'
-        # The repo bind mount plus vite's node_modules volume (same image, same lockfile, includes
-        # @playwright/test). The bind mount is writable so the reports land on Windows.
+        # Source READ-ONLY, so the container can't change code or .git (no hook injection into Windows git):
+        # - `.:/var/www/html:ro` replaces the repo bind that volumes_from brings in. (Compose drops the mode
+        #   of `volumes_from: [vite:ro]`, verified on Compose 5.5.1, so the read-only root is set explicitly.)
+        # - volumes_from adds vite's node_modules (same image and lockfile, includes @playwright/test) and
+        #   vendor. Those volumes are mounted rw, but they are owned by uid 1000 (755) and this container runs
+        #   as uid 1001 without capabilities, so it can only read them.
         volumes_from:
             - vite
         volumes:
-            # Secrets masking: the tests only need the base URL, never .env (APP_KEY, DB_PASSWORD). An empty
-            # read-only file hides it; storage/ (logs, private uploads) is hidden behind an empty tmpfs.
+            - .:/var/www/html:ro
+            # The only writable binds: Playwright's reports, so they open on Windows (both git-ignored).
+            - ./playwright-report:/var/www/html/playwright-report
+            - ./test-results:/var/www/html/test-results
+            # Secrets masking: the tests only need the base URL. Every `.env*` file in the repo root except
+            # .env.example gets an empty read-only mask here; the compose contract test fails when one is
+            # missing, so add a mask when you add such a file (only existing files can be masked).
             - type: bind
               source: /dev/null
               target: /var/www/html/.env
               read_only: true
+        # Empty tmpfs over runtime state that can hold secrets or personal data: storage/ (logs, sessions,
+        # private uploads) and bootstrap/cache (a cached config contains the resolved .env values).
         tmpfs:
             - /var/www/html/storage:size=1m
+            - /var/www/html/bootstrap/cache:size=1m
             - /tmp
         working_dir: /var/www/html
-        # uid 1000 (`ubuntu` in the image) = `app` in the dev image: owns vite's node_modules, and report
-        # files are never root-owned (matters when the repo lives in the WSL file system).
-        user: '1000:1000'
+        # uid 1001 = `pwuser` in the image: NOT the owner (1000) of node_modules/vendor, so it can't write them.
+        # The report folders are created by Docker on NTFS (world-writable, owned by you on Windows). If a run
+        # fails with EACCES on them, delete both folders from Windows and run again.
+        user: '1001:1001'
         init: true
         # Chromium needs more than Docker's 64 MB /dev/shm; a larger shm avoids sharing the host IPC
         # namespace (`ipc: host`).
@@ -148,7 +161,12 @@ services:
             E2E_FORWARD: 8000=app:8000
             NPM_CONFIG_UPDATE_NOTIFIER: 'false'
             HOME: /tmp
-        command: ['npm', 'run', 'test:e2e']
+            # Playwright deletes and recreates its output folders, which fails on a mount point under the
+            # read-only repo (EROFS). So both outputs go one level down, inside the writable binds:
+            # the HTML report to playwright-report/html (this variable beats the config) and traces/screenshots
+            # to test-results/e2e (`--output` below; add it to custom commands too).
+            PLAYWRIGHT_HTML_OUTPUT_DIR: /var/www/html/playwright-report/html
+        command: ['npm', 'run', 'test:e2e', '--', '--output=test-results/e2e']
         depends_on:
             app:
                 condition: service_healthy

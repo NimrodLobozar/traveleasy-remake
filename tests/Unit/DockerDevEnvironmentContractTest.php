@@ -143,18 +143,83 @@ test('compose.dev.yaml has exactly the dev services, Adminer and e2e only behind
         ->and($services['vite'])->not->toHaveKey('profiles');
 });
 
-test('the e2e service sees no .env secrets, no database and publishes nothing', function () {
-    $e2e = Arr::array(composeFile('compose.dev.yaml'), 'services.e2e');
-    $masks = array_filter(
-        Arr::array($e2e, 'volumes'),
-        fn (mixed $volume): bool => is_array($volume) && ($volume['target'] ?? null) === '/var/www/html/.env',
+// --- TE-005 AC11, AC12 + security QC: the e2e (Playwright) container -----------------------------
+
+/** @return array<array-key, mixed> */
+function e2eService(): array
+{
+    return Arr::array(composeFile('compose.dev.yaml'), 'services.e2e');
+}
+
+test('the e2e service sees no app environment, no database and publishes nothing', function () {
+    $e2e = e2eService();
+
+    expect($e2e)->not->toHaveKeys(['env_file', 'ports', 'networks', 'build', 'privileged', 'cap_add'])
+        ->and($e2e['network_mode'] ?? null)->toBe('service:vite')
+        ->and(array_keys(Arr::array($e2e, 'environment')))->toEqualCanonicalizing(
+            ['E2E_BASE_URL', 'E2E_FORWARD', 'NPM_CONFIG_UPDATE_NOTIFIER', 'HOME', 'PLAYWRIGHT_HTML_OUTPUT_DIR'],
+        )
+        // uid 1001: not the owner (1000) of vite's node_modules/vendor volumes, so it can only read them.
+        ->and($e2e['user'] ?? null)->toBe('1001:1001')
+        ->and($e2e['read_only'] ?? null)->toBeTrue()
+        ->and($e2e['cap_drop'] ?? null)->toBe(['ALL']);
+});
+
+test('AC11 the e2e service mounts the source read-only; only the two report folders are writable', function () {
+    $e2e = e2eService();
+    $writable = [];
+    $readOnlySource = false;
+
+    foreach (Arr::array($e2e, 'volumes') as $volume) {
+        if (is_string($volume)) {
+            if ($volume === '.:/var/www/html:ro') {
+                $readOnlySource = true;
+            } elseif (! str_ends_with($volume, ':ro')) {
+                $writable[] = $volume;
+            }
+        } elseif ((asArray($volume)['read_only'] ?? false) !== true) {
+            $writable[] = asString(asArray($volume)['target'] ?? '?');
+        }
+    }
+
+    // Compose drops the mode of `volumes_from: [vite:ro]`, so the read-only repo bind must be explicit.
+    expect($readOnlySource)->toBeTrue('e2e must mount `.:/var/www/html:ro` over the repo bind from volumes_from')
+        ->and($e2e['volumes_from'] ?? null)->toBe(['vite'])
+        ->and($writable)->toEqualCanonicalizing([
+            './playwright-report:/var/www/html/playwright-report',
+            './test-results:/var/www/html/test-results',
+        ]);
+});
+
+test('AC12 the e2e service hides storage/ and bootstrap/cache behind empty tmpfs mounts', function () {
+    $tmpfs = array_map(
+        fn (mixed $entry): string => explode(':', asString($entry))[0],
+        Arr::array(e2eService(), 'tmpfs'),
     );
 
-    expect($e2e)->not->toHaveKeys(['env_file', 'ports', 'networks', 'build'])
-        ->and($e2e['network_mode'] ?? null)->toBe('service:vite')
-        ->and(array_values($masks))->toBe([['type' => 'bind', 'source' => '/dev/null', 'target' => '/var/www/html/.env', 'read_only' => true]])
-        ->and(array_keys(Arr::array($e2e, 'environment')))->toEqualCanonicalizing(['E2E_BASE_URL', 'E2E_FORWARD', 'NPM_CONFIG_UPDATE_NOTIFIER', 'HOME'])
-        ->and($e2e['user'] ?? null)->toBe('1000:1000');
+    expect($tmpfs)->toContain('/var/www/html/storage', '/var/www/html/bootstrap/cache');
+});
+
+test('AC12 every .env* file in the repo root except .env.example is masked in the e2e service', function () {
+    $masked = [];
+    foreach (Arr::array(e2eService(), 'volumes') as $volume) {
+        if (is_array($volume) && ($volume['source'] ?? null) === '/dev/null' && ($volume['read_only'] ?? null) === true) {
+            $masked[] = asString($volume['target'] ?? '');
+        }
+    }
+
+    $secretFiles = array_values(array_filter(
+        array_map(basename(...), glob(base_path('.env*')) ?: []),
+        fn (string $file): bool => $file !== '.env.example',
+    ));
+    $unmasked = array_values(array_diff(
+        array_map(fn (string $file): string => "/var/www/html/{$file}", $secretFiles),
+        $masked,
+    ));
+
+    expect($unmasked)->toBe([], 'Add a read-only /dev/null mask to the e2e service in compose.dev.yaml for: '.implode(', ', $unmasked))
+        // The dev stack can't run without .env, so its mask must always be there.
+        ->and($masked)->toContain('/var/www/html/.env');
 });
 
 test('the adminer service stores no credentials, mounts nothing and is pinned', function () {
