@@ -43,6 +43,9 @@ How we get there:
 - All UI strings exist in nl and en. Data that is new or changed is recorded in `docs/privacy/data-inventory.md`,
   and from M6 on, the export and erasure tests cover it.
 - If the story touches anything demo mode changes (ADR-0006), it has tests with `DEMO_MODE` **on and off**.
+- If the story adds or changes a production env var, it also updates the Portainer env file
+  (`deploy/portainer.env.example`; the name is devops' choice) with a working default and a one-line comment, or
+  marks it as a secret there and adds it to the secrets helper (see M0, "One-file Portainer deploy").
 - The task-writer has closed it with a changelog.
 
 ### A milestone is done when
@@ -120,6 +123,24 @@ switch, skip link, light/dark theme, error pages) on the home server from your L
 - **First deploy to CasaOS/Portainer**, reachable on the LAN only (an NPM proxy host with a LAN access list, or
   a LAN port). Secrets come from env with `${VAR:?}` and there are no default passwords. `docs/deploy/dev.md`
   and `docs/deploy/casaos-portainer.md` v1. *(legacy §3 Security: default passwords; Engineering: image built on server)*
+- **One-file Portainer deploy (owner requirement).** The owner deploys by loading **one env file** into Portainer
+  and changing only the secrets. This stays true for every later milestone.
+  - A committed `deploy/portainer.env.example` (the name is devops' choice) holds **every** variable the
+    production `compose.yaml` needs, with working production defaults: `APP_ENV=production`, `APP_DEBUG=false`,
+    the pinned image tag, the app URL, ports, resource-related settings, and (from M1) `DEMO_MODE=true` for the
+    live demo. Each variable has a one-line comment. The format is plain `KEY=value` lines with `#` comments, which
+    Portainer's "Load variables from .env file" accepts (no quotes-dependent or multi-line values, no `export`).
+  - The **only** values the owner fills in are clearly marked secrets (e.g. a `# SECRET: generate with …` comment and
+    an empty value): the DB password, `APP_KEY`, and (from M1) `SUPER_ADMIN_PASSWORD_HASH` and `SUPER_ADMIN_TOTP_SECRET`.
+  - **One documented helper command** generates them, run with Docker from the published image (no PHP on the host),
+    e.g. `docker run --rm -it ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan traveleasy:generate-secrets`. It
+    prints a random DB password and an `APP_KEY`, asks for the super_admin password (hidden input) and prints its
+    hash, and generates the TOTP secret with a terminal QR code for the authenticator app. The output is ready-to-paste
+    `KEY=value` lines. Nothing is written to disk or logged.
+  - `compose.yaml` uses `${VAR:?…}` for every one of those secrets, so a forgotten secret makes the deploy fail
+    loudly instead of starting with a default.
+  - `docs/deploy/casaos-portainer.md` walks through it step by step: generate secrets → create the stack → load the
+    env file → paste the secrets → deploy.
 
 **SSR impact (Q15)**
 - **One more long-running process** in production (`ssr`, Node), roughly 100–200 MB RAM. Resource limits are set
@@ -138,7 +159,10 @@ secrets).
 
 **Exit criteria:** milestone DoD (§ 2), plus: a code change shows up in the browser without a rebuild (checked on
 Windows); the page source of the shell contains server-rendered HTML; `v0.0.x` runs on the home server with
-healthy services and no host-exposed DB port.
+healthy services and no host-exposed DB port; **a deploy from a fresh Portainer stack works with only the env file
+plus the generated secrets**, following `docs/deploy/casaos-portainer.md` step by step, and leaving out one secret
+makes the deploy fail with a clear message. Every later milestone's redeploy re-checks this with that milestone's
+version of the file.
 
 **Candidate epics / stories**
 - Epic: Project scaffold and tooling
@@ -170,7 +194,9 @@ healthy services and no host-exposed DB port.
   - Implement base components on React Aria with Vitest + axe tests
 - Epic: First home-server deploy
   - Production `compose.yaml` for Portainer (pinned tag, health checks, limits, `ssr` service)
-  - First LAN-only deploy and `docs/deploy/casaos-portainer.md`
+  - Portainer env file with every production variable, working defaults and comments
+  - Secrets helper command run from the image (DB password, APP_KEY, super_admin hash and TOTP secret)
+  - First LAN-only deploy from a fresh stack with only the env file and `docs/deploy/casaos-portainer.md`
 
 **Risks**
 - File-watching on Windows bind mounts is unreliable. Mitigation: polling, and documenting the WSL file-system option.
@@ -1072,7 +1098,7 @@ All items in `legacy-analysis.md` §2, §3 and §4 are placed. The only delibera
 | **Demo mode** | Any behaviour that differs in demo mode goes through the `DemoMode` service, is listed in ADR-0006, and is tested on **and** off | backend-developer | Arch test; qa |
 | **Testing** | Unit for rules, feature per endpoint (happy, validation, unauthenticated, unauthorized, not found), e2e per journey with axe on the SSR build; deterministic (frozen clock, fakes, fake payment provider; no mail exists to fake); bug fixes start with a failing test | qa-engineer (`docs/testing.md`) | CI blocks the image publish |
 | **Performance** | SSR-safe, code-split pages; responsive images; indexed queries checked with `EXPLAIN`; no N+1 (`preventLazyLoading` in dev/test) | frontend / database | Lighthouse gate on public pages |
-| **Deployability** | `main` is always deployable; new env vars go into `.env.example` and the deploy docs; migrations are reversible and safe to run on start | devops-engineer | Milestone redeploy to the home server |
+| **Deployability** | `main` is always deployable; new env vars go into `.env.example`, the Portainer env file (or the secrets helper) and the deploy docs; migrations are reversible and safe to run on start | devops-engineer | Milestone redeploy to the home server |
 
 ## 7. Cross-cutting architecture (baseline for all stories)
 
