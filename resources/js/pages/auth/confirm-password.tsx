@@ -36,6 +36,7 @@ export default function ConfirmPassword() {
                                 name="password"
                                 placeholder="Password"
                                 autoComplete="current-password"
+                                // oxlint-disable-next-line jsx-a11y/no-autofocus -- intended focus management: the password is the single purpose of this page
                                 autoFocus
                             />
 

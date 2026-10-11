@@ -1,6 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Models\User;
+use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -16,7 +19,7 @@ function envExampleVariables(): array
 {
     $vars = [];
 
-    foreach (file(base_path('.env.example'), FILE_IGNORE_NEW_LINES) as $line) {
+    foreach (fileLines(base_path('.env.example')) as $line) {
         if (preg_match('/^([A-Z0-9_]+)=(.*)$/', $line, $m) === 1) {
             $vars[$m[1]] = $m[2];
         }
@@ -69,9 +72,9 @@ test('MAIL_MAILER=smtp in the environment still boots the app with the array mai
     try {
         $this->refreshApplication();
 
-        expect(env('MAIL_MAILER'))->toBe('smtp')
+        expect(Env::get('MAIL_MAILER'))->toBe('smtp')
             ->and(config('mail.default'))->toBe('array')
-            ->and(array_keys(config('mail.mailers')))->toBe(['array']);
+            ->and(array_keys(config()->array('mail.mailers')))->toBe(['array']);
     } finally {
         foreach ($saved as $key => $value) {
             $value === false ? putenv($key) : putenv("{$key}={$value}");
@@ -94,7 +97,7 @@ test('the user factory and model work without email_verified_at', function () {
     $user = User::factory()->create();
 
     expect($user->getCasts())->not->toHaveKey('email_verified_at')
-        ->and($user->fresh()->getAttributes())->not->toHaveKey('email_verified_at');
+        ->and($user->refresh()->getAttributes())->not->toHaveKey('email_verified_at');
 });
 
 test('a profile e-mail change is saved without any verification reset', function () {
@@ -129,7 +132,7 @@ test('the removed mail-flow pages do not exist and login has no forgot-password 
         expect(file_exists(resource_path("js/pages/auth/{$page}.tsx")))->toBeFalse();
     }
 
-    $login = file_get_contents(resource_path('js/pages/auth/login.tsx'));
+    $login = fileContents(resource_path('js/pages/auth/login.tsx'));
 
     expect(strtolower($login))->not->toContain('forgot')
         ->and(strtolower($login))->not->toContain('wachtwoord vergeten')
@@ -153,7 +156,7 @@ test('.env.example targets PostgreSQL with an empty password', function () {
 });
 
 test('.env.example has no mail, SMTP or Mailpit variables', function () {
-    $content = file_get_contents(base_path('.env.example'));
+    $content = fileContents(base_path('.env.example'));
 
     $mailish = array_filter(
         array_keys(envExampleVariables()),
@@ -166,7 +169,7 @@ test('.env.example has no mail, SMTP or Mailpit variables', function () {
 });
 
 test('every variable in .env.example has a comment on the line above', function () {
-    $lines = file(base_path('.env.example'), FILE_IGNORE_NEW_LINES);
+    $lines = fileLines(base_path('.env.example'));
     $uncommented = [];
 
     foreach ($lines as $i => $line) {
@@ -182,22 +185,22 @@ test('every variable in .env.example has a comment on the line above', function 
 });
 
 test('APP_DEBUG=true is documented as dev-only with production false', function () {
-    $lines = file(base_path('.env.example'), FILE_IGNORE_NEW_LINES);
+    $lines = fileLines(base_path('.env.example'));
     $index = array_search('APP_DEBUG=true', $lines, true);
+    $previous = is_int($index) ? ($lines[$index - 1] ?? '') : null;
 
-    expect($index)->not->toBeFalse()
-        ->and($lines[$index - 1])->toContain('APP_DEBUG=false');
+    expect($previous)->toBeString()->toContain('APP_DEBUG=false');
 });
 
 // --- Security QC: no third-party font host in the HTML ---------------------
 
 test('the root HTML references no external host', function () {
-    $html = $this->get(route('home'))->assertOk()->getContent();
+    $html = asString($this->get(route('home'))->assertOk()->getContent());
 
     preg_match_all('/(?:src|href)="((?:https?:)?\/\/[^"]+)"/i', $html, $matches);
     $foreignHosts = array_values(array_filter(
         array_map(fn (string $url) => parse_url($url, PHP_URL_HOST), $matches[1]),
-        fn (?string $host) => $host !== parse_url(config('app.url'), PHP_URL_HOST),
+        fn (string|false|null $host) => $host !== parse_url(config()->string('app.url'), PHP_URL_HOST),
     ));
 
     expect($html)->not->toContain('fonts.bunny.net')

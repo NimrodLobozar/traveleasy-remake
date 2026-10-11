@@ -1,6 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Assert;
 use Symfony\Component\Process\Process;
 use Tests\Support\TestDatabase;
 use Tests\TestCase;
@@ -22,10 +26,14 @@ const TE002_NESTED_FLAG = 'TE002_NESTED_ISOLATION_PROBE';
 const TE002_DEV_DATABASE = 'traveleasy';
 const TE002_VOLATILE_TABLES = ['sessions', 'cache', 'cache_locks'];
 
-/** Read-only snapshot of the dev database: table => [oid, row count], or 'absent'. */
+/**
+ * Read-only snapshot of the dev database: table => [oid, row count], or 'absent'.
+ *
+ * @return array<string, array{oid: int, rows: int|'volatile'}>|'absent'
+ */
 function devDatabaseSnapshot(): array|string
 {
-    $config = config('database.connections.pgsql');
+    $config = config()->array('database.connections.pgsql');
     $config['database'] = TE002_DEV_DATABASE;
     $config['url'] = null;
     $config['name'] = 'te002_dev_snapshot';
@@ -39,12 +47,13 @@ function devDatabaseSnapshot(): array|string
             where n.nspname = 'public' and c.relkind = 'r' order by c.relname");
 
         foreach ($tables as $table) {
-            $quoted = '"'.str_replace('"', '""', $table->relname).'"';
-            $snapshot[$table->relname] = [
-                'oid' => (int) $table->oid,
-                'rows' => in_array($table->relname, TE002_VOLATILE_TABLES, true)
+            $name = asString(data_get($table, 'relname'));
+            $quoted = '"'.str_replace('"', '""', $name).'"';
+            $snapshot[$name] = [
+                'oid' => asInt(data_get($table, 'oid')),
+                'rows' => in_array($name, TE002_VOLATILE_TABLES, true)
                     ? 'volatile'
-                    : (int) $db->selectOne("select count(*) as n from public.{$quoted}")->n,
+                    : asInt($db->scalar("select count(*) from public.{$quoted}")),
             ];
         }
 
@@ -96,17 +105,19 @@ function runNestedProbe(array $env): Process
 function skipInsideNestedRun(): void
 {
     if (getenv(TE002_NESTED_FLAG) === '1') {
-        test()->markTestSkipped('Nested probe run.');
+        Assert::markTestSkipped('Nested probe run.');
     }
 }
 
 test('isolation probe: the active test connection is pgsql on traveleasy_test', function () {
     expect(DB::connection()->getDriverName())->toBe('pgsql')
-        ->and(DB::selectOne('select current_database() as db')->db)->toBe('traveleasy_test')
+        ->and(DB::scalar('select current_database()'))->toBe('traveleasy_test')
         ->and(config('database.connections.pgsql.url'))->toBeNull();
 });
 
 test('a conflicting environment never redirects the run and never touches the dev database', function (array $conflict) {
+    $conflict = asStringMap($conflict);
+
     skipInsideNestedRun();
 
     $before = devDatabaseSnapshot();
@@ -151,9 +162,9 @@ test('a cached dev config (DB_DATABASE=traveleasy) is ignored and never touches 
         expect($cache->isSuccessful())->toBeTrue($cache->getErrorOutput().$cache->getOutput());
 
         // The scenario is real: the cache points the default connection at the dev database.
-        $cached = require $cachePath;
-        expect($cached['database']['default'])->toBe('pgsql')
-            ->and($cached['database']['connections']['pgsql']['database'])->toBe(TE002_DEV_DATABASE);
+        $cached = asArray(require $cachePath);
+        expect(Arr::get($cached, 'database.default'))->toBe('pgsql')
+            ->and(Arr::get($cached, 'database.connections.pgsql.database'))->toBe(TE002_DEV_DATABASE);
 
         // The nested run inherits no DB overrides, so only the cached config could redirect it.
         $process = runNestedProbe(['DB_CONNECTION' => false, 'DB_DATABASE' => false, 'DB_URL' => false, 'APP_CONFIG_CACHE' => false]);
@@ -180,7 +191,7 @@ test('the guard rejects a connection that is not PostgreSQL', function () {
 });
 
 test('the guard rejects a PostgreSQL connection that resolves to another database', function () {
-    $config = ['database' => 'postgres', 'url' => null, 'name' => 'te002_guard_other'] + config('database.connections.pgsql');
+    $config = ['database' => 'postgres', 'url' => null, 'name' => 'te002_guard_other'] + config()->array('database.connections.pgsql');
     $other = DB::build($config);
     $other->statement('set default_transaction_read_only = on');
 
@@ -192,4 +203,37 @@ test('the guard rejects a PostgreSQL connection that resolves to another databas
 test('the guard accepts the active test connection', function () {
     expect(TestDatabase::violation(DB::connection()))->toBeNull()
         ->and(TestDatabase::abortMessage('x'))->toContain('Refusing to run tests', 'traveleasy_test');
+});
+
+// --- TE-003 AC14: parallel runs use per-worker databases derived from traveleasy_test -------------------
+
+test('the per-worker database of a parallel run is traveleasy_test_test_{token}', function () {
+    expect(TestDatabase::parallelDatabase(3))->toBe('traveleasy_test_test_3')
+        ->and(TestDatabase::parallelDatabase('12'))->toBe('traveleasy_test_test_12')
+        ->and(TestDatabase::parallelDatabase(0))->toBeNull()
+        ->and(TestDatabase::parallelDatabase('-1'))->toBeNull()
+        ->and(TestDatabase::parallelDatabase('1; drop'))->toBeNull()
+        ->and(TestDatabase::parallelDatabase(false))->toBeNull()
+        ->and(TestDatabase::parallelDatabase(null))->toBeNull();
+});
+
+test('a parallel worker may only use traveleasy_test or its own worker database', function () {
+    expect(TestDatabase::parallelConfigViolation('pgsql', 'traveleasy_test', '2'))->toBeNull()
+        ->and(TestDatabase::parallelConfigViolation('pgsql', 'traveleasy_test_test_2', '2'))->toBeNull();
+});
+
+test('a parallel worker is rejected on any other database, connection or token', function (mixed $default, mixed $database, mixed $token) {
+    expect(TestDatabase::parallelConfigViolation($default, $database, $token))->toBeString();
+})->with([
+    'dev database' => ['pgsql', TE002_DEV_DATABASE, '2'],
+    'dev database with a worker suffix' => ['pgsql', TE002_DEV_DATABASE.'_test_2', '2'],
+    'another worker\'s database' => ['pgsql', 'traveleasy_test_test_3', '2'],
+    'sqlite connection' => ['sqlite', 'traveleasy_test', '2'],
+    'no token' => ['pgsql', 'traveleasy_test_test_2', false],
+    'non-numeric token' => ['pgsql', 'traveleasy_test_test_x', 'x'],
+]);
+
+test('the server-side guard rejects a connection that is not on the expected worker database', function () {
+    expect(TestDatabase::violation(DB::connection(), 'traveleasy_test_test_99'))->toContain('database [traveleasy_test]')
+        ->and(TestDatabase::violation(DB::connection(), TE002_DEV_DATABASE))->toContain('is not a test database name');
 });

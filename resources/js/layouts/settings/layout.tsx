@@ -46,7 +46,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                     >
                         {sidebarNavItems.map((item, index) => (
                             <Button
-                                key={`${toUrl(item.href)}-${index}`}
+                                key={`${toUrl(item.href)}-${String(index)}`}
                                 size="sm"
                                 variant="ghost"
                                 asChild

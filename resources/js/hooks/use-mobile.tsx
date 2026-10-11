@@ -5,7 +5,7 @@ const MOBILE_BREAKPOINT = 768;
 const mql =
     typeof window === 'undefined'
         ? undefined
-        : window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+        : window.matchMedia(`(max-width: ${String(MOBILE_BREAKPOINT - 1)}px)`);
 
 function mediaQueryListener(callback: (event: MediaQueryListEvent) => void) {
     if (!mql) {

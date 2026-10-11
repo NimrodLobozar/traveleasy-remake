@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Models\User;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Support\Facades\Schema;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
 
 // ADR-0005: no e-mail verification and no mail-based password reset.
@@ -60,7 +63,7 @@ test('the password reset tokens table and e-mail verification column do not exis
 
 test('the login page does not offer a password reset link', function () {
     $this->get(route('login'))
-        ->assertInertia(fn ($page) => $page
+        ->assertInertia(fn (Assert $page) => $page
             ->component('auth/login')
             ->missing('canResetPassword'));
 });

@@ -41,7 +41,7 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
         },
     });
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
 
         if (!name.trim()) {
@@ -66,7 +66,12 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
 
     if (!showForm) {
         return (
-            <Button variant="outline" onClick={() => setShowForm(true)}>
+            <Button
+                variant="outline"
+                onClick={() => {
+                    setShowForm(true);
+                }}
+            >
                 Add passkey
             </Button>
         );
@@ -74,7 +79,9 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
 
     return (
         <form
-            onSubmit={handleSubmit}
+            onSubmit={(e) => {
+                void handleSubmit(e);
+            }}
             className="space-y-4 rounded-lg border border-border bg-muted/50 p-4"
         >
             <div className="grid gap-2">
@@ -83,9 +90,12 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
                     id="passkey-name"
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                        setName(e.target.value);
+                    }}
                     placeholder="e.g., MacBook Pro, iPhone"
                     className="mt-1 block w-full border-foreground/20"
+                    // oxlint-disable-next-line jsx-a11y/no-autofocus -- intended focus management: the name field is the only control of this dialog step
                     autoFocus
                 />
                 <p className="text-xs text-muted-foreground">

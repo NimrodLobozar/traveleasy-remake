@@ -1,5 +1,8 @@
 <?php
 
+declare(strict_types=1);
+
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Yaml\Yaml;
@@ -13,17 +16,17 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class);
 
-/** @return array<string, mixed> */
+/** @return array<array-key, mixed> */
 function composeFile(string $name): array
 {
-    return Yaml::parseFile(base_path($name));
+    return asArray(Yaml::parseFile(base_path($name)));
 }
 
 /** @return array<string, string> */
 function envExample(): array
 {
     $vars = [];
-    foreach (file(base_path('.env.example'), FILE_IGNORE_NEW_LINES) as $line) {
+    foreach (fileLines(base_path('.env.example')) as $line) {
         if (preg_match('/^([A-Z0-9_]+)=(.*)$/', $line, $m) === 1) {
             $vars[$m[1]] = $m[2];
         }
@@ -36,10 +39,12 @@ function envExample(): array
 
 test('the test run uses the traveleasy_test database on PostgreSQL', function () {
     expect(DB::connection()->getDriverName())->toBe('pgsql')
-        ->and(DB::selectOne('select current_database() as db')->db)->toBe('traveleasy_test');
+        ->and(DB::scalar('select current_database()'))->toBe('traveleasy_test');
 });
 
 test('a conflicting container environment variable cannot redirect the test database', function (array $conflict) {
+    $conflict = asStringMap($conflict);
+
     if (getenv('QA_NESTED_ISOLATION_PROBE') === '1') {
         $this->markTestSkipped('Nested probe run.');
     }
@@ -76,7 +81,8 @@ test('.env.example loads both compose files with an explicit path separator and 
 
     expect($env)->toHaveKeys(['COMPOSE_FILE', 'COMPOSE_PATH_SEPARATOR', 'APP_PORT', 'VITE_PORT', 'ADMINER_PORT',
         'VITE_USE_POLLING', 'VITE_POLLING_INTERVAL'])
-        ->and(explode($env['COMPOSE_PATH_SEPARATOR'], $env['COMPOSE_FILE']))->toBe(['compose.yaml', 'compose.dev.yaml'])
+        ->and($env['COMPOSE_PATH_SEPARATOR'] === '' ? [] : explode($env['COMPOSE_PATH_SEPARATOR'], $env['COMPOSE_FILE']))
+        ->toBe(['compose.yaml', 'compose.dev.yaml'])
         ->and($env)->not->toHaveKey('COMPOSE_PROFILES')
         ->and($env['APP_PORT'])->toBe('8000')
         ->and($env['VITE_PORT'])->toBe('5173')
@@ -86,7 +92,7 @@ test('.env.example loads both compose files with an explicit path separator and 
 test('every variable interpolated in the compose files is documented in .env.example', function () {
     $used = [];
     foreach (['compose.yaml', 'compose.dev.yaml'] as $file) {
-        preg_match_all('/(?<!\$)\$\{([A-Z0-9_]+)/', file_get_contents(base_path($file)), $m);
+        preg_match_all('/(?<!\$)\$\{([A-Z0-9_]+)/', fileContents(base_path($file)), $m);
         $used = [...$used, ...$m[1]];
     }
 
@@ -97,12 +103,13 @@ test('every variable interpolated in the compose files is documented in .env.exa
 
 test('compose.yaml only has the db service, without ports, bind mounts or a default password', function () {
     $base = composeFile('compose.yaml');
-    $db = $base['services']['db'];
+    $services = Arr::array($base, 'services');
+    $db = Arr::array($services, 'db');
 
-    expect(array_keys($base['services']))->toBe(['db'])
+    expect(array_keys($services))->toBe(['db'])
         ->and($db)->not->toHaveKey('ports')
         ->and($db['image'])->toMatch('/^postgres:\d+\.\d+/')
-        ->and($db['environment']['POSTGRES_PASSWORD'])->toStartWith('${DB_PASSWORD:?')
+        ->and(Arr::get($db, 'environment.POSTGRES_PASSWORD'))->toStartWith('${DB_PASSWORD:?')
         ->and($db['volumes'])->each->toStartWith('pgdata:')
         ->and($base['volumes'])->toHaveKey('pgdata');
 });
@@ -110,46 +117,49 @@ test('compose.yaml only has the db service, without ports, bind mounts or a defa
 // --- AC10, AC12, AC14, AC23-AC25, AC27: compose.dev.yaml ---------------------------------------
 
 test('compose.dev.yaml publishes ports on 127.0.0.1 only and never on db', function () {
-    $services = composeFile('compose.dev.yaml')['services'];
+    $services = Arr::array(composeFile('compose.dev.yaml'), 'services');
 
     expect($services['db'] ?? [])->not->toHaveKey('ports');
 
     foreach ($services as $name => $service) {
-        foreach ($service['ports'] ?? [] as $port) {
+        foreach (asArray(asArray($service)['ports'] ?? []) as $port) {
+            $port = asString($port);
+
             expect($port)->toStartWith('127.0.0.1:', "Service {$name} publishes {$port}");
         }
     }
 });
 
 test('compose.dev.yaml has exactly the dev services, Adminer only behind the tools profile', function () {
-    $services = composeFile('compose.dev.yaml')['services'];
+    $services = Arr::array(composeFile('compose.dev.yaml'), 'services');
 
     expect(array_keys($services))->toEqualCanonicalizing(['db', 'app', 'vite', 'adminer'])
-        ->and($services['adminer']['profiles'])->toBe(['tools'])
+        ->and(Arr::get($services, 'adminer.profiles'))->toBe(['tools'])
         ->and($services['app'])->not->toHaveKey('profiles')
         ->and($services['vite'])->not->toHaveKey('profiles');
 });
 
 test('the adminer service stores no credentials, mounts nothing and is pinned', function () {
-    $adminer = composeFile('compose.dev.yaml')['services']['adminer'];
+    $adminer = Arr::array(composeFile('compose.dev.yaml'), 'services.adminer');
+    $environment = Arr::array($adminer, 'environment');
 
     expect($adminer['image'])->toMatch('/^adminer:\d+\.\d+/')
         ->and($adminer)->not->toHaveKey('volumes')
-        ->and(array_keys($adminer['environment']))->each->toBeIn(['ADMINER_DEFAULT_SERVER', 'ADMINER_PLUGINS', 'ADMINER_DESIGN'])
-        ->and($adminer['environment']['ADMINER_DEFAULT_SERVER'])->toBe('db')
-        ->and(strtolower((string) ($adminer['environment']['ADMINER_PLUGINS'] ?? '')))->not->toContain('login-password-less');
+        ->and(array_keys($environment))->each->toBeIn(['ADMINER_DEFAULT_SERVER', 'ADMINER_PLUGINS', 'ADMINER_DESIGN'])
+        ->and($environment['ADMINER_DEFAULT_SERVER'] ?? null)->toBe('db')
+        ->and(strtolower(Arr::string($environment, 'ADMINER_PLUGINS', '')))->not->toContain('login-password-less');
 });
 
 // --- AC16, AC20, AC21, security QC: image and repo hygiene -------------------------------------
 
 test('nothing seeds the database automatically', function () {
     foreach (['Dockerfile', 'compose.yaml', 'compose.dev.yaml', 'docker/dev/entrypoint.sh'] as $file) {
-        expect(file_get_contents(base_path($file)))->not->toMatch('/db:seed|--seed/');
+        expect(fileContents(base_path($file)))->not->toMatch('/db:seed|--seed/');
     }
 });
 
 test('the Dockerfile installs from lockfiles, runs as non-root and pins its base images', function () {
-    $dockerfile = file_get_contents(base_path('Dockerfile'));
+    $dockerfile = fileContents(base_path('Dockerfile'));
 
     expect($dockerfile)->toContain('npm ci')
         ->and($dockerfile)->not->toMatch('/npm (install|i)\b/')
@@ -161,19 +171,19 @@ test('the Dockerfile installs from lockfiles, runs as non-root and pins its base
 });
 
 test('.dockerignore keeps secrets and dependency folders out of images', function () {
-    $lines = file(base_path('.dockerignore'), FILE_IGNORE_NEW_LINES);
+    $lines = fileLines(base_path('.dockerignore'));
 
     expect($lines)->toContain('.env', 'vendor', 'node_modules', '.git', 'storage/logs');
 });
 
 test('.gitattributes forces LF for shell scripts', function () {
-    expect(file_get_contents(base_path('.gitattributes')))->toMatch('/^\*\.sh\s+text\s+eol=lf$/m');
+    expect(fileContents(base_path('.gitattributes')))->toMatch('/^\*\.sh\s+text\s+eol=lf$/m');
 });
 
 // --- AC4, AC5: Vite dev server config ---------------------------------------------------------
 
 test('vite.config.ts polls from env, ignores heavy folders and sets no server.origin', function () {
-    $config = file_get_contents(base_path('vite.config.ts'));
+    $config = fileContents(base_path('vite.config.ts'));
 
     expect($config)->toContain("usePolling: process.env.VITE_USE_POLLING === 'true'")
         ->and($config)->toContain('process.env.VITE_POLLING_INTERVAL')

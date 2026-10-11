@@ -19,16 +19,18 @@
         "spatie/laravel-typescript-transformer": "^3.3"
     },
     "require-dev": {
+        "brianium/paratest": "7.26.0",
         "fakerphp/faker": "^1.24",
         "larastan/larastan": "^3.9",
         "laravel/pail": "^1.2.5",
         "laravel/pao": "^1.0.6",
         "laravel/pint": "^1.27",
-        "laravel/sail": "^1.53",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.9.3",
         "pestphp/pest": "^5.3",
-        "pestphp/pest-plugin-laravel": "^5.0"
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "pestphp/pest-plugin-phpstan": "^5.2.2",
+        "symfony/yaml": "^8.1"
     },
     "autoload": {
         "psr-4": {
@@ -56,25 +58,30 @@
             "@php artisan dev"
         ],
         "lint": [
-            "pint --parallel"
+            "pint --test",
+            "pint --test --config=pint.no-strict-types.json bootstrap config public"
         ],
-        "lint:check": [
-            "pint --parallel --test"
+        "format": [
+            "pint",
+            "pint --config=pint.no-strict-types.json bootstrap config public"
         ],
-        "ci:check": [
+        "analyse": [
             "Composer\\Config::disableProcessTimeout",
-            "npm run check",
-            "npm run types:check",
-            "@test"
-        ],
-        "types:check": [
-            "phpstan analyse"
+            "phpstan analyse --memory-limit=1G --no-progress"
         ],
         "test": [
-            "@php artisan config:clear --ansi",
-            "@lint:check",
-            "@types:check",
+            "Composer\\Config::disableProcessTimeout",
             "@php artisan test"
+        ],
+        "test:parallel": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan test --parallel"
+        ],
+        "check": [
+            "Composer\\Config::disableProcessTimeout",
+            "@lint",
+            "@analyse",
+            "@test"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
@@ -93,6 +100,14 @@
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
         ]
+    },
+    "scripts-descriptions": {
+        "lint": "Check PHP code style with Pint (no changes).",
+        "format": "Fix PHP code style with Pint.",
+        "analyse": "Run Larastan (PHPStan, level max) on app, bootstrap/app.php, config, database, routes and tests.",
+        "test": "Run the Pest test suite against traveleasy_test.",
+        "test:parallel": "Run the Pest test suite in parallel (one traveleasy_test_test_N database per worker).",
+        "check": "Run lint, analyse and test in sequence; stops at the first failure."
     },
     "extra": {
         "laravel": {

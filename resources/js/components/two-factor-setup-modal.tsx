@@ -30,7 +30,7 @@ function GridScanIcon() {
                 <div className="absolute inset-0 grid grid-cols-5 opacity-50">
                     {Array.from({ length: 5 }, (_, i) => (
                         <div
-                            key={`col-${i + 1}`}
+                            key={`col-${String(i + 1)}`}
                             className="border-r border-border last:border-r-0"
                         />
                     ))}
@@ -38,7 +38,7 @@ function GridScanIcon() {
                 <div className="absolute inset-0 grid grid-rows-5 opacity-50">
                     {Array.from({ length: 5 }, (_, i) => (
                         <div
-                            key={`row-${i + 1}`}
+                            key={`row-${String(i + 1)}`}
                             className="border-b border-border last:border-b-0"
                         />
                     ))}
@@ -68,7 +68,7 @@ function TwoFactorSetupStep({
 
     return (
         <>
-            {errors?.length ? (
+            {errors.length ? (
                 <AlertError errors={errors} />
             ) : (
                 <>
@@ -123,7 +123,9 @@ function TwoFactorSetupStep({
                                         className="h-full w-full bg-background p-3 text-foreground outline-none"
                                     />
                                     <button
-                                        onClick={() => copy(manualSetupKey)}
+                                        onClick={() => {
+                                            void copy(manualSetupKey);
+                                        }}
                                         className="border-l border-border px-3 hover:bg-muted"
                                     >
                                         <IconComponent className="w-4" />
@@ -157,7 +159,9 @@ function TwoFactorVerificationStep({
     return (
         <Form
             {...confirm.form()}
-            onSuccess={() => onClose()}
+            onSuccess={() => {
+                onClose();
+            }}
             resetOnError
             resetOnSuccess
         >
@@ -181,6 +185,7 @@ function TwoFactorVerificationStep({
                                 onChange={setCode}
                                 disabled={processing}
                                 pattern={REGEXP_ONLY_DIGITS}
+                                // oxlint-disable-next-line jsx-a11y/no-autofocus -- intended focus management: the code field is the only control of this dialog step
                                 autoFocus
                             >
                                 <InputOTPGroup>
@@ -323,7 +328,14 @@ export default function TwoFactorSetupModal({
     }, [isOpen, qrCodeSvg]);
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+        <Dialog
+            open={isOpen}
+            onOpenChange={(open) => {
+                if (!open) {
+                    handleClose();
+                }
+            }}
+        >
             <DialogContent className="sm:max-w-md">
                 <DialogHeader className="flex items-center justify-center">
                     <GridScanIcon />
@@ -337,7 +349,9 @@ export default function TwoFactorSetupModal({
                     {showVerificationStep ? (
                         <TwoFactorVerificationStep
                             onClose={handleClose}
-                            onBack={() => setShowVerificationStep(false)}
+                            onBack={() => {
+                                setShowVerificationStep(false);
+                            }}
                         />
                     ) : (
                         <TwoFactorSetupStep

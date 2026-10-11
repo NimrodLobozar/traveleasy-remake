@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -38,13 +40,75 @@ expect()->extend('toBeOne', function () {
 | Functions
 |--------------------------------------------------------------------------
 |
-| While Pest is very powerful out-of-the-box, you may have some testing code specific to your
-| project that you don't want to repeat in every file. Here you can also expose helpers as
-| global functions to help you to reduce the number of lines of code in your test files.
+| Typed helpers for test code that reads files, YAML or raw query results. Each one fails the test with a
+| clear message instead of passing a `false` or `mixed` along, so Larastan (level max) can follow the types.
 |
 */
 
-function something()
+function fileContents(string $path): string
 {
-    // ..
+    $contents = file_get_contents($path);
+
+    if ($contents === false) {
+        throw new RuntimeException("Could not read [{$path}].");
+    }
+
+    return $contents;
+}
+
+/** @return list<string> */
+function fileLines(string $path): array
+{
+    $lines = file($path, FILE_IGNORE_NEW_LINES);
+
+    if ($lines === false) {
+        throw new RuntimeException("Could not read [{$path}].");
+    }
+
+    return $lines;
+}
+
+/** @return array<array-key, mixed> */
+function asArray(mixed $value): array
+{
+    if (! is_array($value)) {
+        throw new UnexpectedValueException('Expected an array, got '.get_debug_type($value).'.');
+    }
+
+    return $value;
+}
+
+function asString(mixed $value): string
+{
+    if (! is_string($value)) {
+        throw new UnexpectedValueException('Expected a string, got '.get_debug_type($value).'.');
+    }
+
+    return $value;
+}
+
+/** @return array<string, string> */
+function asStringMap(mixed $value): array
+{
+    $map = [];
+
+    foreach (asArray($value) as $key => $item) {
+        $map[asString($key)] = asString($item);
+    }
+
+    return $map;
+}
+
+/** Accepts an int or an integer string (PDO may return either for integer columns). */
+function asInt(mixed $value): int
+{
+    if (is_int($value)) {
+        return $value;
+    }
+
+    if (is_string($value) && preg_match('/^-?\d+$/', $value) === 1) {
+        return (int) $value;
+    }
+
+    throw new UnexpectedValueException('Expected an integer, got '.get_debug_type($value).'.');
 }

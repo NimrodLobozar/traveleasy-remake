@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Mail\Transport\ArrayTransport;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -9,7 +12,7 @@ use Illuminate\Support\Facades\Mail;
  * restoring the environment afterwards. phpunit.xml sets some of them for the test run.
  *
  * @param  array<string, string|null>  $env
- * @return array<string, mixed>
+ * @return array<array-key, mixed>
  */
 function loadConfigFileWithEnv(string $file, array $env): array
 {
@@ -28,7 +31,7 @@ function loadConfigFileWithEnv(string $file, array $env): array
     }
 
     try {
-        return require config_path($file);
+        return asArray(require config_path($file));
     } finally {
         foreach ($saved as $key => [$getenv, $envValue, $serverValue]) {
             $getenv === false ? putenv($key) : putenv("{$key}={$getenv}");
@@ -45,7 +48,7 @@ function loadConfigFileWithEnv(string $file, array $env): array
 
 test('the mailer is fixed to array and is the only mailer at runtime', function () {
     expect(config('mail.default'))->toBe('array')
-        ->and(array_keys(config('mail.mailers')))->toBe(['array'])
+        ->and(array_keys(config()->array('mail.mailers')))->toBe(['array'])
         ->and(Mail::mailer()->getSymfonyTransport()::class)->toBe(ArrayTransport::class);
 });
 
@@ -53,7 +56,7 @@ test('MAIL_MAILER in the environment cannot switch the mailer on', function () {
     $config = loadConfigFileWithEnv('mail.php', ['MAIL_MAILER' => 'smtp']);
 
     expect($config['default'])->toBe('array')
-        ->and(array_keys($config['mailers']))->toBe(['array']);
+        ->and(array_keys(Arr::array($config, 'mailers')))->toBe(['array']);
 });
 
 test('a non-array mailer is not configured even when requested by name', function () {
@@ -75,14 +78,14 @@ test('the database config defaults to the PostgreSQL service', function () {
     ]);
 
     expect($config['default'])->toBe('pgsql')
-        ->and($config['connections']['pgsql'])->toMatchArray([
+        ->and(Arr::array($config, 'connections.pgsql'))->toMatchArray([
             'host' => 'db',
             'port' => '5432',
             'database' => 'traveleasy',
             'username' => 'traveleasy',
             'password' => '',
         ])
-        ->and($config['connections']['sqlite']['database'])->toBe(':memory:');
+        ->and(Arr::get($config, 'connections.sqlite.database'))->toBe(':memory:');
 });
 
 test('eloquent is strict outside production', function () {

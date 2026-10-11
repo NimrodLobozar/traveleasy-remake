@@ -24,7 +24,7 @@ export default function TwoFactorRecoveryCodes({
     errors,
 }: Props) {
     const [codesAreVisible, setCodesAreVisible] = useState<boolean>(false);
-    const codesSectionRef = useRef<HTMLDivElement | null>(null);
+    const codesSectionRef = useRef<HTMLUListElement | null>(null);
     const canRegenerateCodes = recoveryCodesList.length > 0 && codesAreVisible;
 
     const toggleCodesVisibility = useCallback(async () => {
@@ -67,7 +67,9 @@ export default function TwoFactorRecoveryCodes({
             <CardContent>
                 <div className="flex flex-col gap-3 select-none sm:flex-row sm:items-center sm:justify-between">
                     <Button
-                        onClick={toggleCodesVisibility}
+                        onClick={() => {
+                            void toggleCodesVisibility();
+                        }}
                         className="w-fit"
                         aria-expanded={codesAreVisible}
                         aria-controls="recovery-codes-section"
@@ -83,7 +85,9 @@ export default function TwoFactorRecoveryCodes({
                         <Form
                             {...regenerateRecoveryCodes.form()}
                             options={{ preserveScroll: true }}
-                            onSuccess={fetchRecoveryCodes}
+                            onSuccess={() => {
+                                void fetchRecoveryCodes();
+                            }}
                         >
                             {({ processing }) => (
                                 <Button
@@ -104,28 +108,26 @@ export default function TwoFactorRecoveryCodes({
                     aria-hidden={!codesAreVisible}
                 >
                     <div className="mt-3 space-y-3">
-                        {errors?.length ? (
+                        {errors.length ? (
                             <AlertError errors={errors} />
                         ) : (
                             <>
-                                <div
+                                <ul
                                     ref={codesSectionRef}
                                     className="grid gap-1 rounded-lg bg-muted p-4 font-mono text-sm"
-                                    role="list"
                                     aria-label="Recovery codes"
                                 >
                                     {recoveryCodesList.length ? (
                                         recoveryCodesList.map((code, index) => (
-                                            <div
+                                            <li
                                                 key={index}
-                                                role="listitem"
                                                 className="select-text"
                                             >
                                                 {code}
-                                            </div>
+                                            </li>
                                         ))
                                     ) : (
-                                        <div
+                                        <li
                                             className="space-y-2"
                                             aria-label="Loading recovery codes"
                                         >
@@ -139,9 +141,9 @@ export default function TwoFactorRecoveryCodes({
                                                     />
                                                 ),
                                             )}
-                                        </div>
+                                        </li>
                                     )}
-                                </div>
+                                </ul>
 
                                 <div className="text-xs text-muted-foreground select-none">
                                     <p id="regenerate-warning">

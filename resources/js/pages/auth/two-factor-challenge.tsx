@@ -68,6 +68,7 @@ export default function TwoFactorChallenge() {
                                         name="recovery_code"
                                         type="text"
                                         placeholder="Enter recovery code"
+                                        // oxlint-disable-next-line jsx-a11y/no-autofocus -- intended focus management: the code is the single purpose of this page
                                         autoFocus={showRecoveryInput}
                                         required
                                     />
@@ -82,9 +83,12 @@ export default function TwoFactorChallenge() {
                                             name="code"
                                             maxLength={OTP_MAX_LENGTH}
                                             value={code}
-                                            onChange={(value) => setCode(value)}
+                                            onChange={(value) => {
+                                                setCode(value);
+                                            }}
                                             disabled={processing}
                                             pattern={REGEXP_ONLY_DIGITS}
+                                            // oxlint-disable-next-line jsx-a11y/no-autofocus -- intended focus management: the code is the single purpose of this page
                                             autoFocus
                                         >
                                             <InputOTPGroup>
@@ -117,9 +121,9 @@ export default function TwoFactorChallenge() {
                                 <button
                                     type="button"
                                     className="cursor-pointer text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
-                                    onClick={() =>
-                                        toggleRecoveryMode(clearErrors)
-                                    }
+                                    onClick={() => {
+                                        toggleRecoveryMode(clearErrors);
+                                    }}
                                 >
                                     {authConfigContent.toggleText}
                                 </button>

@@ -90,14 +90,20 @@ export default function ManageTwoFactor(props: Props) {
 
                     <div>
                         {hasSetupData ? (
-                            <Button onClick={() => setShowSetupModal(true)}>
+                            <Button
+                                onClick={() => {
+                                    setShowSetupModal(true);
+                                }}
+                            >
                                 <ShieldCheck />
                                 Continue setup
                             </Button>
                         ) : (
                             <Form
                                 {...enable.form()}
-                                onSuccess={() => setShowSetupModal(true)}
+                                onSuccess={() => {
+                                    setShowSetupModal(true);
+                                }}
                             >
                                 {({ processing }) => (
                                     <Button type="submit" disabled={processing}>
@@ -112,7 +118,9 @@ export default function ManageTwoFactor(props: Props) {
 
             <TwoFactorSetupModal
                 isOpen={showSetupModal}
-                onClose={() => setShowSetupModal(false)}
+                onClose={() => {
+                    setShowSetupModal(false);
+                }}
                 requiresConfirmation={requiresConfirmation}
                 twoFactorEnabled={twoFactorEnabled}
                 qrCodeSvg={qrCodeSvg}

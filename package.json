@@ -6,10 +6,15 @@
         "build": "vp build",
         "build:ssr": "vp build && vp build --ssr",
         "dev": "vp dev",
-        "check": "vp check",
-        "check:fix": "vp check --fix",
+        "generate": "php artisan wayfinder:generate --with-form && php artisan typescript:transform",
+        "lint": "vp lint",
+        "lint:fix": "vp lint --fix",
+        "format": "vp fmt",
+        "format:check": "vp fmt --check",
+        "types": "npm run generate && npm run types:check",
         "types:check": "tsc --noEmit",
-        "generate": "php artisan wayfinder:generate --with-form && php artisan typescript:transform"
+        "check": "npm run generate && npm run lint && npm run format:check && npm run types:check",
+        "check:fix": "npm run generate && vp check --fix"
     },
     "dependencies": {
         "@inertiajs/react": "^3.0.0",
@@ -66,5 +71,10 @@
     },
     "overrides": {
         "vite": "$vite"
-    }
+    },
+    "//": [
+        "Vite advisory gap (TE-003 AC13): `dependencies.vite` is an npm alias for @voidzero-dev/vite-plus-core (pinned with vite-plus), so `npm audit` can't see Vite security advisories.",
+        "Manual check on every dependency update: read the vite-plus / vite-plus-core release notes and the Vite security advisories (https://github.com/vitejs/vite/security/advisories) for the bundled Vite version (`npx vp --version`).",
+        "Move to vite-plus 1.x with a plain `vite` dependency when the Laravel React starter kit does; then remove this note."
+    ]
 }

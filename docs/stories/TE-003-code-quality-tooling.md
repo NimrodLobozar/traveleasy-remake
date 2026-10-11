@@ -1,7 +1,7 @@
 ---
 id: TE-003
 title: Code quality tooling (Pint, Larastan, ESLint, Prettier, tsc)
-status: ready
+status: in-progress
 priority: must
 epic: M0 Project scaffold and tooling
 agents: [backend-developer, frontend-developer]

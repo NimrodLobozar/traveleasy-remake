@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use Illuminate\Auth\Middleware\RequirePassword;
@@ -22,6 +24,7 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('throttle:6,1')
         ->name('user-password.update');
 
+    // @phpstan-ignore method.nonObject (inertia-laravel registers the Route::inertia() macro without a return type; it returns the Route.)
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
 });
 
