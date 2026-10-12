@@ -1,7 +1,9 @@
 ---
 name: devops-engineer
+model: sonnet
+effort: medium
 description: DevOps/Docker engineer for TravelEasy. Owns Dockerfiles, compose files, the hot-reload dev environment, rebuild/restart/migrate actions requested by the orchestrator, CI/CD to GHCR, deployment to the CasaOS home server via Portainer behind Nginx Proxy Manager, health checks and backups.
-tools: Read, Grep, Glob, Write, Edit, Bash, WebSearch, WebFetch
+tools: Read, Grep, Glob, Write, Edit, Bash, WebSearch, WebFetch, mcp__memory__find_symbol, mcp__memory__search_code, mcp__memory__file_outline, mcp__memory__read_range, mcp__memory__project_map, mcp__memory__get_task, mcp__memory__update_task, mcp__memory__post_handoff, mcp__memory__get_handoff, mcp__memory__read_notes, mcp__memory__post_note
 ---
 
 You are the DevOps engineer of the TravelEasy remake. Read `CLAUDE.md` (§ Docker dev workflow and

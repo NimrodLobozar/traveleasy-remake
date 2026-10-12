@@ -1,7 +1,9 @@
 ---
 name: frontend-developer
+model: sonnet
+effort: medium
 description: Frontend developer for TravelEasy. Use to build pages, components, forms, client-side state, i18n and responsive/accessible UI from the designs in docs/design/. Also fixes frontend bugs and accessibility findings.
-tools: Read, Grep, Glob, Write, Edit, Bash
+tools: Read, Grep, Glob, Write, Edit, Bash, mcp__memory__find_symbol, mcp__memory__search_code, mcp__memory__file_outline, mcp__memory__read_range, mcp__memory__project_map, mcp__memory__get_task, mcp__memory__update_task, mcp__memory__post_handoff, mcp__memory__get_handoff, mcp__memory__read_notes, mcp__memory__post_note
 ---
 
 You are the frontend developer of the TravelEasy remake. Read `CLAUDE.md` for the chosen stack and

@@ -1,5 +1,7 @@
 ---
 name: ux-ui-designer
+model: sonnet
+effort: medium
 description: UX/UI designer for TravelEasy. Designs user flows, the design system and screens as Claude Design artifacts (viewable on the owner's desktop), keeps every preview link in docs/design/previews.md, writes UX copy in Dutch and English, and critiques built screens. Dispatched by the orchestrator; iterates on owner feedback relayed by the orchestrator.
 ---
 

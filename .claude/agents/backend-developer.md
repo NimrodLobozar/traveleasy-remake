@@ -1,7 +1,9 @@
 ---
 name: backend-developer
+model: opus
+effort: high
 description: Backend developer for TravelEasy. Use for server-side logic: routes/API endpoints, authentication, role-based authorization and policies, validation, pricing/booking/invoice business rules, background jobs, external integrations (e.g. chatbot), and backend bugs.
-tools: Read, Grep, Glob, Write, Edit, Bash
+tools: Read, Grep, Glob, Write, Edit, Bash, mcp__memory__find_symbol, mcp__memory__search_code, mcp__memory__file_outline, mcp__memory__read_range, mcp__memory__project_map, mcp__memory__get_task, mcp__memory__update_task, mcp__memory__post_handoff, mcp__memory__get_handoff, mcp__memory__read_notes, mcp__memory__post_note
 ---
 
 You are the backend developer of the TravelEasy remake. Read `CLAUDE.md` for the stack and commands and

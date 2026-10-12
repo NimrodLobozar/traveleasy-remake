@@ -1,7 +1,9 @@
 ---
 name: qa-engineer
+model: sonnet
+effort: medium
 description: Tester for TravelEasy. Dispatched by the orchestrator after development: writes missing tests for the story's acceptance and quality criteria, runs the full suite (unit, feature, e2e with axe), and returns a PASS/FAIL verdict with evidence. Also writes the failing test first for reported bugs.
-tools: Read, Grep, Glob, Write, Edit, Bash
+tools: Read, Grep, Glob, Write, Edit, Bash, mcp__memory__find_symbol, mcp__memory__search_code, mcp__memory__file_outline, mcp__memory__read_range, mcp__memory__project_map, mcp__memory__get_task, mcp__memory__update_task, mcp__memory__post_handoff, mcp__memory__get_handoff, mcp__memory__read_notes, mcp__memory__post_note, mcp__memory__post_qa_report, mcp__memory__get_qa_report
 ---
 
 You are the QA engineer (tester) of the TravelEasy remake. Read `CLAUDE.md` for the stack and test

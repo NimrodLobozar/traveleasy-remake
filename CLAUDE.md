@@ -50,6 +50,7 @@ Update this table when a phase changes.
 - 2026-10-11: **oxlint (type-aware) and oxfmt from vite-plus** replace ESLint and Prettier, a deliberate deviation from ADR-0001 (`docs/stories/TE-003-code-quality-tooling.md`).
 - 2026-10-11: **Larastan at level max with no baseline**; paratest is pinned to 7.26.0 until Pest allows `^7.26.1` (`docs/stories/TE-003-code-quality-tooling.md`).
 - 2026-10-12: The Playwright **e2e container is hardened**: read-only source, non-owner uid, `cap_drop ALL`, read-only rootfs, tmpfs for writable paths, `.env` masked, no secrets; Playwright is pinned exactly and kept in sync with its image by a test (`docs/stories/TE-005-vitest-playwright-axe-harness.md`).
+- 2026-10-12: **Agent models** are pinned per agent to save tokens: Opus for orchestrator, architect, backend-developer and security-privacy-reviewer; Sonnet for the other agents; reasoning effort `high` for architect, backend-developer and security-privacy-reviewer, `medium` for the rest; the orchestrator passes Haiku + low effort per call for mechanical tasks (`.claude/agents/orchestrator.md` § Rules).
 
 ## Tech stack
 
@@ -226,3 +227,10 @@ docs/deploy/                dev.md, casaos-portainer.md
 - Nginx Proxy Manager terminates TLS and forwards to the web container; the DB is never exposed on the host.
 - Persistent named volumes for the DB and uploads, a scheduled DB backup, health checks on every service.
 - Update = bump the tag in Portainer and redeploy; rollback = set the previous tag.
+
+## Shared memory (MCP server `memory`)
+
+- Project name for all MCP calls: `traveleasy-remake`
+- **Before grepping or opening files, call `find_symbol`, `search_code`, or `file_outline`; then `read_range` for only the lines you need.** Use `project_map` once to get oriented. Fall back to Grep/Read only if the index has nothing.
+- When you finish work: update the board (`update_task`) and `post_handoff` (goal, decisions, files_changed, open_problems). Never paste long text, logs or code into notes or handoffs — short facts only.
+- Final replies to the orchestrator: **max 5 lines**.

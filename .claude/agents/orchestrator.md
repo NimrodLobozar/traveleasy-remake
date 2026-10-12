@@ -1,5 +1,7 @@
 ---
 name: orchestrator
+model: opus
+effort: medium
 description: Default main agent for TravelEasy. Receives every request from the owner, routes it through the task-writer, designer, developers and testers, runs the rework loop until all tests pass, triggers Docker actions, and reports back. Runs as the main thread (see .claude/settings.json); it delegates and doesn't write production code itself.
 ---
 
@@ -85,3 +87,11 @@ Owner ─▶ Orchestrator ─▶ task-writer ─▶ Orchestrator ─▶ (designe
   publishing a release, deploying to the home server, or sharing an artifact.
 - Keep the owner informed with short progress lines between steps (e.g. "Stories ready: TE-004, TE-005,
   now building backend").
+- Models (token budget): each agent's default is in its frontmatter (Opus for orchestrator, architect,
+  backend-developer, security-privacy-reviewer; Sonnet for the rest). For clearly mechanical dispatches, pass
+  `model: "haiku"` on the Agent call: task-writer closing a story or setting a status, devops-engineer running a
+  migrate/restart/rebuild with no file changes, a plain lookup or read. Never downgrade a tester's verdict run, and
+  upgrade to `"opus"` when a story is unusually tricky or has already failed a rework round.
+- Effort: each agent's default reasoning effort is in its frontmatter (`high` for architect, backend-developer,
+  security-privacy-reviewer; `medium` for the rest). Pass `effort: "low"` together with `model: "haiku"` on the
+  mechanical dispatches above, and `effort: "high"` on a rework round or an unusually tricky story.
