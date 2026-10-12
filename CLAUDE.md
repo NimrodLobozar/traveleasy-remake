@@ -43,20 +43,63 @@ Update this table when a phase changes.
 - 2026-10-11: The e-mail address is an **unverified login name** only: never verified, never mailed, masked for demo staff (ADR-0005, ADR-0006 D6).
 - 2026-10-11: **Forgot password = one-time recovery code** shown at registration (hashed, rate-limited, audited, regenerable from the profile); staff are onboarded with a one-time setup code handed over out of band (`docs/plan.md` M1).
 - 2026-10-11: A **support-chat widget** (bottom-right, every public/customer page; **guests allowed**, claimable after login) replaces the messages inbox and the contact form; notifications are in-app only (`docs/plan.md` M8).
+- 2026-10-11: The project is licensed under **MIT** ([`LICENSE`](LICENSE), TE-006).
+- 2026-10-11: The Docker compose project name is **`traveleasy-remake`**, not `traveleasy` (those resources belong to the old school project); clean-ups are project-scoped, never a global prune (`docs/stories/TE-002-docker-dev-environment.md`).
+- 2026-10-11: Dev ports bind to **127.0.0.1 only**, and the dev entrypoint migrates but **never seeds** (`docs/stories/TE-002-docker-dev-environment.md`).
+- 2026-10-11: Tests run on **PostgreSQL** (`traveleasy_test`, one `traveleasy_test_test_N` per parallel worker), **never SQLite**; a guard in `TestCase` aborts on any other database (`docs/stories/TE-002-docker-dev-environment.md`).
+- 2026-10-11: **oxlint (type-aware) and oxfmt from vite-plus** replace ESLint and Prettier, a deliberate deviation from ADR-0001 (`docs/stories/TE-003-code-quality-tooling.md`).
+- 2026-10-11: **Larastan at level max with no baseline**; paratest is pinned to 7.26.0 until Pest allows `^7.26.1` (`docs/stories/TE-003-code-quality-tooling.md`).
+- 2026-10-12: The Playwright **e2e container is hardened**: read-only source, non-owner uid, `cap_drop ALL`, read-only rootfs, tmpfs for writable paths, `.env` masked, no secrets; Playwright is pinned exactly and kept in sync with its image by a test (`docs/stories/TE-005-vitest-playwright-axe-harness.md`).
 
 ## Tech stack
 
-Accepted in `docs/adr/0001-tech-stack.md` (reasoning in `docs/stack-options.md`):
-- **Backend:** Laravel (latest stable), started from the official React starter kit; Fortify auth, Policies,
-  Form Requests, queues (database driver), scheduler.
-- **Frontend:** Inertia + React + TypeScript (strict) + Tailwind CSS; **React Aria Components** for complex
-  accessible widgets; types generated with spatie/laravel-data + typescript-transformer, routes with Wayfinder.
-- **Database:** PostgreSQL.
-- **Tests and quality:** Pest, Vitest + Testing Library, Playwright + @axe-core/playwright, Pint, Larastan,
-  ESLint, Prettier, `tsc --noEmit`.
-- **Dev extras:** none. There is no mail catcher, because the app sends no e-mail (ADR-0005).
+Accepted in `docs/adr/0001-tech-stack.md` (reasoning in `docs/stack-options.md`). Laravel React starter kit with
+Fortify auth, Policies, Form Requests, queues (database driver) and the scheduler; Inertia + React + TypeScript
+(strict, plus `noUncheckedIndexedAccess`) + Tailwind; React Aria Components for complex widgets; TS types from
+laravel-data + typescript-transformer, routes from Wayfinder; PostgreSQL. npm is the package manager.
 
-Exact versions and commands (install, dev, test, lint, build, migrate, seed) are added here when the project is scaffolded.
+**Deviations from ADR-0001's wording:** **oxlint** (type-aware, rules in `lint.rules.ts`) and **oxfmt** from vite-plus
+replace ESLint and Prettier (TE-003); there is **no Mailpit** or any mail catcher, because the app sends no e-mail
+(ADR-0005).
+
+**Versions** (2026-10-12; from `composer.lock`, `package-lock.json`, `Dockerfile` and the compose image tags):
+
+| Component | Version | Component | Version |
+|---|---|---|---|
+| PHP (`php:8.5.11-cli-trixie`) | 8.5.11 | Node (`node:24.21.0-trixie-slim`) | 24.21.0 |
+| Composer | 2.10.3 | npm | 11.19.0 |
+| Laravel | 13.35.0 | React / react-dom | 19.3.0 |
+| Fortify | 1.41.0 | @inertiajs/react | 3.9.1 |
+| inertia-laravel | 3.5.1 | TypeScript | 5.9.3 |
+| spatie/laravel-data | 4.23.0 | Tailwind CSS | 4.3.3 |
+| spatie/laravel-typescript-transformer | 3.3.0 (core 3.3.1) | react-aria-components | 1.22.1 |
+| laravel/wayfinder | 0.1.21 (Vite plugin 0.1.10) | vite-plus (exact pin) | 0.3.3 |
+| Pest / pest-plugin-laravel | 5.3.1 / 5.0.1 | `vite` = npm alias of `@voidzero-dev/vite-plus-core` | 0.3.3 (bundles Vite 8.3.0) |
+| paratest (**exact pin**, see `docs/testing.md`) | 7.26.0 | Vitest (bundled in vite-plus, `vp test`) | 4.1.11 |
+| Larastan (level max, no baseline) / PHPStan | 3.13.0 / 2.3.1 | oxlint / oxfmt (bundled) | 1.83.0 / 0.68.0 |
+| Pint | 1.32.1 | @playwright/test (**exact pin**) | 1.64.0 |
+| PostgreSQL (`postgres:18.6-alpine`) | 18.6 | Playwright image | `mcr.microsoft.com/playwright:v1.64.0-noble` |
+| Adminer (dev, profile `tools`) | 6.1.1 | axe-core / @axe-core/playwright | 4.13.0 / 4.13.0 |
+
+The `vite` alias hides Vite advisories from `npm audit`; check them by hand on every dependency update (note in
+`package.json` `"//"`). A Pest test keeps the Playwright image tag and the npm package in sync.
+
+**Commands** (all run in Docker from the repo root; details in [`docs/deploy/dev.md`](docs/deploy/dev.md) and
+[`docs/testing.md`](docs/testing.md)):
+
+| Task | Command |
+|---|---|
+| Install | Done by the image build (`composer install` / `npm ci` from the lockfiles); first run: see `docs/deploy/dev.md` |
+| Dev (start) | `docker compose up -d` (app on `http://localhost:8000`, Vite HMR on 5173) |
+| Tests (PHP) | `docker compose exec app composer test` / `composer test:parallel` |
+| Tests (frontend) | `docker compose exec vite npm run test` |
+| Tests (e2e + axe) | `docker compose run --rm e2e` (needs `app` and `vite` healthy; one run at a time) |
+| Lint, analyse, typecheck | `docker compose exec app composer check` / `docker compose exec vite npm run check` |
+| Format | `docker compose exec app composer format` / `docker compose exec vite npm run format` (never `npx vp fmt` without paths) |
+| Build | `docker compose exec vite npm run build` |
+| Generate TS types + routes | `docker compose exec vite npm run generate` |
+| Migrate | `docker compose exec app php artisan migrate` |
+| Seed | Manual only, never automatic: `docker compose exec app php artisan db:seed`. Warning: the kit seeder creates `test@example.com` / `password`; dev only, never on a reachable server |
 
 Fixed principles:
 - Everything runs in Docker. `compose.yaml` deploys as a Portainer stack; `compose.dev.yaml` adds dev overrides.
@@ -64,8 +107,6 @@ Fixed principles:
 - TypeScript (strict) for frontend code.
 - No runtime CDNs, third-party fonts or trackers; everything is bundled and self-hosted.
 - Lint, typecheck and tests run in CI before an image is published.
-
-When ADR-0001 is accepted, replace this section with the concrete stack, versions and commands.
 
 ## How work flows
 
@@ -104,17 +145,26 @@ Owner → Orchestrator → task-writer → Orchestrator → [ux-ui-designer] →
 Goal: **code changes appear in the browser without a rebuild.**
 - Source is bind-mounted and the dev servers hot-reload (frontend HMR, backend auto-reload).
 - `node_modules` / `vendor` live in **anonymous volumes** from the image, never on Windows/OneDrive.
-- The database lives in a **named volume** and survives rebuilds.
+- The database lives in a **named volume** (`traveleasy-remake_pgdata`) and survives rebuilds.
+- The compose project name is **`traveleasy-remake`**. Resources named `traveleasy_*` belong to the old school
+  project on this PC; never touch them.
 
 | What changed | What to do |
 |---|---|
 | Source files (components, controllers, styles, …) | Nothing; just refresh, or let HMR do it |
-| A migration | Run the migrate command in the running app container |
-| `package.json`, lockfile, `composer.json`/lock, Dockerfile, compose, env vars | `docker compose up -d --build -V` (rebuild + fresh dependency volumes; DB kept) |
-| Want an empty database | `docker compose down -v` (**deletes all data**; ask the owner first) |
+| A migration | `docker compose exec app php artisan migrate` |
+| `package.json`, lockfile, `composer.json`/lock, Dockerfile, compose, env vars | Preferred, no leftovers: `docker compose rm -s -f -v app vite` then `docker compose up -d --build` (DB kept). Quick: `docker compose up -d --build -V` |
+| Want an empty schema | `docker compose exec app php artisan migrate:fresh` (drops all tables in the dev DB; the volume and the test DB stay) |
+| Want an empty database volume | `docker compose down -v` (**deletes all data**; ask the owner first) |
 
-Note: `-V` (capital, on `up`) renews the dependency volumes. `-v` (lowercase, on `down`) deletes **all**
-volumes, including the database.
+Notes:
+- `-V` (capital, on `up`) renews the dependency volumes. `-v` (lowercase, on `down`) deletes **all** volumes,
+  including the database.
+- A plain `up -V` rebuild (and a plain `down`) leaves the old anonymous `vendor`/`node_modules` volumes dangling
+  (about 0.5 GB each time), and every rebuild leaves the previous `traveleasy-remake-dev:local` image dangling
+  (about 1.4 GB). Clean up only with the project-scoped commands in `docs/deploy/dev.md`.
+- **Never a global prune** (`docker system prune`, `docker volume prune`, `docker image prune -a`): other projects on
+  this PC have their own volumes and images.
 
 ## Product principles
 
