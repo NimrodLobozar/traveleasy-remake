@@ -1,7 +1,7 @@
 ---
 id: TE-004
 title: Pest on PostgreSQL with arch tests that forbid the legacy anti-patterns
-status: rework
+status: in-test
 priority: must
 epic: M0 Project scaffold and tooling
 agents: [backend-developer]
