@@ -1,7 +1,7 @@
 ---
 id: TE-005
 title: Frontend test harness (Vitest + Testing Library, Playwright + axe)
-status: rework
+status: in-test
 priority: must
 epic: M0 Project scaffold and tooling
 agents: [frontend-developer, devops-engineer]
