@@ -106,7 +106,7 @@ services:
     e2e:
         # Playwright + axe browser tests (TE-005), opt-in and one-shot: `docker compose run --rm e2e`.
         # Runs `npm run test:e2e` in Chromium; extra args replace the command, e.g.
-        # `docker compose run --rm e2e npx playwright test --config tests/e2e/playwright.config.ts --output=test-results/e2e smoke`.
+        # `docker compose run --rm e2e npx playwright test --config tests/e2e/playwright.config.ts smoke`.
         #
         # VERSION SYNC: the image tag MUST equal @playwright/test in package.json/package-lock.json (pinned
         # exactly). Bump both in one commit; tests/Unit/PlaywrightImageVersionSyncTest.php fails otherwise.
@@ -163,10 +163,11 @@ services:
             HOME: /tmp
             # Playwright deletes and recreates its output folders, which fails on a mount point under the
             # read-only repo (EROFS). So both outputs go one level down, inside the writable binds:
-            # the HTML report to playwright-report/html (this variable beats the config) and traces/screenshots
-            # to test-results/e2e (`--output` below; add it to custom commands too).
+            # traces/screenshots to test-results/e2e (`outputDir` in tests/e2e/playwright.config.ts) and the
+            # HTML report to playwright-report/html (set in the config too; this variable beats the config, so
+            # the report stays inside the writable bind even if the config changes).
             PLAYWRIGHT_HTML_OUTPUT_DIR: /var/www/html/playwright-report/html
-        command: ['npm', 'run', 'test:e2e', '--', '--output=test-results/e2e']
+        command: ['npm', 'run', 'test:e2e']
         depends_on:
             app:
                 condition: service_healthy

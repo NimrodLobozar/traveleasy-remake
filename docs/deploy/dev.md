@@ -89,14 +89,14 @@ Don't use `docker volume prune` to clean up: it also deletes dangling volumes of
 ## Browser tests (Playwright + axe)
 - Run: `docker compose run --rm e2e` (needs `app` and `vite` healthy; it runs `npm run test:e2e` in Chromium and
   removes its container afterwards). Plain `docker compose up -d` never starts it (profile `e2e`).
-- One file or extra flags: `docker compose run --rm e2e npx playwright test --config tests/e2e/playwright.config.ts --output=test-results/e2e smoke`.
-  Keep `--output=test-results/e2e` in custom commands (see "Reports"); a plain `npx playwright test` won't find the
-  config.
+- One file or extra flags: `docker compose run --rm e2e npx playwright test --config tests/e2e/playwright.config.ts smoke`
+  (a plain `npx playwright test` won't find the config).
 - Reports land in the repo, one level down: `playwright-report/html/index.html` (open it in a browser on Windows)
   and, on failure, screenshots, `error-context.md` and `trace.zip` in `test-results/e2e/`. Both folders are
   git-ignored and can be deleted from Windows. Traces can hold page content: don't upload them to online trace
   viewers. Why one level down: the repo is mounted read-only, and Playwright deletes and recreates its output
-  folders, which fails on a mount point (`EROFS`).
+  folders, which fails on a mount point (`EROFS`); `tests/e2e/playwright.config.ts` therefore writes to the
+  subfolders.
 - How it reaches the app: the container shares `vite`'s network namespace, so `localhost:5173` is the real Vite
   server and the page's JavaScript really loads; Playwright forwards `localhost:8000` to `app:8000`.
 - Isolation:
