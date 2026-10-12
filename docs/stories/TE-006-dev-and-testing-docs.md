@@ -1,7 +1,7 @@
 ---
 id: TE-006
 title: Developer docs (dev.md, testing.md) and exact stack versions in CLAUDE.md
-status: ready
+status: in-test
 priority: must
 epic: M0 Docker dev environment (also closes the docs part of "Project scaffold and tooling")
 agents: [devops-engineer, qa-engineer]

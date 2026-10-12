@@ -16,9 +16,9 @@ had (all of them must come back, in better form) and every mistake that must not
 | Legacy analysis | Done (`docs/legacy-analysis.md`) |
 | Agent team + workflow | Done (`.claude/agents/`, see § How work flows) |
 | Tech-stack decision | Done: `docs/adr/0001-tech-stack.md` (Accepted) |
-| Product plan / roadmap | Done: `docs/plan.md` (Accepted); ADR-0006 demo mode Proposed, open points in § 10 |
+| Product plan / roadmap | Done: `docs/plan.md` (Accepted); ADR-0005 and ADR-0006 Accepted; no open owner questions |
 | Design system | Not started (`docs/design/`, links in `docs/design/previews.md`) |
-| Scaffolding + Docker dev env | In progress: TE-001, TE-002 done; TE-003 to TE-006 open (`docs/stories/`) |
+| Scaffolding + Docker dev env | Done: TE-001 to TE-006 (scaffold, Docker dev env, tooling, arch tests, Vitest/Playwright harness, docs). Other M0 epics (SSR, CI/GHCR, app shell, design system, i18n, first deploy) not started |
 
 Update this table when a phase changes.
 
