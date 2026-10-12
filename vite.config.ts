@@ -80,6 +80,29 @@ export default defineConfig({
             host: 'localhost',
             clientPort: devServerPort,
         },
+        // Files the dev server must never serve (TE-006 AC13c, security L6). Vite serves any file
+        // under the project root by URL, so without this /config/app.php, /phpunit.xml,
+        // /bootstrap/cache/*.php and /storage/logs/*.log were readable on :5173. A user `deny`
+        // REPLACES Vite's defaults (it isn't merged and the defaults aren't exported), so the first
+        // six entries copy Vite 8.3's defaults; keep them when you upgrade. Denied files answer 403.
+        // This only affects HTTP serving: Tailwind's `@source` scan and PHP read files directly.
+        fs: {
+            deny: [
+                // Vite defaults.
+                '.env',
+                '.env.*',
+                '*.{crt,pem,key,p12,pfx,cer,der}',
+                '.npmrc',
+                '.yarnrc.yml',
+                '**/.git/**',
+                // Laravel: server-side code, runtime state (logs, sessions, cached config) and secrets.
+                '**/.env*',
+                '**/*.php',
+                '**/storage/**',
+                '**/bootstrap/cache/**',
+                '**/phpunit.xml',
+            ],
+        },
         watch: {
             usePolling: process.env.VITE_USE_POLLING === 'true',
             interval: Number(process.env.VITE_POLLING_INTERVAL ?? 1000),
