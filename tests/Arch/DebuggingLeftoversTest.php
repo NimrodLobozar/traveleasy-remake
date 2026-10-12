@@ -14,7 +14,7 @@ use Tests\Support\SourceTree;
 foreach (ArchRules::ARCH_NAMESPACES as $namespace) {
     arch("AC4 no debugging leftovers in {$namespace} (arch)")
         ->expect($namespace)
-        ->not->toUse(['dd', 'dump', 'ddd', 'ray', 'var_dump', 'print_r', 'die', 'exit']);
+        ->not->toUse(['dd', 'ddd', 'dump', 'ray', 'var_dump', 'var_export', 'print_r', 'printf', 'vprintf', 'die', 'exit']);
 }
 
 test('AC4 no debugging leftovers in app, bootstrap, config, database, routes and views (file scan)', function () {

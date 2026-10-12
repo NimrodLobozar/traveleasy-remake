@@ -28,7 +28,11 @@ return [
     |          "deferred", "background", "failover", "null"
     |
     | TravelEasy uses "database" (and "sync" in tests). The cloud "sqs" connection
-    | was removed (TE-004 AC14): no AWS credentials are ever read.
+    | and its AWS and SQS variables were removed from this file (TE-004 AC14) to
+    | keep them out of the documented env surface. Laravel still merges its own
+    | default connections (including "sqs") back in at runtime, but nothing selects
+    | them: tests/Arch/CloudCredentialsTest.php pins the default to database/sync
+    | and checks that the AWS SDK is not installed.
     |
     */
 

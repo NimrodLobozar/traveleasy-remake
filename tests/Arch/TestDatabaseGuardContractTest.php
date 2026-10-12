@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Tests\Support\ArchRules;
 use Tests\Support\SourceFile;
 use Tests\Support\SourceTree;
 
@@ -118,6 +119,14 @@ test('AC3 no test replaces the guarded application bootstrap', function () {
     }
 
     expect($bypasses)->toBe([], "AC3: the guarded bootstrap is replaced:\n  ".implode("\n  ", $bypasses));
+});
+
+// Rework round 1 (security L4): kernels, Foundation\Application or bootstrap/app.php boot an app without the guard.
+test('AC3 no test file outside tests/TestCase.php and tests/Support/ can boot the app without the guard', function () {
+    $files = SourceTree::files(['tests'], exclude: ['tests/Support/', 'tests/TestCase.php', 'tests/e2e/']);
+    $violations = ArchRules::check(ArchRules::guardBypasses(...), $files);
+
+    expect($violations)->toBe([], ArchRules::report('AC3 the TE-002 database guard cannot be bypassed', $violations));
 });
 
 test('AC3/AC12 phpunit.xml runs the arch suite by default and keeps the forced test database', function () {

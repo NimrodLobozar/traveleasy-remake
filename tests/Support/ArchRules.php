@@ -7,7 +7,8 @@ namespace Tests\Support;
 /**
  * The file-scan rules of TE-004. Each rule takes one SourceFile and returns its violations as
  * "path:line what was found" strings; an empty list means the file is clean. The Pest tests in tests/Arch run
- * them over the project, and tests/Arch/ArchRulesTest.php proves each one against violating snippets.
+ * them over the project, and tests/Arch/ArchRulesTest.php + ArchRulesQaBypassTest.php prove each one against
+ * violating and clean snippets.
  *
  * Sources: docs/legacy-analysis.md § 3, ADR-0005 (no outgoing e-mail), ADR-0006 (demo mode), docs/plan.md § 4 M0.
  */
@@ -24,19 +25,25 @@ final class ArchRules
      */
     public const ARCH_NAMESPACES = ['App', 'Database\Factories', 'Database\Seeders'];
 
-    /** AC4 / legacy § 3 "debugging leftovers". */
+    /**
+     * AC4 / legacy § 3 "debugging leftovers" (list clarified in TE-004 rework round 1, plus a few debug-only
+     * extras). exit/die are functions since PHP 8.4, so `\exit(1)` is a call and the bare `exit;` is T_EXIT.
+     */
     public const DEBUG_FUNCTIONS = [
-        'dd', 'dump', 'ddd', 'ray', 'var_dump', 'print_r', 'trap', 'ds', 'debug_zval_dump',
-        'debug_print_backtrace', 'xdebug_break', 'xdebug_var_dump', 'phpinfo',
+        'dd', 'ddd', 'dump', 'ray', 'var_dump', 'var_export', 'print_r', 'printf', 'vprintf', 'exit', 'die',
+        'trap', 'ds', 'debug_zval_dump', 'debug_print_backtrace', 'xdebug_break', 'xdebug_var_dump', 'phpinfo',
     ];
 
-    /** Debug helpers that also exist as methods (collections, query builders, requests, responses). */
+    /** Debug helpers that also exist as methods (collections, query builders, requests, responses, Benchmark). */
     public const DEBUG_METHODS = ['dd', 'ddd', 'dump', 'ddrawsql', 'dumprawsql'];
 
     /** AC5: ways to read the process environment. */
     public const ENV_FUNCTIONS = ['env', 'getenv', 'putenv'];
 
     public const ENV_VARIABLES = ['$_ENV', '$_SERVER'];
+
+    /** AC6: TLS options and the values they may have. */
+    public const TLS_KEYS = ['verify', 'verify_peer', 'verify_peer_name', 'allow_self_signed'];
 
     /** AC7: Laravel's CSRF middleware and its aliases. */
     public const CSRF_MIDDLEWARE = [
@@ -45,8 +52,13 @@ final class ArchRules
         'Illuminate\Foundation\Http\Middleware\VerifyCsrfToken',
     ];
 
-    /** AC7: methods of the CSRF middleware that decide what is exempt; overriding them is an exception too. */
-    public const CSRF_EXEMPTION_METHODS = ['inexceptarray', 'getexcludedpaths', 'tokensmatch', 'isreading', 'hasvalidorigin', 'runningunittests'];
+    public const SESSION_MIDDLEWARE = 'Illuminate\Session\Middleware\StartSession';
+
+    /** AC7: calls that define a whole middleware group (first argument: the group name). */
+    public const GROUP_DEFINITIONS = ['group', 'middlewaregroup'];
+
+    /** AC7: calls that only add middleware to a group; naming the CSRF middleware there is harmless. */
+    public const GROUP_ADDITIONS = ['appendtogroup', 'prependtogroup'];
 
     /**
      * AC8 / AC13 / ADR-0005: classes and namespaces that send or build e-mail. `Mail` is the global facade alias.
@@ -68,7 +80,11 @@ final class ArchRules
     /** Container bindings of the mailer (app('mailer'), resolve('mail.manager'), ...). */
     public const MAIL_CONTAINER_KEYS = ['mailer', 'mail.manager', 'mailer.markdown'];
 
-    public const MAIL_METHODS = ['tomailusing', 'sendpasswordresetnotification', 'sendemailverificationnotification'];
+    /** Calls that send mail, including the password-reset link (AC13 b). */
+    public const MAIL_METHODS = ['tomailusing', 'sendpasswordresetnotification', 'sendemailverificationnotification', 'sendresetlink'];
+
+    /** Declared methods that only exist to send mail (AC8, AC13 c). */
+    public const MAIL_DECLARATIONS = ['tomail', 'routenotificationformail'];
 
     /** AC9 / ADR-0006: the only file that may read traveleasy.demo, and the only one that may read DEMO_MODE. */
     public const DEMO_MODE_SERVICE = 'app/Support/DemoMode.php';
@@ -76,7 +92,8 @@ final class ArchRules
     public const DEMO_MODE_CONFIG = 'config/traveleasy.php';
 
     /**
-     * AC4: no dd/dump/ray/var_dump/print_r/exit/die, echo/print and friends (legacy § 3: debugging leftovers).
+     * AC4: no debugging leftovers (legacy § 3): the DEBUG_FUNCTIONS in every spelling, `exit;`/`die;`, the debug
+     * methods, and echo/print outside Blade.
      *
      * @return list<string>
      */
@@ -142,7 +159,8 @@ final class ArchRules
     }
 
     /**
-     * AC6: TLS verification stays on (legacy § 3: the HTTP client used withoutVerifying()).
+     * AC6: TLS verification stays on (legacy § 3: the HTTP client used withoutVerifying()). Checks the array form
+     * (`'verify' => false`) and the assignment form (`$options['verify'] = false`).
      *
      * @return list<string>
      */
@@ -169,27 +187,24 @@ final class ArchRules
         }
 
         foreach ($file->tokens as $i => $token) {
-            if (! $token->is(T_DOUBLE_ARROW)) {
+            if ($token->is(T_DOUBLE_ARROW)) {
+                $key = self::tlsKeyEndingAt($file, $i - 1);
+                $form = "'%s' => %s";
+            } elseif ($token->text === '=' && $file->token($i - 1)?->text === ']') {
+                $key = self::tlsKeyEndingAt($file, $i - 2);
+                $form = "['%s'] = %s";
+            } else {
                 continue;
             }
-
-            $key = self::tlsOptionKey($file, $i);
 
             if ($key === null) {
                 continue;
             }
 
             $value = $file->token($i + 1);
-            $after = $file->token($i + 2)?->text;
-            $ends = in_array($after, [',', ']', ')'], true);
-            $isTrue = $value !== null && strtolower($value->text) === 'true' && $ends;
-            $isCaBundle = $key === 'verify' && $value?->is(T_CONSTANT_ENCAPSED_STRING) === true && $ends;
-            $allowed = $key === 'allow_self_signed'
-                ? $value !== null && strtolower($value->text) === 'false' && $ends
-                : $isTrue || $isCaBundle;
 
-            if (! $allowed) {
-                $violations[] = self::at($file, $token->line, "sets the TLS option '{$key}' => ".($value->text ?? '?'));
+            if (! self::tlsValueAllowed($file, $key, $i + 1)) {
+                $violations[] = self::at($file, $token->line, 'sets the TLS option '.sprintf($form, $key, $value->text ?? '?'));
             }
         }
 
@@ -197,18 +212,27 @@ final class ArchRules
     }
 
     /**
-     * AC7: no CSRF exceptions (legacy § 3: CSRF was disabled for the chatbot endpoint).
+     * AC7: no CSRF exceptions (legacy § 3: CSRF was disabled for the chatbot endpoint):
+     *  - no argument to validateCsrfTokens()/preventRequestForgery() other than an empty `except`;
+     *  - no reference to the CSRF middleware (no subclass, no withoutMiddleware/remove/replace/except), except as a
+     *    member of a non-`web` group definition or an append/prepend to a group;
+     *  - no redefined `web` group, and no custom group with StartSession but without CSRF;
+     *  - no withoutMiddleware('web') / withoutMiddleware('csrf').
+     * Indirect subclasses (through another App class) are found across files by csrfSubclasses().
      *
      * @return list<string>
      */
     public static function csrfExceptions(SourceFile $file): array
     {
         $violations = [];
+        $allowedRanges = [];
 
         foreach ($file->methodCalls as $call) {
+            $open = $call['index'] + 1;
+            $close = $file->closingIndex($open);
+
             if (in_array($call['name'], ['validatecsrftokens', 'preventrequestforgery'], true)) {
-                $open = $call['index'] + 1;
-                $arguments = strtolower($file->textBetween($open, $file->closingIndex($open)));
+                $arguments = strtolower($file->textBetween($open, $close));
 
                 if (! in_array($arguments, ['', '[]', 'except:[]', 'array()', 'except:array()'], true)) {
                     $violations[] = self::at($file, $call['line'], "configures CSRF exceptions in {$call['name']}({$arguments})");
@@ -216,35 +240,106 @@ final class ArchRules
             }
 
             if ($call['name'] === 'withoutmiddleware') {
-                $open = $call['index'] + 1;
-
-                for ($i = $open + 1, $close = $file->closingIndex($open); $i < $close; $i++) {
-                    $token = $file->tokens[$i];
-
-                    if ($token->is(T_CONSTANT_ENCAPSED_STRING) && in_array(strtolower(SourceFile::unquote($token)), ['web', 'csrf'], true)) {
-                        $violations[] = self::at($file, $token->line, 'removes the CSRF middleware (withoutMiddleware('.$token->text.'))');
+                foreach ($file->strings as $string) {
+                    if ($string['index'] > $open && $string['index'] < $close && in_array(strtolower($string['value']), ['web', 'csrf'], true)) {
+                        $violations[] = self::at($file, $string['line'], "removes the CSRF middleware (withoutMiddleware('{$string['value']}'))");
                     }
                 }
             }
+
+            if (in_array($call['name'], self::GROUP_ADDITIONS, true)) {
+                $allowedRanges[] = [$open, $close];
+            }
+
+            if (in_array($call['name'], self::GROUP_DEFINITIONS, true)) {
+                $group = self::firstStringArgument($file, $open);
+
+                if ($group === null) {
+                    continue;
+                }
+
+                if (strtolower($group) === 'web') {
+                    $violations[] = self::at($file, $call['line'], "redefines the 'web' middleware group");
+
+                    continue;
+                }
+
+                $members = array_filter(
+                    $file->classReferences,
+                    fn (array $reference): bool => $reference['index'] > $open && $reference['index'] < $close,
+                );
+                $hasSession = array_filter($members, fn (array $reference): bool => strtolower($reference['name']) === strtolower(self::SESSION_MIDDLEWARE)) !== [];
+                $hasCsrf = array_filter($members, fn (array $reference): bool => self::isCsrfMiddleware($reference['name'])) !== [];
+
+                if ($hasSession && ! $hasCsrf) {
+                    $violations[] = self::at($file, $call['line'], "defines the middleware group '{$group}' with StartSession but without the CSRF middleware");
+                }
+
+                $allowedRanges[] = [$open, $close];
+            }
         }
 
-        $extendsCsrf = false;
-
         foreach ($file->classReferences as $reference) {
-            if (! self::isCsrfMiddleware($reference['name'])) {
+            if (! self::isCsrfMiddleware($reference['name']) || $reference['kind'] === SourceFile::KIND_IMPORT) {
                 continue;
             }
 
             if ($reference['kind'] === SourceFile::KIND_EXTENDS) {
-                $extendsCsrf = true;
-            } elseif ($reference['kind'] !== SourceFile::KIND_IMPORT) {
-                $violations[] = self::at($file, $reference['line'], "references the CSRF middleware {$reference['name']} "
-                    .'(only subclassing it is allowed; withoutMiddleware/remove/except are not)');
+                $violations[] = self::at($file, $reference['line'], "extends the CSRF middleware {$reference['name']} (no subclass is allowed)");
+
+                continue;
+            }
+
+            foreach ($allowedRanges as [$from, $to]) {
+                if ($reference['index'] > $from && $reference['index'] < $to) {
+                    continue 2;
+                }
+            }
+
+            $violations[] = self::at($file, $reference['line'], "references the CSRF middleware {$reference['name']} "
+                .'(withoutMiddleware, remove, replace and except are not allowed)');
+        }
+
+        return $violations;
+    }
+
+    /**
+     * AC7 (a): classes that extend the CSRF middleware through another class declared in the given files.
+     * Direct subclasses are already reported by csrfExceptions().
+     *
+     * @param  list<SourceFile>  $files
+     * @return list<string>
+     */
+    public static function csrfSubclasses(array $files): array
+    {
+        $parents = [];
+        $declaredIn = [];
+
+        foreach ($files as $file) {
+            foreach ($file->classParents as $class => $parent) {
+                $parents[strtolower($class)] = $parent;
+                $declaredIn[strtolower($class)] = [$class, $file->path];
             }
         }
 
-        if ($extendsCsrf) {
-            $violations = [...$violations, ...self::csrfSubclassExceptions($file)];
+        $violations = [];
+
+        foreach ($declaredIn as $key => [$class, $path]) {
+            $chain = [];
+            $current = $parents[$key] ?? null;
+
+            while ($current !== null && ! in_array(strtolower($current), $chain, true)) {
+                if (self::isCsrfMiddleware($current)) {
+                    if ($chain !== []) {
+                        $violations[] = "{$path} {$class} extends the CSRF middleware indirectly (via ".implode(' -> ', $chain).')';
+                    }
+
+                    break;
+                }
+
+                $chain[] = strtolower($current);
+                $current = $parents[strtolower($current)] ?? null;
+            }
         }
 
         return $violations;
@@ -282,8 +377,8 @@ final class ArchRules
         }
 
         foreach ($file->functionDeclarations as $declaration) {
-            if ($declaration['name'] === 'tomail') {
-                $violations[] = self::at($file, $declaration['line'], 'declares a toMail() method');
+            if (in_array($declaration['name'], self::MAIL_DECLARATIONS, true)) {
+                $violations[] = self::at($file, $declaration['line'], "declares a {$declaration['name']}() method");
             }
         }
 
@@ -302,19 +397,25 @@ final class ArchRules
 
     /**
      * AC9 / ADR-0006: only App\Support\DemoMode reads traveleasy.demo; only config/traveleasy.php reads DEMO_MODE.
+     *  - Outside config/: any string `traveleasy.demo…`, and `traveleasy` as an argument or array key (after
+     *    `(`, `[`, `:` or `,`), fails.
+     *  - In config/: the same keys fail when read as a first, named or array-key argument (`(`, `[`, `:`).
      *
      * @return list<string>
      */
     public static function demoFlag(SourceFile $file): array
     {
         $violations = [];
+        $inConfig = str_starts_with($file->path, 'config/');
 
         foreach ($file->strings as $string) {
             $value = strtolower($string['value']);
             $previous = $file->token($string['index'] - 1)?->text;
+            $isDemoKey = $value === 'traveleasy.demo' || str_starts_with($value, 'traveleasy.demo.');
+            $readContexts = $inConfig ? ['(', '[', ':'] : ['(', '[', ':', ','];
+            $isRead = in_array($previous, $readContexts, true);
 
-            $readsDemo = $value === 'traveleasy.demo' || str_starts_with($value, 'traveleasy.demo.')
-                || ($value === 'traveleasy' && in_array($previous, ['(', '['], true));
+            $readsDemo = ($isDemoKey && (! $inConfig || $isRead)) || ($value === 'traveleasy' && $isRead);
 
             if ($readsDemo && $file->path !== self::DEMO_MODE_SERVICE) {
                 $violations[] = self::at($file, $string['line'], "reads the demo flag '{$string['value']}' outside App\\Support\\DemoMode");
@@ -327,6 +428,42 @@ final class ArchRules
 
         return $violations;
     }
+
+    /**
+     * AC3 (security L4): in test files outside tests/TestCase.php and tests/Support/, no way to boot the app
+     * without the TE-002 guard: the console/HTTP kernel contracts, Foundation\Application, or loading
+     * bootstrap/app.php (a string containing it inside a require/include expression or passed to base_path()).
+     * A bare 'bootstrap/app.php' string elsewhere (e.g. a virtual path in a snippet dataset) loads nothing.
+     *
+     * @return list<string>
+     */
+    public static function guardBypasses(SourceFile $file): array
+    {
+        $violations = [];
+
+        foreach ($file->classReferences as $reference) {
+            foreach (self::GUARD_BYPASS_CLASSES as $class) {
+                if (SourceFile::isWithin($reference['name'], $class)) {
+                    $violations[] = self::at($file, $reference['line'], "references {$reference['name']} (boots the app without the guard)");
+                }
+            }
+        }
+
+        foreach ($file->strings as $string) {
+            if (str_contains(strtolower(str_replace('\\', '/', $string['value'])), 'bootstrap/app.php') && self::isLoadExpression($file, $string['index'])) {
+                $violations[] = self::at($file, $string['line'], 'loads bootstrap/app.php (boots the app without the guard)');
+            }
+        }
+
+        return $violations;
+    }
+
+    /** AC3 (L4): classes that boot or hand out an application outside Tests\TestCase. */
+    public const GUARD_BYPASS_CLASSES = [
+        'Illuminate\Contracts\Console\Kernel',
+        'Illuminate\Contracts\Http\Kernel',
+        'Illuminate\Foundation\Application',
+    ];
 
     /**
      * Runs a rule over files and returns all violations.
@@ -363,49 +500,42 @@ final class ArchRules
         return false;
     }
 
-    /** @return list<string> */
-    private static function csrfSubclassExceptions(SourceFile $file): array
+    /** True when the token at $index is part of a require/include expression or a base_path()/basePath() call. */
+    private static function isLoadExpression(SourceFile $file, int $index): bool
     {
-        $violations = [];
+        for ($i = $index - 1; $i >= 0; $i--) {
+            $token = $file->tokens[$i];
 
-        foreach ($file->tokens as $i => $token) {
-            $writesExcept = ($token->is(T_VARIABLE) && $token->text === '$except')
-                || ($token->is(T_STRING) && strtolower($token->text) === 'except' && $file->token($i - 1)?->is([T_OBJECT_OPERATOR, T_DOUBLE_COLON]) === true);
-
-            if (! $writesExcept) {
-                continue;
+            if (in_array($token->text, [';', '{', '}'], true)) {
+                return false;
             }
 
-            $next = $file->token($i + 1)?->text;
-
-            if ($next === '(') {
-                $violations[] = self::at($file, $token->line, 'adds CSRF exceptions with except()');
-            } elseif ($next === '[') {
-                $violations[] = self::at($file, $token->line, 'appends to the CSRF $except list');
-            } elseif ($next === '=') {
-                $value = $file->token($i + 2);
-
-                $empty = ($value?->text === '[' && $file->token($i + 3)?->text === ']')
-                    || ($value !== null && strtolower($value->text) === 'array' && $file->token($i + 4)?->text === ')' && $file->token($i + 3)?->text === '(');
-
-                if (! $empty) {
-                    $violations[] = self::at($file, $token->line, 'sets a non-empty CSRF $except list');
-                }
+            if ($token->is([T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE])
+                || ($token->is(T_STRING) && in_array(strtolower($token->text), ['base_path', 'basepath'], true))) {
+                return true;
             }
         }
 
-        foreach ($file->functionDeclarations as $declaration) {
-            if (in_array($declaration['name'], self::CSRF_EXEMPTION_METHODS, true)) {
-                $violations[] = self::at($file, $declaration['line'], "overrides the CSRF exemption method {$declaration['name']}()");
-            }
-        }
-
-        return $violations;
+        return false;
     }
 
-    private static function tlsOptionKey(SourceFile $file, int $arrow): ?string
+    /** The first argument of the call whose `(` is at $open, when it is a plain string literal. */
+    private static function firstStringArgument(SourceFile $file, int $open): ?string
     {
-        $key = $file->token($arrow - 1);
+        $first = $file->token($open + 1);
+        $after = $file->token($open + 2)?->text;
+
+        if ($first !== null && $first->is(T_CONSTANT_ENCAPSED_STRING) && in_array($after, [',', ')'], true)) {
+            return SourceFile::unquote($first);
+        }
+
+        return null;
+    }
+
+    /** The TLS option whose key ends at token $end (`'verify'` or `RequestOptions::VERIFY`), if any. */
+    private static function tlsKeyEndingAt(SourceFile $file, int $end): ?string
+    {
+        $key = $file->token($end);
 
         if ($key === null) {
             return null;
@@ -414,15 +544,36 @@ final class ArchRules
         if ($key->is(T_CONSTANT_ENCAPSED_STRING)) {
             $name = strtolower(SourceFile::unquote($key));
 
-            return in_array($name, ['verify', 'verify_peer', 'verify_peer_name', 'allow_self_signed'], true) ? $name : null;
+            return in_array($name, self::TLS_KEYS, true) ? $name : null;
         }
 
-        // GuzzleHttp\RequestOptions::VERIFY => false
-        if ($key->is(T_STRING) && strtoupper($key->text) === 'VERIFY' && $file->token($arrow - 2)?->is(T_DOUBLE_COLON) === true) {
+        // GuzzleHttp\RequestOptions::VERIFY
+        if ($key->is(T_STRING) && strtoupper($key->text) === 'VERIFY' && $file->token($end - 1)?->is(T_DOUBLE_COLON) === true) {
             return 'verify';
         }
 
         return null;
+    }
+
+    /**
+     * verify_peer / verify_peer_name: only literal true. allow_self_signed: only literal false. verify: true or a
+     * CA-bundle path string. The value must be a single token followed by the end of the element or statement.
+     */
+    private static function tlsValueAllowed(SourceFile $file, string $key, int $at): bool
+    {
+        $value = $file->token($at);
+
+        if ($value === null || ! in_array($file->token($at + 1)?->text, [',', ']', ')', ';'], true)) {
+            return false;
+        }
+
+        $literal = strtolower($value->text);
+
+        return match ($key) {
+            'allow_self_signed' => $literal === 'false',
+            'verify' => $literal === 'true' || $value->is(T_CONSTANT_ENCAPSED_STRING),
+            default => $literal === 'true',
+        };
     }
 
     private static function at(SourceFile $file, int $line, string $what): string

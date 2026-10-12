@@ -39,7 +39,7 @@ final class SourceFile
     /** @var list<PhpToken> Code tokens, without whitespace and comments. */
     public readonly array $tokens;
 
-    /** @var list<array{name: string, line: int, kind: string}> Fully qualified class names this file refers to. */
+    /** @var list<array{name: string, line: int, kind: string, index: int}> Fully qualified class names this file refers to. */
     public private(set) array $classReferences = [];
 
     /** @var list<array{name: string, line: int, index: int}> Lower-case, resolved names of called functions. */
@@ -68,6 +68,9 @@ final class SourceFile
 
     /** @var list<string> Fully qualified names of the classes, interfaces, traits and enums declared here. */
     public private(set) array $declaredClasses = [];
+
+    /** @var array<string, string> Declared class => the fully qualified class it extends. */
+    public private(set) array $classParents = [];
 
     private string $namespace = '';
 
@@ -130,6 +133,9 @@ final class SourceFile
         return $text;
     }
 
+    /**
+     * The value of a quoted string literal, unescaped exactly as PHP does. Other tokens are returned as they are.
+     */
     public static function unquote(PhpToken $token): string
     {
         $text = $token->text;
@@ -140,9 +146,38 @@ final class SourceFile
 
         $body = substr($text, 1, -1);
 
-        return $text[0] === "'"
-            ? str_replace(['\\\\', "\\'"], ['\\', "'"], $body)
-            : stripcslashes($body);
+        return $text[0] === "'" ? self::unescapeSingleQuoted($body) : self::unescapeDoubleQuoted($body, true);
+    }
+
+    /** Single quotes: only `\\` and `\'` are escapes; every other backslash stays. */
+    public static function unescapeSingleQuoted(string $body): string
+    {
+        return (string) preg_replace('/\\\\([\\\\\'])/', '$1', $body);
+    }
+
+    /**
+     * Double quotes and heredoc: only \n \t \r \v \e \f \\ \$ \0-7{1,3} \xHH \u{...} are escapes (plus \" in double
+     * quotes, not in heredoc). Every other backslash stays, so "Illuminate\Mail\Mailer" keeps its backslashes.
+     */
+    public static function unescapeDoubleQuoted(string $body, bool $quoteIsEscape): string
+    {
+        $simple = ['n' => "\n", 't' => "\t", 'r' => "\r", 'v' => "\v", 'e' => "\e", 'f' => "\f", '\\' => '\\', '$' => '$'];
+
+        return (string) preg_replace_callback(
+            '/\\\\(?:([ntrvef\\\\$])|(")|([0-7]{1,3})|x([0-9A-Fa-f]{1,2})|u\{([0-9A-Fa-f]+)\})/',
+            static function (array $match) use ($simple, $quoteIsEscape): string {
+                $escape = substr($match[0], 1);
+
+                return match (true) {
+                    isset($simple[$escape]) => $simple[$escape],
+                    $escape === '"' => $quoteIsEscape ? '"' : '\\"',
+                    $escape[0] === 'x' => chr((int) hexdec(substr($escape, 1)) & 0xFF),
+                    $escape[0] === 'u' => mb_chr((int) hexdec(substr($escape, 2, -1)), 'UTF-8') ?: '',
+                    default => chr((int) octdec($escape) & 0xFF),
+                };
+            },
+            $body,
+        );
     }
 
     /** Strips a leading backslash and a real-time facade prefix (`Facades\`). */
@@ -165,6 +200,9 @@ final class SourceFile
     private function analyse(): void
     {
         $depth = 0;
+        $inDoubleQuotes = false;
+        /** @var array{nowdoc: bool, indent: string}|null $heredoc */
+        $heredoc = null;
 
         for ($i = 0, $count = count($this->tokens); $i < $count; $i++) {
             $token = $this->tokens[$i];
@@ -202,12 +240,69 @@ final class SourceFile
                 $this->outputs[] = ['name' => strtolower($token->text), 'line' => $token->line];
             } elseif ($token->is(T_VARIABLE)) {
                 $this->variables[] = ['name' => $token->text, 'line' => $token->line];
-            } elseif ($token->is([T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE])) {
-                $this->addString($i, $token);
+            } elseif ($token->is(T_CONSTANT_ENCAPSED_STRING)) {
+                $this->addString($i, $token, self::unquote($token));
+            } elseif ($token->is(T_START_HEREDOC)) {
+                $heredoc = $this->heredocContext($i);
+            } elseif ($token->is(T_END_HEREDOC)) {
+                $heredoc = null;
+            } elseif ($token->text === '"') {
+                $inDoubleQuotes = ! $inDoubleQuotes;
+            } elseif ($token->is(T_ENCAPSED_AND_WHITESPACE)) {
+                $this->addString($i, $token, $this->encapsedValue($i, $heredoc, $inDoubleQuotes));
             } elseif ($token->is(self::NAME_TOKENS)) {
                 $this->addName($i, $token);
             }
         }
+    }
+
+    /**
+     * Whether the heredoc starting at $start is a nowdoc, and the indentation of its closing marker (PHP removes
+     * that indentation from every body line).
+     *
+     * @return array{nowdoc: bool, indent: string}
+     */
+    private function heredocContext(int $start): array
+    {
+        $nowdoc = str_contains($this->tokens[$start]->text, "'");
+        $indent = '';
+
+        for ($i = $start + 1, $count = count($this->tokens); $i < $count; $i++) {
+            if ($this->tokens[$i]->is(T_END_HEREDOC)) {
+                preg_match('/^[ \t]*/', $this->tokens[$i]->text, $match);
+                $indent = $match[0] ?? '';
+
+                break;
+            }
+        }
+
+        return ['nowdoc' => $nowdoc, 'indent' => $indent];
+    }
+
+    /**
+     * The value of a T_ENCAPSED_AND_WHITESPACE part: a piece of an interpolated double-quoted string, or a
+     * heredoc/nowdoc body (closing indentation removed, the newline before the closing marker trimmed).
+     *
+     * @param  array{nowdoc: bool, indent: string}|null  $heredoc
+     */
+    private function encapsedValue(int $i, ?array $heredoc, bool $inDoubleQuotes): string
+    {
+        $text = $this->tokens[$i]->text;
+
+        if ($heredoc === null) {
+            return $inDoubleQuotes ? self::unescapeDoubleQuoted($text, true) : $text;
+        }
+
+        if ($heredoc['indent'] !== '') {
+            $lineStart = $this->token($i - 1)?->is(T_START_HEREDOC) === true ? '(^|\n)' : '(\n)';
+            $text = (string) preg_replace('/'.$lineStart.preg_quote($heredoc['indent'], '/').'/', '$1', $text);
+        }
+
+        if ($this->token($i + 1)?->is(T_END_HEREDOC) === true) {
+            $text = (string) preg_replace('/\r?\n$/', '', $text);
+        }
+
+        return $heredoc['nowdoc'] ? $text : self::unescapeDoubleQuoted($text, false);
     }
 
     /** Parses a top-level `use` statement and returns the index of its closing `;`. */
@@ -241,13 +336,13 @@ final class SourceFile
 
                     $i++;
                     $alias = $this->importAlias($i, $member->text);
-                    $this->registerImport($itemKind, $prefix.'\\'.ltrim($member->text, '\\'), $alias, $line);
+                    $this->registerImport($itemKind, $prefix.'\\'.ltrim($member->text, '\\'), $alias, $line, $use);
                 }
 
                 $i++;
             } else {
                 $alias = $this->importAlias($i, $name->text);
-                $this->registerImport($kind, ltrim($name->text, '\\'), $alias, $line);
+                $this->registerImport($kind, ltrim($name->text, '\\'), $alias, $line, $use);
             }
 
             if ($this->token($i)?->text !== ',') {
@@ -290,23 +385,22 @@ final class SourceFile
         return end($segments);
     }
 
-    private function registerImport(?string $kind, string $name, string $alias, int $line): void
+    private function registerImport(?string $kind, string $name, string $alias, int $line, int $index): void
     {
         if ($kind === 'function') {
             $this->functionImports[strtolower($alias)] = strtolower($name);
         } elseif ($kind === null) {
             $this->classImports[strtolower($alias)] = $name;
-            $this->addClassReference($name, $line, self::KIND_IMPORT);
+            $this->addClassReference($name, $line, self::KIND_IMPORT, $index);
         }
     }
 
-    private function addString(int $i, PhpToken $token): void
+    private function addString(int $i, PhpToken $token, string $value): void
     {
-        $value = self::unquote($token);
         $this->strings[] = ['value' => $value, 'line' => $token->line, 'index' => $i];
 
         if (preg_match('/^\\\\?[A-Za-z_][A-Za-z0-9_]*(\\\\[A-Za-z_][A-Za-z0-9_]*)+$/', $value) === 1) {
-            $this->addClassReference($value, $token->line, self::KIND_STRING);
+            $this->addClassReference($value, $token->line, self::KIND_STRING, $i);
         }
     }
 
@@ -357,13 +451,19 @@ final class SourceFile
             return;
         }
 
-        $kind = $previous?->is(T_EXTENDS) === true ? self::KIND_EXTENDS : self::KIND_CODE;
-        $this->addClassReference($this->resolveClass($token), $token->line, $kind);
+        $class = $this->resolveClass($token);
+        $extends = $previous?->is(T_EXTENDS) === true;
+
+        if ($extends && $this->declaredClasses !== []) {
+            $this->classParents[$this->declaredClasses[array_key_last($this->declaredClasses)]] = self::normaliseClass($class);
+        }
+
+        $this->addClassReference($class, $token->line, $extends ? self::KIND_EXTENDS : self::KIND_CODE, $i);
     }
 
-    private function addClassReference(string $name, int $line, string $kind): void
+    private function addClassReference(string $name, int $line, string $kind, int $index): void
     {
-        $this->classReferences[] = ['name' => self::normaliseClass($name), 'line' => $line, 'kind' => $kind];
+        $this->classReferences[] = ['name' => self::normaliseClass($name), 'line' => $line, 'kind' => $kind, 'index' => $index];
     }
 
     private function resolveClass(PhpToken $token): string

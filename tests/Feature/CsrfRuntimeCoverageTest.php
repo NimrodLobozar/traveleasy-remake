@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Router;
+use Tests\Support\HttpKernel;
 
 /*
 | TE-004 AC7, runtime half (added by qa-engineer). The file scan in tests/Arch/CsrfTest.php looks for CSRF
@@ -19,7 +19,7 @@ const CSRF_RUNTIME_SIGNED_ROUTES = ['storage.local.upload'];
 
 test('AC7 every state-changing route runs the CSRF middleware (runtime)', function () {
     // Resolving the HTTP kernel syncs the middleware groups from bootstrap/app.php into the router.
-    app(HttpKernel::class);
+    HttpKernel::syncMiddlewareGroups();
     $router = app(Router::class);
     $checked = 0;
     $unprotected = [];
