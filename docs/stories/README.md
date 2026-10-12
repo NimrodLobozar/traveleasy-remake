@@ -11,7 +11,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-003](TE-003-code-quality-tooling.md) | Code quality tooling (Pint, Larastan, ESLint, Prettier, tsc) | must | done | 1 | not-needed |
 | [TE-004](TE-004-pest-arch-tests.md) | Pest on PostgreSQL with arch tests that forbid the legacy anti-patterns | must | done | 3 | not-needed |
 | [TE-005](TE-005-vitest-playwright-axe-harness.md) | Frontend test harness (Vitest + Testing Library, Playwright + axe) | must | done | 1 | not-needed |
-| [TE-006](TE-006-dev-and-testing-docs.md) | Developer docs (dev.md, testing.md) and exact stack versions in CLAUDE.md | must | in-test | 0 | not-needed |
+| [TE-006](TE-006-dev-and-testing-docs.md) | Developer docs (dev.md, testing.md) and exact stack versions in CLAUDE.md | must | done | 1 | not-needed |
 
 ### Epics
 - **M0 Project scaffold and tooling:** TE-001, TE-003, TE-004, TE-005 (docs part in TE-006).
@@ -80,6 +80,44 @@ Not tied to a story yet. Pick up at the next devops touch, or as a small `chore`
     `/@vite/client` ("Port 5173 is already in use"), while the container healthcheck stays healthy.
   - **Fix:** make the `vite` healthcheck actually request `/@vite/client` and expect 200. Then look for a restart fix,
     or document the workaround (`docker compose restart vite`) in `dev.md`.
+  - **Resolved (TE-006, 2026-10-12):**
+    - the healthcheck already requests `/@vite/client`, which was proven by pausing the server with SIGSTOP;
+    - the workaround is documented in the `dev.md` troubleshooting section.
+
+    Reopen only if an upstream restart fix becomes available.
+
+### Follow-ups from TE-006
+From the TE-006 close (2026-10-12).
+
+**Devops** (next devops touch, or a small `chore` story):
+- **L6-a:** a Vitest check that Vite's default `server.fs.deny` list is contained in ours, so upgrade drift is caught.
+- **L6-b:** add `**/playwright-report/**` and `**/test-results/**` to `server.fs.deny`.
+- **L6-c** (`dev.md`): the "Changed `DB_PASSWORD`" fix should use psql's `\password traveleasy` instead of
+  `ALTER USER … PASSWORD '…'`, which lands in psql history.
+
+**Docs** (`dev.md` / `testing.md`):
+- fix the line about `npx vp --version`, which also prints the Vite version;
+- align the test timings between `dev.md` and `testing.md`.
+
+**Frontend, App shell epic:**
+- `REMOVAL_EPICS` allows "Design system", but the allow-list must be empty after the App shell epic. Align the two
+  (frontend-developer).
+
+**Backend, next arch-rule hardening pass:**
+- the TE-006 AC13e spawned-process recommendation needs an exemption for `TestDatabaseIsolationTest`'s
+  `Process(['php', 'artisan', 'config:cache'])`, or that helper moves to `tests/Support/`.
+
+**QA, watch item:**
+- serial Pest timing is creeping (31–51 s against the 60 s budget). Re-check at the end of M0 and consider
+  `--parallel` as the default or a split suite.
+
+**Architect:**
+- `docs/plan.md` (and the TE-003 title) still say "ESLint, Prettier", but the tooling is vite-plus oxlint/oxfmt.
+  Update the wording the next time the plan is touched.
+
+**Owner-pending:**
+- 5 dangling `traveleasy-remake-dev` images (about 6.9 GB) can be removed with the project-filtered prune in
+  `docs/deploy/dev.md`. It needs the owner's OK.
 
 ### Notes for the design-system epic
 From the TE-005 accessibility review (2026-10-12). The Vitest/jsdom axe matcher can't check layout (see TE-005 AC3),
