@@ -94,8 +94,8 @@ The `vite` alias hides Vite advisories from `npm audit`; check them by hand on e
 | Tests (PHP) | `docker compose exec app composer test` / `composer test:parallel` |
 | Tests (frontend) | `docker compose exec vite npm run test` |
 | Tests (e2e + axe) | `docker compose run --rm e2e` (needs `app` and `vite` healthy; one run at a time) |
-| Lint, analyse, typecheck | `docker compose exec app composer check` / `docker compose exec vite npm run check` |
-| Format | `docker compose exec app composer format` / `docker compose exec vite npm run format` (never `npx vp fmt` without paths) |
+| Checks | `docker compose exec app composer check` (Pint, Larastan **and** the Pest suite) / `docker compose exec vite npm run check` (generate, oxlint, oxfmt check, `tsc`) |
+| Format | `docker compose exec app composer format` / `docker compose exec vite npm run format`. Both rewrite every file in scope (`npm run format` is `vp fmt` without paths); for one file use `docker compose exec vite npx vp fmt <path>` |
 | Build | `docker compose exec vite npm run build` |
 | Generate TS types + routes | `docker compose exec vite npm run generate` |
 | Migrate | `docker compose exec app php artisan migrate` |
@@ -158,6 +158,7 @@ Goal: **code changes appear in the browser without a rebuild.**
 | Want an empty database volume | `docker compose down -v` (**deletes all data**; ask the owner first) |
 
 Notes:
+- For daily stopping, use `docker compose stop` (it leaves nothing behind) rather than `down`.
 - `-V` (capital, on `up`) renews the dependency volumes. `-v` (lowercase, on `down`) deletes **all** volumes,
   including the database.
 - A plain `up -V` rebuild (and a plain `down`) leaves the old anonymous `vendor`/`node_modules` volumes dangling
