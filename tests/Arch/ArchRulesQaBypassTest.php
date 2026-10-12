@@ -48,9 +48,14 @@ test('a rule catches a plausible non-evasive variant', function (string $rule, s
     'tls: Http::globalOptions verify false' => ['tls', '<?php Http::globalOptions(["verify" => false]);', 'app/Providers/AppServiceProvider.php'],
     'tls: new \GuzzleHttp\Client verify false' => ['tls', '<?php namespace App; new \GuzzleHttp\Client(["verify" => false]);', 'app/X.php'],
     'tls: verify from config()' => ['tls', '<?php namespace App; Http::withOptions(["verify" => config("x.verify")]);', 'app/X.php'],
+    // Rework round 1 re-test: `??=` is an assignment operator too (an insecure default for an option array).
+    'tls: null-coalescing assignment ??= false' => ['tls', '<?php namespace App; $options["verify"] ??= false;', 'app/X.php'],
     // AC7: class names in double-quoted strings keep their backslashes in PHP ("\F", "\H", "\M" are not escapes).
     'csrf: web(remove:) with a double-quoted class string' => ['csrf', '<?php $middleware->web(remove: ["Illuminate\Foundation\Http\Middleware\ValidateCsrfToken"]);', 'bootstrap/app.php'],
     'csrf: withoutMiddleware with a double-quoted class string' => ['csrf', '<?php Route::post("/c", C::class)->withoutMiddleware("Illuminate\Foundation\Http\Middleware\PreventRequestForgery");', 'routes/web.php'],
+    // Rework round 1 re-test: bootstrap/app.php uses named arguments throughout, so group() can get them too.
+    'csrf: web group redefined with named arguments' => ['csrf', '<?php $middleware->group(name: "web", middleware: [\Illuminate\Session\Middleware\StartSession::class]);', 'bootstrap/app.php'],
+    'csrf: session group without CSRF, named arguments' => ['csrf', '<?php $middleware->group(name: "chat", middleware: [\Illuminate\Session\Middleware\StartSession::class]);', 'bootstrap/app.php'],
     'csrf: web(replace:)' => ['csrf', '<?php $middleware->web(replace: [\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class => Noop::class]);', 'bootstrap/app.php'],
     'csrf: replaceInGroup' => ['csrf', '<?php $middleware->replaceInGroup("web", \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class, Noop::class);', 'bootstrap/app.php'],
     'csrf: static except() through a grouped alias' => ['csrf', '<?php use Illuminate\Foundation\Http\Middleware\{PreventRequestForgery as P}; P::except(["chat"]);', 'bootstrap/app.php'],
