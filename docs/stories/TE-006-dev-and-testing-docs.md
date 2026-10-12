@@ -130,6 +130,16 @@ database by accident.
     level. Covered at runtime.
   - **Spawned processes:** a test that starts a new process (`Process(['php', 'artisan', …])` or similar) boots the
     app outside the guard. Recommendation: flag it in test files outside `tests/Support/`.
+
+  Added at the TE-004 close (2026-10-12), with recommendations for a later backend hardening pass:
+  - **Path normalisation (L-h):** the joined-path check on `bootstrap/app.php` doesn't normalise `//`, `/./` or
+    `x/../`. Recommendation (cheap): normalise the joined path before matching, or forbid `require`/`include` in
+    test files outside `tests/Support/` entirely.
+  - **More guard forms:** `Filesystem->getRequire()` / `File::getRequire()` and `$app->handle($request)` aren't in
+    AC3's forms. Recommendation: add them to the guard contract.
+  - **More TLS forms:** `Config::set` / `config()->set` / `config([...])` with a dotted verify key (key at argument
+    position 0), and `stream_context_set_option` with PHP's real named parameters (`option_name:`).
+    Recommendation: extend the TLS rule.
 - [ ] AC13d (from TE-005 close):
   - **(a) `docs/testing.md` coverage:**
     - the jsdom limits (`color-contrast`, `link-in-text-block`, `target-size`, `scrollable-region-focusable` aren't
