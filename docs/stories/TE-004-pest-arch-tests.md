@@ -68,6 +68,8 @@ the original's security mistakes, so that those mistakes can't come back unnotic
         moves to `PhpFile`.
       - **(c) `bootstrap/app.php` in any piece.** An expression fails if any string piece contains `bootstrap/app.php`,
         including inside an interpolated string. Scanning backwards may not stop at the interpolation `}`.
+        The check also applies to the joined value of the literal pieces (e.g. `'…/bootstrap/'.'app.php'`), so
+        `require __DIR__.'/../../bootstrap/'.'app.php'` fails. *(Added in round 3 from security finding L-g.)*
       - **(d) The sanctioned loader is fenced.** `Tests\Support\PhpFile::returnValue()` refuses (throws) when
         `realpath($path)` is the application's `bootstrap/app.php`. Alternatively it allows only paths under
         `config/` and `storage/framework/testing/`. The developer decides, documents the choice in the class, and a
