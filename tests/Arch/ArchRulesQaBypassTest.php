@@ -25,6 +25,7 @@ function qaBypassScan(string $rule, string $code, string $path): array
         'csrf' => ArchRules::csrfExceptions($file),
         'mail' => ArchRules::mail($file),
         'demo' => ArchRules::demoFlag($file),
+        'guard' => ArchRules::guardBypasses($file),
         default => throw new InvalidArgumentException("Unknown rule [{$rule}]."),
     };
 }
@@ -71,4 +72,12 @@ test('a rule catches a plausible non-evasive variant', function (string $rule, s
     'demo: Config::set' => ['demo', '<?php namespace App; \Illuminate\Support\Facades\Config::set("traveleasy.demo", true);', 'app/X.php'],
     'demo: container config repository' => ['demo', '<?php namespace App; $app["config"]->get("traveleasy");', 'app/X.php'],
     'demo: data_get over all config' => ['demo', '<?php namespace App; data_get(config()->all(), "traveleasy.demo");', 'app/X.php'],
+    // AC3 (rework round 2 re-test): loading bootstrap/app.php, or require/include of any non-literal path, in a test
+    // file outside tests/TestCase.php and tests/Support/. Parenthesised require and __DIR__ concatenation are
+    // common styles; the interpolated path contains the literal bootstrap/app.php; PhpFile is the sanctioned loader.
+    'guard: require($path) with parentheses' => ['guard', '<?php $app = require($path);', 'tests/Unit/X.php'],
+    'guard: require __DIR__ concatenated with a variable' => ['guard', '<?php $app = require __DIR__.$file;', 'tests/Unit/X.php'],
+    'guard: require of an interpolated bootstrap/app.php path' => ['guard', '<?php $app = require "{$root}/bootstrap/app.php";', 'tests/Unit/X.php'],
+    'guard: PhpFile::returnValue of bootstrap/app.php' => ['guard', '<?php $app = \Tests\Support\PhpFile::returnValue(__DIR__."/../../bootstrap/app.php");', 'tests/Unit/X.php'],
+    'guard: require of a function-call path' => ['guard', '<?php $app = require base_path($file);', 'tests/Unit/X.php'],
 ]);
