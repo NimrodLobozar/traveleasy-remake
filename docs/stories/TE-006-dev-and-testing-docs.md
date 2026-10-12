@@ -114,6 +114,22 @@ database by accident.
   - a closure inside an allowed CSRF range that runs at request time;
   - `Route::group(['excluded_middleware' => …])`, which `CsrfRuntimeCoverageTest` covers at runtime;
   - the deliberate false positive `'verify' => storage_path(...)`: only a literal CA path is allowed.
+
+  Added from TE-004 round 3 (security L-e, L-f, and QA). Each item is listed as a known limit with how it is covered,
+  plus a recommendation for a later backend hardening pass:
+  - **CSRF (L-e):** `call_user_func([PreventRequestForgery::class, 'except'], …)`, and a middleware group whose name
+    isn't a literal. Covered at runtime by `CsrfRuntimeCoverageTest`.
+  - **TLS (L-f):**
+    - `Config::set` / `config()->set` / `config([...])` with a TLS key (there the key is at argument position 0);
+    - `Arr::add`;
+    - `stream_context_set_option` with PHP's real named parameters;
+    - Symfony `HttpOptions->verifyPeer(false)`.
+
+    Recommendation: extend the TLS rule in a later hardening pass.
+  - **Global session middleware:** `$middleware->append(StartSession)` / `prepend(StartSession)` at the global
+    level. Covered at runtime.
+  - **Spawned processes:** a test that starts a new process (`Process(['php', 'artisan', …])` or similar) boots the
+    app outside the guard. Recommendation: flag it in test files outside `tests/Support/`.
 - [ ] AC13d (from TE-005 close):
   - **(a) `docs/testing.md` coverage:**
     - the jsdom limits (`color-contrast`, `link-in-text-block`, `target-size`, `scrollable-region-focusable` aren't

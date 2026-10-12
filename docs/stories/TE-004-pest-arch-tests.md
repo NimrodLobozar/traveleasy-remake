@@ -7,7 +7,7 @@ epic: M0 Project scaffold and tooling
 agents: [backend-developer]
 testers: [qa-engineer, security-privacy-reviewer]
 design: not-needed
-rework_rounds: 2
+rework_rounds: 3
 ---
 
 ## User story
@@ -52,6 +52,30 @@ the original's security mistakes, so that those mistakes can't come back unnotic
 
       All of these are flagged in test files outside `tests/TestCase.php` / `tests/Support/`, and each is proven
       failing (AC11).
+
+      *Clarified in rework round 3 (QA):*
+      - **(a) Every `require`/`include`.** The rule analyses the **whole expression** up to the end of the statement,
+        for `require`, `require_once`, `include` and `include_once`, with or without parentheses (`require($path)`,
+        `require ($path)`).
+      - **(b) What counts as non-literal.** An expression is **literal** only if it is made solely of string literals
+        (without interpolation), `__DIR__`, the `.` operator and parentheses. Anything else is non-literal and fails.
+        That includes:
+        - variables (`$path`, `__DIR__.$file`);
+        - function calls (`dirname(__DIR__, 2).$f`, `base_path($file)`, `config_path($file)`);
+        - interpolated strings (`"{$root}/bootstrap/app.php"`).
+
+        Function-call paths have **no** exemption. The one legitimate use today, `tests/Feature/ConfigDefaultsTest.php:34`,
+        moves to `PhpFile`.
+      - **(c) `bootstrap/app.php` in any piece.** An expression fails if any string piece contains `bootstrap/app.php`,
+        including inside an interpolated string. Scanning backwards may not stop at the interpolation `}`.
+      - **(d) The sanctioned loader is fenced.** `Tests\Support\PhpFile::returnValue()` refuses (throws) when
+        `realpath($path)` is the application's `bootstrap/app.php`. Alternatively it allows only paths under
+        `config/` and `storage/framework/testing/`. The developer decides, documents the choice in the class, and a
+        test proves the refusal.
+      - **(e) Kernel entry points.** In test files outside `tests/TestCase.php` / `tests/Support/`, the method calls
+        `->handleCommand(` and `->handleRequest(` are flagged, because they bootstrap a kernel internally.
+      - **(f) Pass bar.** All 36 cases in `tests/Arch/ArchRulesQaBypassTest.php` pass, including QA's 5 new round-3
+        cases, and each new form is proven failing (AC11).
 - [ ] AC3a (config-cache case without a real cache file; security Low from TE-002, owners qa-engineer +
       backend-developer): the config-cache case of the isolation test (TE-002 AC17) no longer writes
       `bootstrap/cache/config.php`. It points `APP_CONFIG_CACHE` at a temp file under `storage/framework/testing/` and
@@ -296,6 +320,60 @@ the original's security mistakes, so that those mistakes can't come back unnotic
 - **Follow-ups filed elsewhere (not this round):**
   - L-d: on the board under "Follow-ups for M1".
   - The documented scanner limits: TE-006 AC13e.
+
+### Round 3 (2026-10-12): final round before escalation
+> **This is rework round 3, the last one.** Per `CLAUDE.md` § How work flows, if the next re-test fails, the
+> orchestrator stops and asks the owner how to proceed. Possible options: accept the remaining gaps as documented
+> limits, narrow AC3, or split it out.
+
+- **Verdicts:**
+  - **security-privacy-reviewer: PASS.** L-a…L-c are closed; new Lows L-e, L-f and L-g are filed as follow-ups.
+  - **qa-engineer: FAIL on AC3 only.** AC6 and AC7 are now complete. The suite is green and deterministic (serial
+    about 28 s, parallel about 12 s).
+- **Failed criterion:** AC3, the guard-bypass rule for `require`/`include` and kernel entry points.
+- **Evidence:** the rule checks only the first token after `require`, so it misses:
+  1. parenthesised forms: `require($path)`, `require_once($path)`, `require ($path)`;
+  2. `require __DIR__.$file` and `dirname(__DIR__, 2).$f`;
+  3. `require "{$root}/bootstrap/app.php"` (the backward scan stops at the interpolation `}`);
+  4. `\Tests\Support\PhpFile::returnValue(__DIR__.'/../../bootstrap/app.php')`, because the sanctioned loader can
+     load the app;
+  5. `require base_path($file)` / `require config_path($file)`. **QA rejected the developer's exclusion of
+     function-call paths:** AC3 says "any non-literal path".
+
+  Also, `$app->handleCommand(...)` / `handleRequest(...)` aren't flagged, so `$app = require($path);
+  $app->handleCommand(...)` would reach the database without the guard.
+
+  QA added the 5 failing cases to `tests/Arch/ArchRulesQaBypassTest.php`, now 36 cases (committed).
+- **Cause:**
+  - a first-token check instead of a whole-expression check;
+  - an exemption for function-call paths that AC3 doesn't allow;
+  - `PhpFile` has no path restriction;
+  - kernel entry-point methods aren't on the list.
+- **Expected fix (backend-developer):**
+  - Analyse every `require`/`include`(`_once`) up to the end of the statement. Flag it unless it is only string
+    literals, `__DIR__`, `.` and parentheses, and flag it if any piece contains `bootstrap/app.php`, including
+    through interpolation.
+  - Make `PhpFile::returnValue()` refuse the app's `bootstrap/app.php` (or allow-list `config/` and
+    `storage/framework/testing/`), and document the choice.
+  - Move `ConfigDefaultsTest` to `PhpFile`.
+  - Flag `->handleCommand(` / `->handleRequest(` outside `tests/TestCase.php` / `tests/Support/`.
+  - All 36 bypass cases pass.
+- **Criterion clarified:** AC3 (a)–(f):
+  - (a) whole expression, with or without parentheses;
+  - (b) "non-literal" = anything other than string literals, `__DIR__`, `.` and parentheses (function calls count;
+    no exemption);
+  - (c) `bootstrap/app.php` in any piece, including interpolation;
+  - (d) the `PhpFile` restriction;
+  - (e) `handleCommand` / `handleRequest`;
+  - (f) the 36-case pass bar.
+- **Follow-ups filed elsewhere (not this round):**
+  - TE-006 AC13e, known limits plus recommendations:
+    - L-e: CSRF via `call_user_func` and non-literal group names (covered at runtime);
+    - L-f: TLS via `Config::set` / `config()->set` / `config([...])`, `Arr::add`, `stream_context_set_option` named
+      parameters, and `HttpOptions->verifyPeer(false)`;
+    - global `append`/`prepend(StartSession)` (covered at runtime);
+    - `Process(['php', 'artisan', …])` in tests.
+  - L-g wasn't specified beyond the list above. If it's a separate item, send it and I'll file it.
 
 ## Changelog
 (filled when done)
