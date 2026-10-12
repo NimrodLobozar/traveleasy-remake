@@ -107,6 +107,13 @@ database by accident.
     `**/bootstrap/cache/**`, `**/phpunit.xml` and `**/.env*`, keeping Vite's defaults.
   - **The check.** QA confirms that those three URLs return 403/404 and that HMR (TE-002 AC4) still works.
   - **The docs.** `dev.md` mentions it under security notes.
+- [ ] AC13e (from TE-004 round 2): `docs/testing.md` has a "Known limits of the arch scans" list. Each item says how it
+  is covered instead (runtime test, review) or that it is accepted:
+  - names built at runtime (string concatenation, variables holding class names);
+  - `fprintf` (not in the debug list);
+  - a closure inside an allowed CSRF range that runs at request time;
+  - `Route::group(['excluded_middleware' => …])`, which `CsrfRuntimeCoverageTest` covers at runtime;
+  - the deliberate false positive `'verify' => storage_path(...)`: only a literal CA path is allowed.
 - [ ] AC13d (from TE-005 close):
   - **(a) `docs/testing.md` coverage:**
     - the jsdom limits (`color-contrast`, `link-in-text-block`, `target-size`, `scrollable-region-focusable` aren't

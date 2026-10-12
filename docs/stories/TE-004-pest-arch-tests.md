@@ -1,13 +1,13 @@
 ---
 id: TE-004
 title: Pest on PostgreSQL with arch tests that forbid the legacy anti-patterns
-status: in-progress
+status: rework
 priority: must
 epic: M0 Project scaffold and tooling
 agents: [backend-developer]
 testers: [qa-engineer, security-privacy-reviewer]
 design: not-needed
-rework_rounds: 1
+rework_rounds: 2
 ---
 
 ## User story
@@ -40,7 +40,18 @@ the original's security mistakes, so that those mistakes can't come back unnotic
       - `Illuminate\Contracts\Console\Kernel`;
       - `Illuminate\Contracts\Http\Kernel`;
       - `Illuminate\Foundation\Application`;
-      - the string `bootstrap/app.php`.
+      - **loading** `bootstrap/app.php` (e.g. `require`/`include` of it). *Reworded in round 2 to match the accepted
+        "loaded" reading:* a mere mention of the path in a comment or string doesn't fail.
+
+      *Extended in rework round 2 (security L-c):* the guard-bypass list also includes:
+      - `Illuminate\Foundation\Bootstrap\*`;
+      - `Illuminate\Foundation\Configuration\ApplicationBuilder`;
+      - the concrete `Illuminate\Foundation\Console\Kernel` and `Illuminate\Foundation\Http\Kernel`;
+      - any `->bootstrapWith(` call;
+      - any `require`/`include` (and `_once`) of a **non-literal** path.
+
+      All of these are flagged in test files outside `tests/TestCase.php` / `tests/Support/`, and each is proven
+      failing (AC11).
 - [ ] AC3a (config-cache case without a real cache file; security Low from TE-002, owners qa-engineer +
       backend-developer): the config-cache case of the isolation test (TE-002 AC17) no longer writes
       `bootstrap/cache/config.php`. It points `APP_CONFIG_CACHE` at a temp file under `storage/framework/testing/` and
@@ -77,6 +88,18 @@ the original's security mistakes, so that those mistakes can't come back unnotic
       - For `verify`, `true` or a CA-bundle path string is allowed; anything else fails.
 
       Each form is proven failing (AC11).
+
+      *Extended in rework round 2 (QA failure 1, security L-b):*
+      - **(a) More keys.** The key list also includes `verify_host` (Symfony HttpClient), with the same rule as
+        `verify_peer`: anything other than literal `true` fails.
+      - **(b) Null-coalescing assignment.** `??=` counts as an assignment (`T_COALESCE_EQUAL`), so
+        `$options['verify'] ??= false;` fails.
+      - **(c) Setter helpers.** `Arr::set($o, 'verify', false)` and `data_set($o, 'verify', false)` fail, with the TLS
+        key as the second argument, including dotted paths that end in a TLS key (e.g. `'ssl.verify_peer'`).
+      - **(d) Stream contexts.** `stream_context_set_option($ctx, 'ssl', 'verify_peer', false)` fails, and so do the
+        array form of `stream_context_set_option` and `stream_context_create([...])` with a TLS key.
+      - **(e) Known false positive.** `'verify' => storage_path(...)` (a computed CA path) fails **by design**. Only a
+        literal CA path string is allowed. This is documented in `docs/testing.md` (TE-006).
 - [ ] AC7 (CSRF): a test fails if any CSRF exception is configured: a non-empty `except` passed to
       `validateCsrfTokens()` in `bootstrap/app.php`, a non-empty `$except` on a CSRF middleware subclass, or
       `withoutMiddleware(` naming a CSRF middleware in `routes/` or `app/`.
@@ -88,6 +111,20 @@ the original's security mistakes, so that those mistakes can't come back unnotic
       - **(b) No group without CSRF.** `bootstrap/app.php` and `routes/` may not redefine the `web` group, or define a
         custom middleware group that includes `StartSession` but not the CSRF middleware. That covers
         `$middleware->group('web', [...])`, `->web(remove: [...CSRF...])` and `->web(replace: ...)` that drops it.
+        *Extended in rework round 2 (QA failure 2, QA recommendation, security L-a):*
+        - **Named arguments.** The rule reads arguments by position **and** by name.
+          `$middleware->group(name: 'web', middleware: [...])` and
+          `$middleware->group(name: 'chat', middleware: [StartSession::class])` fail just like the positional
+          form. `bootstrap/app.php` uses named arguments everywhere.
+        - **Session added to an existing group.** Adding `StartSession` to an existing group through
+          `appendToGroup(...)`, `prependToGroup(...)`, `web(append:|prepend:)` or `api(append:|prepend:)` fails,
+          unless that group also contains the CSRF middleware after the change.
+        - **`::class`-only exemption.** Inside the arguments of `appendToGroup` / `prependToGroup` / a non-web
+          `group(...)`, a reference to the CSRF middleware is exempt **only** as a plain `::class` constant (adding
+          CSRF is fine). A static call on it, such as `PreventRequestForgery::except(...)`, `::useOriginOnly()` or
+          `::allowSameSite()`, still fails.
+        - **Proof.** QA's 3 new cases in `tests/Arch/ArchRulesQaBypassTest.php` (31 cases in total) pass, and each
+          new form is proven failing (AC11).
       - **(c) Every string form.** Class names given as strings are matched in every PHP string form, unescaped
         exactly as PHP does: single-quoted, double-quoted with single or double backslashes (e.g.
         `"Illuminate\Foundation\Http\Middleware\ValidateCsrfToken"`), heredoc/nowdoc, and `::class`. (Today
@@ -220,6 +257,45 @@ the original's security mistakes, so that those mistakes can't come back unnotic
 - **Follow-ups filed elsewhere (not this rework):**
   - L6, Vite `server.fs.deny`: TE-006, for the devops-engineer.
   - The `serve => true` signed storage routes observation: added to the existing M1 item on the board.
+
+### Round 2 (2026-10-12)
+- **Verdicts:**
+  - **security-privacy-reviewer: PASS.** M1, M2 and L1–L5 are closed; new Lows L-a…L-d.
+  - **qa-engineer: FAIL, narrowly.** Everything else passes: 323/323 tests, deterministic, identical serial and
+    parallel; all 28 original bypass cases; AC3a re-done. QA accepted both developer decisions:
+    - the L4 "loaded" reading for `bootstrap/app.php`;
+    - the `CsrfRuntimeCoverageTest` helper change.
+- **Failed criteria and evidence:**
+  - **AC6 / AC11:** `$options['verify'] ??= false;` is missed. The assignment rule only looks at `=`, not
+    `T_COALESCE_EQUAL`.
+  - **AC7(b) / AC11:** named-argument groups are missed:
+    - `$middleware->group(name: 'web', middleware: [...])`;
+    - `group(name: 'chat', middleware: [StartSession::class])`.
+
+    `firstStringArgument()` only accepts a literal right after `(`. This is plausible in real code, because
+    `bootstrap/app.php` uses named arguments everywhere. The runtime test still catches the harm, but the file-scan
+    rule doesn't.
+  - **QA's new cases:** 3 failing cases added to `tests/Arch/ArchRulesQaBypassTest.php`, now 31 cases (committed).
+- **Cause:** both scanners only handle the most common token shape (`=` and a positional first argument).
+- **Expected fix (backend-developer):**
+  - Treat `??=` as an assignment.
+  - Resolve call arguments by name as well as by position.
+  - In the same round, cheap and in the same code areas:
+    - **L-a:** the `::class`-only CSRF exemption.
+    - **L-b:** `Arr::set` / `data_set`, `stream_context_set_option`, `verify_host`.
+    - **L-c:** extra guard-bypass classes, `->bootstrapWith(`, `require`/`include` of a non-literal path.
+    - **QA recommendation:** `StartSession` appended or prepended to an existing group without CSRF fails.
+    - **Nit:** the comments in `config/queue.php` and `config/cache.php` must reference `CloudCredentialsRuntimeTest.php`,
+      not `CloudCredentialsTest.php`.
+  - All 31 bypass cases pass.
+- **Criteria clarified:**
+  - AC3: reworded to "loading `bootstrap/app.php`", and the L-c additions.
+  - AC6: (a)–(e): `verify_host`, `??=`, `Arr::set`/`data_set`, stream contexts, and the documented
+    `storage_path(...)` false positive.
+  - AC7(b): named arguments, append/prepend of `StartSession`, and the `::class`-only exemption.
+- **Follow-ups filed elsewhere (not this round):**
+  - L-d: on the board under "Follow-ups for M1".
+  - The documented scanner limits: TE-006 AC13e.
 
 ## Changelog
 (filled when done)
