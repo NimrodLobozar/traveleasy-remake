@@ -43,7 +43,13 @@ final class ArchRules
     public const ENV_VARIABLES = ['$_ENV', '$_SERVER'];
 
     /** AC6: TLS options and the values they may have. */
-    public const TLS_KEYS = ['verify', 'verify_peer', 'verify_peer_name', 'allow_self_signed'];
+    public const TLS_KEYS = ['verify', 'verify_peer', 'verify_peer_name', 'verify_host', 'allow_self_signed'];
+
+    /**
+     * AC6: setter calls that take a TLS key and a value: name => [key position, value position].
+     * Arr::set($o, 'verify', false), data_set($o, 'verify', false), stream_context_set_option($c, 'ssl', 'verify_peer', false).
+     */
+    public const TLS_SETTERS = ['set' => [1, 2], 'data_set' => [1, 2], 'stream_context_set_option' => [2, 3]];
 
     /** AC7: Laravel's CSRF middleware and its aliases. */
     public const CSRF_MIDDLEWARE = [
@@ -57,8 +63,8 @@ final class ArchRules
     /** AC7: calls that define a whole middleware group (first argument: the group name). */
     public const GROUP_DEFINITIONS = ['group', 'middlewaregroup'];
 
-    /** AC7: calls that only add middleware to a group; naming the CSRF middleware there is harmless. */
-    public const GROUP_ADDITIONS = ['appendtogroup', 'prependtogroup'];
+    /** AC7: calls that add middleware to a group (session needs CSRF there too; CSRF only as `::class`). */
+    public const GROUP_ADDITIONS = ['appendtogroup', 'prependtogroup', 'pushmiddlewaretogroup', 'prependmiddlewaretogroup'];
 
     /**
      * AC8 / AC13 / ADR-0005: classes and namespaces that send or build e-mail. `Mail` is the global facade alias.
@@ -186,13 +192,41 @@ final class ArchRules
             }
         }
 
+        $setters = [...$file->functionCalls, ...array_filter($file->methodCalls, fn (array $call): bool => $call['name'] === 'set')];
+
+        foreach ($setters as $call) {
+            [$keyPosition, $valuePosition] = self::TLS_SETTERS[$call['name']] ?? [null, null];
+
+            if ($keyPosition === null || $valuePosition === null) {
+                continue;
+            }
+
+            $open = $call['index'] + 1;
+            $keyArgument = self::argument($file, $open, $keyPosition, ['key', 'option']);
+            $valueArgument = self::argument($file, $open, $valuePosition, ['value']);
+            $key = self::stringValue($file, $keyArgument);
+            // Dotted paths (Arr::set($o, 'ssl.verify_peer', ...)) end in the option name.
+            $segments = explode('.', (string) $key);
+            $key = $key === null ? null : strtolower(end($segments));
+
+            if ($key === null || ! in_array($key, self::TLS_KEYS, true) || $valueArgument === null) {
+                continue;
+            }
+
+            $valueAt = $valueArgument['from'] + 1;
+
+            if ($valueArgument['to'] - $valueArgument['from'] !== 2 || ! self::tlsValueAllowed($file, $key, $valueAt)) {
+                $violations[] = self::at($file, $call['line'], "sets the TLS option '{$key}' to ".$file->textBetween($valueArgument['from'], $valueArgument['to'])." with {$call['name']}()");
+            }
+        }
+
         foreach ($file->tokens as $i => $token) {
             if ($token->is(T_DOUBLE_ARROW)) {
                 $key = self::tlsKeyEndingAt($file, $i - 1);
                 $form = "'%s' => %s";
-            } elseif ($token->text === '=' && $file->token($i - 1)?->text === ']') {
+            } elseif (($token->text === '=' || $token->is(T_COALESCE_EQUAL)) && $file->token($i - 1)?->text === ']') {
                 $key = self::tlsKeyEndingAt($file, $i - 2);
-                $form = "['%s'] = %s";
+                $form = "['%s'] ".$token->text.' %s';
             } else {
                 continue;
             }
@@ -247,35 +281,44 @@ final class ArchRules
                 }
             }
 
-            if (in_array($call['name'], self::GROUP_ADDITIONS, true)) {
-                $allowedRanges[] = [$open, $close];
-            }
+            if (in_array($call['name'], [...self::GROUP_DEFINITIONS, ...self::GROUP_ADDITIONS], true)) {
+                $definition = in_array($call['name'], self::GROUP_DEFINITIONS, true);
+                $group = self::stringValue($file, self::argument($file, $open, 0, ['group', 'name']));
+                $members = self::argument($file, $open, 1, ['middleware']);
 
-            if (in_array($call['name'], self::GROUP_DEFINITIONS, true)) {
-                $group = self::firstStringArgument($file, $open);
-
-                if ($group === null) {
+                if ($group === null || $members === null) {
                     continue;
                 }
+
+                $allowedRanges[] = [$members['from'], $members['to']];
 
                 if (strtolower($group) === 'web') {
-                    $violations[] = self::at($file, $call['line'], "redefines the 'web' middleware group");
+                    if ($definition) {
+                        $violations[] = self::at($file, $call['line'], "redefines the 'web' middleware group");
+                    }
 
                     continue;
                 }
 
-                $members = array_filter(
-                    $file->classReferences,
-                    fn (array $reference): bool => $reference['index'] > $open && $reference['index'] < $close,
-                );
-                $hasSession = array_filter($members, fn (array $reference): bool => strtolower($reference['name']) === strtolower(self::SESSION_MIDDLEWARE)) !== [];
-                $hasCsrf = array_filter($members, fn (array $reference): bool => self::isCsrfMiddleware($reference['name'])) !== [];
+                $what = $definition ? "defines the middleware group '{$group}'" : "adds to the middleware group '{$group}'";
+                $violations = [...$violations, ...self::sessionWithoutCsrf($file, $call['line'], $members, $what)];
+            }
 
-                if ($hasSession && ! $hasCsrf) {
-                    $violations[] = self::at($file, $call['line'], "defines the middleware group '{$group}' with StartSession but without the CSRF middleware");
+            // $middleware->web(append:, prepend:) / ->api(append:, prepend:). `web` already runs CSRF; `api` doesn't.
+            if (in_array($call['name'], ['web', 'api'], true) && $file->token($call['index'] - 1)?->is(T_OBJECT_OPERATOR) === true) {
+                foreach ([[0, 'append'], [1, 'prepend']] as [$position, $name]) {
+                    $members = self::argument($file, $open, $position, [$name]);
+
+                    if ($members === null) {
+                        continue;
+                    }
+
+                    $allowedRanges[] = [$members['from'], $members['to']];
+
+                    if ($call['name'] === 'api') {
+                        $violations = [...$violations, ...self::sessionWithoutCsrf($file, $call['line'], $members, "adds to the 'api' middleware group ({$name}:)")];
+                    }
                 }
-
-                $allowedRanges[] = [$open, $close];
             }
         }
 
@@ -290,14 +333,19 @@ final class ArchRules
                 continue;
             }
 
+            // Naming the middleware as a group member is fine (`X::class` or its class string); calling it
+            // (`X::except(...)`, `X::useOriginOnly()`, `X::allowSameSite()`) is not, wherever it appears.
+            $isClassName = $reference['kind'] === SourceFile::KIND_STRING
+                || ($file->token($reference['index'] + 1)?->is(T_DOUBLE_COLON) === true && $file->token($reference['index'] + 2)?->is(T_CLASS) === true);
+
             foreach ($allowedRanges as [$from, $to]) {
-                if ($reference['index'] > $from && $reference['index'] < $to) {
+                if ($isClassName && $reference['index'] > $from && $reference['index'] < $to) {
                     continue 2;
                 }
             }
 
             $violations[] = self::at($file, $reference['line'], "references the CSRF middleware {$reference['name']} "
-                .'(withoutMiddleware, remove, replace and except are not allowed)');
+                .'(withoutMiddleware, remove, replace, except, useOriginOnly and allowSameSite are not allowed)');
         }
 
         return $violations;
@@ -430,9 +478,11 @@ final class ArchRules
     }
 
     /**
-     * AC3 (security L4): in test files outside tests/TestCase.php and tests/Support/, no way to boot the app
-     * without the TE-002 guard: the console/HTTP kernel contracts, Foundation\Application, or loading
-     * bootstrap/app.php (a string containing it inside a require/include expression or passed to base_path()).
+     * AC3 (security L4, L-c): in test files outside tests/TestCase.php and tests/Support/, no way to boot the app
+     * without the TE-002 guard: the kernels (contracts and Foundation classes), Foundation\Application, the
+     * Foundation\Bootstrap classes, ApplicationBuilder, ->bootstrapWith(), loading bootstrap/app.php (a string
+     * containing it inside a require/include expression or passed to base_path()), or require/include of a
+     * non-literal path (variable or constant).
      * A bare 'bootstrap/app.php' string elsewhere (e.g. a virtual path in a snippet dataset) loads nothing.
      *
      * @return list<string>
@@ -455,6 +505,29 @@ final class ArchRules
             }
         }
 
+        foreach ($file->methodCalls as $call) {
+            if ($call['name'] === 'bootstrapwith') {
+                $violations[] = self::at($file, $call['line'], 'calls bootstrapWith() (boots the app without the guard)');
+            }
+        }
+
+        // require/include of a path that isn't visible in the source: a variable, a (class) constant or a
+        // property. Function-call paths (config_path(...)) and literal paths are checked by the rules above.
+        foreach ($file->tokens as $i => $token) {
+            if (! $token->is([T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE])) {
+                continue;
+            }
+
+            $path = $file->token($i + 1);
+            $after = $file->token($i + 2);
+            $isConstant = $path !== null && $path->is([T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_NAME_RELATIVE])
+                && $after?->text !== '(';
+
+            if ($path !== null && ($path->is(T_VARIABLE) || $isConstant)) {
+                $violations[] = self::at($file, $token->line, "uses {$token->text} with a non-literal path ({$path->text}), which could be bootstrap/app.php");
+            }
+        }
+
         return $violations;
     }
 
@@ -463,6 +536,10 @@ final class ArchRules
         'Illuminate\Contracts\Console\Kernel',
         'Illuminate\Contracts\Http\Kernel',
         'Illuminate\Foundation\Application',
+        'Illuminate\Foundation\Bootstrap',
+        'Illuminate\Foundation\Configuration\ApplicationBuilder',
+        'Illuminate\Foundation\Console\Kernel',
+        'Illuminate\Foundation\Http\Kernel',
     ];
 
     /**
@@ -519,17 +596,106 @@ final class ArchRules
         return false;
     }
 
-    /** The first argument of the call whose `(` is at $open, when it is a plain string literal. */
-    private static function firstStringArgument(SourceFile $file, int $open): ?string
+    /**
+     * The top-level arguments of the call whose `(` is at $open: each with its lower-case name (named arguments,
+     * `name: value`) or null, and the token range of its value (exclusive bounds).
+     *
+     * @return list<array{name: ?string, from: int, to: int}>
+     */
+    public static function callArguments(SourceFile $file, int $open): array
     {
-        $first = $file->token($open + 1);
-        $after = $file->token($open + 2)?->text;
+        $close = $file->closingIndex($open);
+        $arguments = [];
+        $start = $open;
+        $depth = 0;
 
-        if ($first !== null && $first->is(T_CONSTANT_ENCAPSED_STRING) && in_array($after, [',', ')'], true)) {
-            return SourceFile::unquote($first);
+        for ($i = $open + 1; $i <= $close; $i++) {
+            $text = $file->tokens[$i]->text;
+
+            if (in_array($text, ['(', '[', '{'], true) || $file->tokens[$i]->is([T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES])) {
+                $depth++;
+            } elseif (in_array($text, [')', ']', '}'], true) && $i !== $close) {
+                $depth--;
+            }
+
+            if (($text === ',' && $depth === 0) || $i === $close) {
+                if ($i - $start > 1) {
+                    $first = $file->tokens[$start + 1];
+                    $named = $first->is(T_STRING) && $file->token($start + 2)?->text === ':';
+                    $arguments[] = [
+                        'name' => $named ? strtolower($first->text) : null,
+                        'from' => $named ? $start + 2 : $start,
+                        'to' => $i,
+                    ];
+                }
+
+                $start = $i;
+            }
         }
 
-        return null;
+        return $arguments;
+    }
+
+    /**
+     * The argument at $position, or the named argument with one of $names, of the call whose `(` is at $open.
+     *
+     * @param  list<string>  $names
+     * @return array{name: ?string, from: int, to: int}|null
+     */
+    public static function argument(SourceFile $file, int $open, int $position, array $names): ?array
+    {
+        $arguments = self::callArguments($file, $open);
+
+        foreach ($arguments as $argument) {
+            if ($argument['name'] !== null && in_array($argument['name'], $names, true)) {
+                return $argument;
+            }
+        }
+
+        $positional = $arguments[$position] ?? null;
+
+        return $positional !== null && $positional['name'] === null ? $positional : null;
+    }
+
+    /**
+     * The value of an argument when it is one plain string literal.
+     *
+     * @param  array{name: ?string, from: int, to: int}|null  $argument
+     */
+    public static function stringValue(SourceFile $file, ?array $argument): ?string
+    {
+        if ($argument === null || $argument['to'] - $argument['from'] !== 2) {
+            return null;
+        }
+
+        $token = $file->tokens[$argument['from'] + 1];
+
+        return $token->is(T_CONSTANT_ENCAPSED_STRING) ? SourceFile::unquote($token) : null;
+    }
+
+    /**
+     * AC7 (b): a group definition or addition whose members include StartSession but not the CSRF middleware.
+     *
+     * @param  array{name: ?string, from: int, to: int}  $members
+     * @return list<string>
+     */
+    private static function sessionWithoutCsrf(SourceFile $file, int $line, array $members, string $what): array
+    {
+        $hasSession = false;
+        $hasCsrf = false;
+
+        foreach ($file->classReferences as $reference) {
+            if ($reference['index'] <= $members['from'] || $reference['index'] >= $members['to']) {
+                continue;
+            }
+
+            $hasSession = $hasSession || strtolower($reference['name']) === strtolower(self::SESSION_MIDDLEWARE);
+            $hasCsrf = $hasCsrf || self::isCsrfMiddleware($reference['name']);
+        }
+
+        return $hasSession && ! $hasCsrf
+            ? [self::at($file, $line, "{$what} with StartSession but without the CSRF middleware")]
+            : [];
     }
 
     /** The TLS option whose key ends at token $end (`'verify'` or `RequestOptions::VERIFY`), if any. */

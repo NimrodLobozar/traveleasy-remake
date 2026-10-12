@@ -154,6 +154,32 @@ test('a rule catches a violating snippet', function (string $rule, string $code,
     'demo r1: Arr::get(config()->all(), key)' => ['demo', '<?php namespace App; Arr::get(config()->all(), "traveleasy.demo.enabled");'],
     'demo r1: data_get(config()->all(), traveleasy)' => ['demo', '<?php namespace App; data_get(config()->all(), "traveleasy")["demo"];'],
     'demo r1: heredoc key' => ['demo', "<?php namespace App; config(<<<'K'\ntraveleasy.demo.enabled\nK);"],
+    // --- Rework round 2 -------------------------------------------------------------------------------------
+    // AC6: ??=, setter calls, verify_host (QA, security L-b)
+    'tls r2: ??= false' => ['tls', '<?php $options["verify"] ??= false;'],
+    'tls r2: nested ??= on verify_peer' => ['tls', "<?php \$ctx['ssl']['verify_peer'] ??= false;"],
+    'tls r2: Arr::set(verify, false)' => ['tls', '<?php namespace App; use Illuminate\Support\Arr; Arr::set($options, "verify", false);'],
+    'tls r2: Arr::set(dotted verify_peer, false)' => ['tls', '<?php Arr::set($options, "ssl.verify_peer", false);'],
+    'tls r2: data_set(verify, false)' => ['tls', '<?php data_set($options, "verify", false);'],
+    'tls r2: data_set with named arguments' => ['tls', '<?php data_set(target: $options, key: "verify", value: false);'],
+    'tls r2: stream_context_set_option(verify_peer, false)' => ['tls', '<?php stream_context_set_option($context, "ssl", "verify_peer", false);'],
+    'tls r2: \stream_context_set_option(verify_peer_name, 0)' => ['tls', '<?php namespace App; \stream_context_set_option($context, "ssl", "verify_peer_name", 0);'],
+    'tls r2: verify_host false' => ['tls', '<?php ["verify_host" => false];'],
+    'tls r2: verify_host = 0' => ['tls', '<?php $options["verify_host"] = 0;'],
+    // AC7: named-argument groups, sessions added to groups, CSRF calls inside group arguments (QA, security L-a)
+    'csrf r2: group(name: web)' => ['csrf', '<?php $middleware->group(name: "web", middleware: []);', 'bootstrap/app.php'],
+    'csrf r2: group(group: web)' => ['csrf', '<?php $middleware->group(group: "web", middleware: []);', 'bootstrap/app.php'],
+    'csrf r2: middlewareGroup(name: web)' => ['csrf', '<?php $router->middlewareGroup(name: "web", middleware: []);', 'app/Providers/X.php'],
+    'csrf r2: session group, arguments swapped by name' => ['csrf', '<?php use Illuminate\Session\Middleware\StartSession; $middleware->group(middleware: [StartSession::class], group: "chat");', 'bootstrap/app.php'],
+    'csrf r2: appendToGroup(session) without CSRF' => ['csrf', '<?php use Illuminate\Session\Middleware\StartSession; $middleware->appendToGroup("api", StartSession::class);', 'bootstrap/app.php'],
+    'csrf r2: prependToGroup(session) without CSRF' => ['csrf', '<?php use Illuminate\Session\Middleware\StartSession; $middleware->prependToGroup("chat", [StartSession::class]);', 'bootstrap/app.php'],
+    'csrf r2: router pushMiddlewareToGroup(session)' => ['csrf', '<?php $router->pushMiddlewareToGroup("chat", \Illuminate\Session\Middleware\StartSession::class);', 'app/Providers/X.php'],
+    'csrf r2: api(append: session)' => ['csrf', '<?php use Illuminate\Session\Middleware\StartSession; $middleware->api(append: [StartSession::class]);', 'bootstrap/app.php'],
+    'csrf r2: api(prepend: session)' => ['csrf', '<?php $middleware->api(prepend: ["Illuminate\Session\Middleware\StartSession"]);', 'bootstrap/app.php'],
+    'csrf r2: api(session) positional' => ['csrf', '<?php $middleware->api([\Illuminate\Session\Middleware\StartSession::class]);', 'bootstrap/app.php'],
+    'csrf r2: except() inside a group definition' => ['csrf', '<?php use Illuminate\Session\Middleware\StartSession; use Illuminate\Foundation\Http\Middleware\PreventRequestForgery as P; $middleware->group("chat", [StartSession::class, P::class, P::except(["chat/*"])]);', 'bootstrap/app.php'],
+    'csrf r2: useOriginOnly() inside appendToGroup' => ['csrf', '<?php use Illuminate\Foundation\Http\Middleware\PreventRequestForgery as P; $middleware->appendToGroup("chat", [P::class, P::useOriginOnly()]);', 'bootstrap/app.php'],
+    'csrf r2: allowSameSite() inside api(append:)' => ['csrf', '<?php use Illuminate\Foundation\Http\Middleware\PreventRequestForgery as P; $middleware->api(append: [P::allowSameSite()]);', 'bootstrap/app.php'],
 ]);
 
 test('a rule leaves legitimate code alone', function (string $rule, string $code, string $path = 'app/Snippet.php') {
@@ -189,6 +215,18 @@ test('a rule leaves legitimate code alone', function (string $rule, string $code
     'mail r1: an unrelated class string with escaped backslashes' => ['mail', "<?php app('Illuminate\\\\Support\\\\Str');"],
     'demo r1: a demo key as a default in config' => ['demo', '<?php return ["x" => env("X", "traveleasy.demo.example")];', 'config/x.php'],
     'demo r1: an unrelated traveleasy key, positional' => ['demo', '<?php namespace App; Arr::get(config()->all(), "traveleasy.vat.rate");'],
+    // --- Rework round 2 -------------------------------------------------------------------------------------
+    'tls r2: ??= true' => ['tls', '<?php $options["verify"] ??= true;'],
+    'tls r2: Arr::set(verify, true)' => ['tls', '<?php Arr::set($options, "verify", true);'],
+    'tls r2: data_set(verify, CA bundle)' => ['tls', '<?php data_set($options, "verify", "/etc/ssl/certs/ca.pem");'],
+    'tls r2: stream_context_set_option(verify_peer, true)' => ['tls', '<?php stream_context_set_option($context, "ssl", "verify_peer", true);'],
+    'tls r2: an unrelated setter' => ['tls', '<?php $config->set("app.name", false);'],
+    'csrf r2: group(name: chat) with session and CSRF' => ['csrf', '<?php use Illuminate\Session\Middleware\StartSession; use Illuminate\Foundation\Http\Middleware\PreventRequestForgery; $middleware->group(name: "chat", middleware: [StartSession::class, PreventRequestForgery::class]);', 'bootstrap/app.php'],
+    'csrf r2: appendToGroup(session + CSRF)' => ['csrf', '<?php use Illuminate\Session\Middleware\StartSession; use Illuminate\Foundation\Http\Middleware\PreventRequestForgery; $middleware->appendToGroup("chat", [StartSession::class, PreventRequestForgery::class]);', 'bootstrap/app.php'],
+    'csrf r2: appendToGroup(web, session)' => ['csrf', '<?php use Illuminate\Session\Middleware\StartSession; $middleware->appendToGroup("web", StartSession::class);', 'bootstrap/app.php'],
+    'csrf r2: web(append: session)' => ['csrf', '<?php use Illuminate\Session\Middleware\StartSession; $middleware->web(append: [StartSession::class]);', 'bootstrap/app.php'],
+    'csrf r2: api(append: throttle)' => ['csrf', '<?php $middleware->api(append: [Throttle::class]);', 'bootstrap/app.php'],
+    'csrf r2: CSRF class string inside a group' => ['csrf', '<?php $middleware->group("chat", ["Illuminate\Session\Middleware\StartSession", "Illuminate\Foundation\Http\Middleware\PreventRequestForgery"]);', 'bootstrap/app.php'],
 ]);
 
 // Rework round 1 (QA bug 2, AC7 c / AC11): string values are unescaped exactly as PHP does. The expected values
@@ -234,8 +272,21 @@ test('the guard contract rule catches ways to boot the app without the guard', f
     'require bootstrap/app.php' => ['<?php $app = require __DIR__."/../../bootstrap/app.php";'],
     'require base_path(bootstrap/app.php)' => ['<?php $app = require base_path("bootstrap/app.php");'],
     'include_once' => ['<?php include_once "bootstrap/app.php";'],
+    // Rework round 2 (security L-c)
+    'Foundation console kernel' => ['<?php $k = app(\Illuminate\Foundation\Console\Kernel::class);'],
+    'Foundation http kernel' => ['<?php use Illuminate\Foundation\Http\Kernel; app(Kernel::class);'],
+    'a bootstrapper' => ['<?php (new \Illuminate\Foundation\Bootstrap\LoadConfiguration)->bootstrap($app);'],
+    'ApplicationBuilder' => ['<?php use Illuminate\Foundation\Configuration\ApplicationBuilder; new ApplicationBuilder($app);'],
+    'bootstrapWith()' => ['<?php $app->bootstrapWith([]);'],
+    'require of a variable' => ['<?php $app = require $path;'],
+    'require_once of a constant' => ['<?php require_once APP_BOOTSTRAP;'],
+    'include of a class constant' => ['<?php include self::BOOTSTRAP;'],
 ]);
 
 test('the guard contract rule leaves a virtual snippet path alone', function () {
     expect(ArchRules::guardBypasses(new SourceFile('tests/Unit/X.php', '<?php $cases = [["debug", "<?php exit;", "bootstrap/app.php"]];')))->toBe([]);
+});
+
+test('the guard contract rule leaves function-call and literal paths of other files alone', function () {
+    expect(ArchRules::guardBypasses(new SourceFile('tests/Unit/X.php', '<?php $c = require config_path("mail.php"); $d = require __DIR__."/fixtures/data.php";')))->toBe([]);
 });

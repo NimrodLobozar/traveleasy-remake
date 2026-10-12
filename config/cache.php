@@ -34,7 +34,7 @@ return [
     | store and its AWS variables were removed from this file (TE-004 AC14) to
     | keep them out of the documented env surface. Laravel still merges its own
     | default stores (including "dynamodb") back in at runtime, but nothing selects
-    | them: tests/Arch/CloudCredentialsTest.php pins the default to database/array
+    | them: tests/Arch/CloudCredentialsRuntimeTest.php pins the default to database/array
     | and checks that the AWS SDK is not installed.
     |
     */

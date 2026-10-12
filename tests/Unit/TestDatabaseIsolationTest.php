@@ -6,6 +6,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Assert;
 use Symfony\Component\Process\Process;
+use Tests\Support\PhpFile;
 use Tests\Support\TestDatabase;
 use Tests\TestCase;
 
@@ -175,7 +176,7 @@ test('a cached dev config (DB_DATABASE=traveleasy) is ignored and never touches 
             ->and(is_file($cachePath))->toBeTrue('config:cache did not write the temp cache file.');
 
         // The scenario is real: the cache points the default connection at the dev database.
-        $cached = asArray(require $cachePath);
+        $cached = asArray(PhpFile::returnValue($cachePath));
         expect(Arr::get($cached, 'database.default'))->toBe('pgsql')
             ->and(Arr::get($cached, 'database.connections.pgsql.database'))->toBe(TE002_DEV_DATABASE);
 
