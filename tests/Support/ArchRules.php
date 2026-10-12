@@ -478,11 +478,17 @@ final class ArchRules
     }
 
     /**
-     * AC3 (security L4, L-c): in test files outside tests/TestCase.php and tests/Support/, no way to boot the app
-     * without the TE-002 guard: the kernels (contracts and Foundation classes), Foundation\Application, the
-     * Foundation\Bootstrap classes, ApplicationBuilder, ->bootstrapWith(), loading bootstrap/app.php (a string
-     * containing it inside a require/include expression or passed to base_path()), or require/include of a
-     * non-literal path (variable or constant).
+     * AC3 (security L4, L-c, rework round 3): in test files outside tests/TestCase.php and tests/Support/, no way
+     * to boot the app without the TE-002 guard:
+     *  - the kernels (contracts and Foundation classes), Foundation\Application, the Foundation\Bootstrap classes
+     *    and ApplicationBuilder, in any form (import, ::class, string);
+     *  - ->bootstrapWith(), ->handleCommand(), ->handleRequest();
+     *  - require / include / require_once / include_once of anything but a literal path: the whole expression
+     *    (up to `;`, `,`, `=>` or the closing bracket of an enclosing expression) may only contain string
+     *    literals without interpolation (quoted, heredoc, nowdoc), __DIR__, `.` and parentheses;
+     *  - any load context whose string pieces, concatenated in order (interpolated parts included), contain
+     *    bootstrap/app.php: a require/include expression, base_path(...) / ->basePath(...), and
+     *    PhpFile::returnValue(...) (which also refuses that path at runtime).
      * A bare 'bootstrap/app.php' string elsewhere (e.g. a virtual path in a snippet dataset) loads nothing.
      *
      * @return list<string>
@@ -499,37 +505,64 @@ final class ArchRules
             }
         }
 
-        foreach ($file->strings as $string) {
-            if (str_contains(strtolower(str_replace('\\', '/', $string['value'])), 'bootstrap/app.php') && self::isLoadExpression($file, $string['index'])) {
-                $violations[] = self::at($file, $string['line'], 'loads bootstrap/app.php (boots the app without the guard)');
-            }
-        }
-
         foreach ($file->methodCalls as $call) {
-            if ($call['name'] === 'bootstrapwith') {
-                $violations[] = self::at($file, $call['line'], 'calls bootstrapWith() (boots the app without the guard)');
+            if (in_array($call['name'], ['bootstrapwith', 'handlecommand', 'handlerequest'], true)) {
+                $violations[] = self::at($file, $call['line'], "calls {$call['name']}() (boots the app without the guard)");
             }
         }
 
-        // require/include of a path that isn't visible in the source: a variable, a (class) constant or a
-        // property. Function-call paths (config_path(...)) and literal paths are checked by the rules above.
+        /** @var list<array{from: int, to: int, line: int, what: string}> $loadRanges */
+        $loadRanges = [];
+
         foreach ($file->tokens as $i => $token) {
-            if (! $token->is([T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE])) {
+            if (! $token->is(self::LOAD_TOKENS)) {
                 continue;
             }
 
-            $path = $file->token($i + 1);
-            $after = $file->token($i + 2);
-            $isConstant = $path !== null && $path->is([T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_NAME_RELATIVE])
-                && $after?->text !== '(';
+            $end = self::expressionEnd($file, $i);
+            $loadRanges[] = ['from' => $i, 'to' => $end, 'line' => $token->line, 'what' => strtolower($token->text)];
 
-            if ($path !== null && ($path->is(T_VARIABLE) || $isConstant)) {
-                $violations[] = self::at($file, $token->line, "uses {$token->text} with a non-literal path ({$path->text}), which could be bootstrap/app.php");
+            for ($j = $i + 1; $j < $end; $j++) {
+                $part = $file->tokens[$j];
+
+                if (! $part->is(self::LITERAL_PATH_TOKENS) && ! in_array($part->text, ['.', '(', ')'], true)) {
+                    $violations[] = self::at($file, $token->line, "uses {$token->text} with a non-literal path ("
+                        .$file->textBetween($i, $end).'), which could be bootstrap/app.php');
+
+                    break;
+                }
+            }
+        }
+
+        foreach ([...$file->functionCalls, ...$file->methodCalls] as $call) {
+            if (in_array($call['name'], ['base_path', 'basepath', 'returnvalue'], true)) {
+                $open = $call['index'] + 1;
+                $loadRanges[] = ['from' => $open, 'to' => $file->closingIndex($open), 'line' => $call['line'], 'what' => $call['name'].'()'];
+            }
+        }
+
+        foreach ($loadRanges as $range) {
+            $pieces = '';
+
+            foreach ($file->strings as $string) {
+                if ($string['index'] > $range['from'] && $string['index'] < $range['to']) {
+                    $pieces .= $string['value'];
+                }
+            }
+
+            if (str_contains(strtolower(str_replace('\\', '/', $pieces)), 'bootstrap/app.php')) {
+                $violations[] = self::at($file, $range['line'], "loads bootstrap/app.php through {$range['what']} (boots the app without the guard)");
             }
         }
 
         return $violations;
     }
+
+    /** AC3: tokens that load a PHP file. */
+    public const LOAD_TOKENS = [T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE];
+
+    /** AC3: tokens a literal-only path may consist of (besides `.`, `(` and `)`). Interpolation is not literal. */
+    public const LITERAL_PATH_TOKENS = [T_CONSTANT_ENCAPSED_STRING, T_DIR, T_START_HEREDOC, T_ENCAPSED_AND_WHITESPACE, T_END_HEREDOC];
 
     /** AC3 (L4): classes that boot or hand out an application outside Tests\TestCase. */
     public const GUARD_BYPASS_CLASSES = [
@@ -577,23 +610,32 @@ final class ArchRules
         return false;
     }
 
-    /** True when the token at $index is part of a require/include expression or a base_path()/basePath() call. */
-    private static function isLoadExpression(SourceFile $file, int $index): bool
+    /**
+     * The index just after the expression that starts after token $start: the first `;`, `,` or `=>` at depth 0,
+     * or the bracket that closes an enclosing expression (e.g. the `)` in `(require $p)['x']`).
+     */
+    private static function expressionEnd(SourceFile $file, int $start): int
     {
-        for ($i = $index - 1; $i >= 0; $i--) {
-            $token = $file->tokens[$i];
+        $depth = 0;
+        $count = count($file->tokens);
 
-            if (in_array($token->text, [';', '{', '}'], true)) {
-                return false;
-            }
+        for ($j = $start + 1; $j < $count; $j++) {
+            $token = $file->tokens[$j];
 
-            if ($token->is([T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE])
-                || ($token->is(T_STRING) && in_array(strtolower($token->text), ['base_path', 'basepath'], true))) {
-                return true;
+            if (in_array($token->text, ['(', '[', '{'], true) || $token->is([T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES])) {
+                $depth++;
+            } elseif (in_array($token->text, [')', ']', '}'], true)) {
+                if ($depth === 0) {
+                    return $j;
+                }
+
+                $depth--;
+            } elseif ($depth === 0 && (in_array($token->text, [';', ','], true) || $token->is([T_DOUBLE_ARROW, T_INLINE_HTML]))) {
+                return $j;
             }
         }
 
-        return false;
+        return $count;
     }
 
     /**

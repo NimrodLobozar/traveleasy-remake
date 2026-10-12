@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Mail\Transport\ArrayTransport;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Mail;
+use Tests\Support\PhpFile;
 
 /**
  * Load a config file with the given environment variables overridden (null = unset),
@@ -31,7 +32,7 @@ function loadConfigFileWithEnv(string $file, array $env): array
     }
 
     try {
-        return asArray(require config_path($file));
+        return asArray(PhpFile::returnValue(config_path($file)));
     } finally {
         foreach ($saved as $key => [$getenv, $envValue, $serverValue]) {
             $getenv === false ? putenv($key) : putenv("{$key}={$getenv}");

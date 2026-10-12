@@ -287,6 +287,51 @@ test('the guard contract rule leaves a virtual snippet path alone', function () 
     expect(ArchRules::guardBypasses(new SourceFile('tests/Unit/X.php', '<?php $cases = [["debug", "<?php exit;", "bootstrap/app.php"]];')))->toBe([]);
 });
 
-test('the guard contract rule leaves function-call and literal paths of other files alone', function () {
-    expect(ArchRules::guardBypasses(new SourceFile('tests/Unit/X.php', '<?php $c = require config_path("mail.php"); $d = require __DIR__."/fixtures/data.php";')))->toBe([]);
-});
+// Rework round 3 (QA AC3, security L-g): adversarial require/include forms. Every one either fails, or is
+// literal-only (string literals without interpolation, __DIR__, `.`, parentheses) and doesn't name bootstrap/app.php.
+test('the guard contract rule catches every non-literal or bootstrap/app.php load', function (string $code) {
+    expect(ArchRules::guardBypasses(new SourceFile('tests/Unit/X.php', $code)))->not->toBe([]);
+})->with([
+    'require($path)' => ['<?php $app = require($path);'],
+    'require_once($path)' => ['<?php require_once($path);'],
+    'require ($path) with a space' => ['<?php $app = require ($path);'],
+    'include_once($path)' => ['<?php include_once($path);'],
+    'require __DIR__.$file' => ['<?php $app = require __DIR__.$file;'],
+    'require dirname(__DIR__, 2).$f' => ['<?php $app = require dirname(__DIR__, 2).$f;'],
+    'require base_path($file)' => ['<?php $app = require base_path($file);'],
+    'require config_path($file)' => ['<?php $c = require config_path($file);'],
+    'require __FILE__' => ['<?php require __FILE__;'],
+    'include $x ?? a.php' => ['<?php include $x ?? "a.php";'],
+    'require (fn () => $p)()' => ['<?php $app = require (fn () => $p)();'],
+    'require static::$path' => ['<?php $app = require static::$path;'],
+    'require self::PATH' => ['<?php $app = require self::PATH;'],
+    'require across lines' => ["<?php \$app = require\n    \$path;"],
+    '(require $p)[x]' => ['<?php $x = (require $p)["x"];'],
+    'require inside an array' => ['<?php $all = ["app" => require $p, "x" => 1];'],
+    'interpolated string' => ['<?php $app = require "{$root}/bootstrap/app.php";'],
+    'interpolated string, other file' => ['<?php $c = require "{$root}/config/app.php";'],
+    'interpolated heredoc' => ["<?php \$app = require <<<P\n{\$root}/config/app.php\nP;"],
+    'literal nowdoc to bootstrap/app.php' => ["<?php \$app = require <<<'P'\n/var/www/html/bootstrap/app.php\nP;"],
+    'literal __DIR__ path to bootstrap/app.php' => ['<?php $app = require __DIR__."/../../bootstrap/app.php";'],
+    'joined literal pieces (L-g)' => ['<?php $app = require __DIR__."/../../bootstrap/"."app.php";'],
+    'joined literal pieces, split differently' => ["<?php \$app = require __DIR__.'/../../bootstrap'.'/app'.'.php';"],
+    'backslash separators' => ["<?php \$app = require __DIR__.'\\\\..\\\\..\\\\bootstrap\\\\app.php';"],
+    'PhpFile::returnValue(bootstrap/app.php)' => ['<?php $app = \Tests\Support\PhpFile::returnValue(__DIR__."/../../bootstrap/app.php");'],
+    'PhpFile::returnValue(path: bootstrap/app.php)' => ['<?php use Tests\Support\PhpFile; $app = PhpFile::returnValue(path: __DIR__."/../../bootstrap/"."app.php");'],
+    'base_path(bootstrap/app.php) outside require' => ['<?php $p = base_path("bootstrap/app.php");'],
+    '->handleCommand()' => ['<?php $app->handleCommand(new ArgvInput);'],
+    '->handleRequest()' => ['<?php $app->handleRequest(Request::capture());'],
+]);
+
+test('the guard contract rule leaves literal-only paths to other files alone', function (string $code) {
+    expect(ArchRules::guardBypasses(new SourceFile('tests/Unit/X.php', $code)))->toBe([]);
+})->with([
+    'require_once(__DIR__./x.php)' => ["<?php require_once(__DIR__.'/x.php');"],
+    'require __DIR__./fixtures/data.php' => ['<?php $d = require __DIR__."/fixtures/data.php";'],
+    'include a.php' => ["<?php include 'helpers.php';"],
+    'literal nowdoc path' => ["<?php \$d = require <<<'P'\n/tmp/data.php\nP;"],
+    'literal in an array, followed by other items' => ["<?php \$all = ['a' => require __DIR__.'/a.php', 'b' => \$x];"],
+    '(require literal)[x]' => ["<?php \$x = (require __DIR__.'/a.php')['x'];"],
+    'PhpFile::returnValue of a variable (refused at runtime if not allowed)' => ['<?php $c = \Tests\Support\PhpFile::returnValue($path);'],
+    'a bootstrap/app.php virtual path in a dataset' => ['<?php $cases = [["debug", "<?php exit;", "bootstrap/app.php"]];'],
+]);
