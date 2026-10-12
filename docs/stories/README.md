@@ -10,7 +10,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-002](TE-002-docker-dev-environment.md) | Docker dev environment with hot reload and a PostgreSQL named volume | must | done | 1 | not-needed |
 | [TE-003](TE-003-code-quality-tooling.md) | Code quality tooling (Pint, Larastan, ESLint, Prettier, tsc) | must | done | 1 | not-needed |
 | [TE-004](TE-004-pest-arch-tests.md) | Pest on PostgreSQL with arch tests that forbid the legacy anti-patterns | must | in-progress | 1 | not-needed |
-| [TE-005](TE-005-vitest-playwright-axe-harness.md) | Frontend test harness (Vitest + Testing Library, Playwright + axe) | must | in-test | 1 | not-needed |
+| [TE-005](TE-005-vitest-playwright-axe-harness.md) | Frontend test harness (Vitest + Testing Library, Playwright + axe) | must | done | 1 | not-needed |
 | [TE-006](TE-006-dev-and-testing-docs.md) | Developer docs (dev.md, testing.md) and exact stack versions in CLAUDE.md | must | ready | 0 | not-needed |
 
 ### Epics
@@ -64,6 +64,22 @@ From the TE-005 accessibility review (2026-10-12):
     navigation.
 - **Best-practice pass:** a second axe pass with `region`, `landmark-one-main`, `landmark-unique`,
   `page-has-heading-one`, `heading-order`, `skip-link` and `empty-heading`. Consider `label-content-name-mismatch`.
+- **Allow entries hide every node (optional, low priority; frontend-developer):** today one allow entry hides every
+  node of that rule on that page. Optionally record the expected node count or selectors per entry, so a new
+  violation of the same rule on the same page still fails. Moot once the list is empty.
+
+### Follow-ups for the frontend harness
+From the TE-005 close (2026-10-12). Pick up in the next story that touches the e2e helpers (frontend-developer, small):
+- The AST scan against inline `allow` lists misses computed keys (`['allow']`) and `.js`/`.mjs` files under
+  `tests/e2e/`. Extend it to both, and prove each with a fixture.
+
+### Devops items
+Not tied to a story yet. Pick up at the next devops touch, or as a small `chore` story if it keeps hurting.
+- **vite-plus restart race** (hit several agents):
+  - **Symptom:** after a change to `vite.config.ts` or an `.env*` file, the dev server can end up serving 504 on
+    `/@vite/client` ("Port 5173 is already in use"), while the container healthcheck stays healthy.
+  - **Fix:** make the `vite` healthcheck actually request `/@vite/client` and expect 200. Then look for a restart fix,
+    or document the workaround (`docker compose restart vite`) in `dev.md`.
 
 ### Notes for the design-system epic
 From the TE-005 accessibility review (2026-10-12). The Vitest/jsdom axe matcher can't check layout (see TE-005 AC3),
@@ -120,7 +136,9 @@ yet. When M1 stories are written, put each item below into the matching story as
   - fake users only, and never real 2FA secrets;
   - traces and reports contain cookies and typed passwords, so treat `test-results/` and `playwright-report/` as
     sensitive (git-ignored, never shared or uploaded publicly);
-  - Playwright `storageState` files only under `test-results/` or `/tmp`.
+  - Playwright `storageState` files only under `test-results/` or `/tmp`;
+  - `playwright-report/` is sensitive **even after green runs**, because it holds page HTML and URLs
+    (TE-005 security L5).
 - **Clean-up:**
   - remove the `password_reset_tokens` broker from `config/auth.php`;
   - remove the unused `status` prop in `ProfileController::edit`;

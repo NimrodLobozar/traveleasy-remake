@@ -107,6 +107,25 @@ database by accident.
     `**/bootstrap/cache/**`, `**/phpunit.xml` and `**/.env*`, keeping Vite's defaults.
   - **The check.** QA confirms that those three URLs return 403/404 and that HMR (TE-002 AC4) still works.
   - **The docs.** `dev.md` mentions it under security notes.
+- [ ] AC13d (from TE-005 close):
+  - **(a) `docs/testing.md` coverage:**
+    - the jsdom limits (`color-contrast`, `link-in-text-block`, `target-size`, `scrollable-region-focusable` aren't
+      checked in Vitest);
+    - the needs-review process: the accessibility-auditor reviews the `a11y-needs-review.txt` attachments in **every
+      UI story**;
+    - only one e2e run at a time, because runs share the output folder;
+    - the report paths `playwright-report/html` and `test-results/e2e`;
+    - the allow-list rules;
+    - the exact e2e command (`docker compose --profile e2e run --rm e2e`, or whatever form is current).
+  - **(b) `.env*` masks (security L4, devops-engineer):** the e2e masks only cover `.env*` files that exist when the
+    Pest contract test runs. Either change the e2e service to mount only what it needs instead of the whole repo, or
+    document in `dev.md` "after adding any `.env.*` file, run the Pest suite before running e2e". State which in the
+    handoff.
+  - **(c) Redundant `--output` (devops-engineer):** remove the `--output=test-results/e2e` flag and its comment from
+    the e2e command in `compose.dev.yaml` (around lines 109 and 169), because the Playwright config already sets
+    `outputDir`. e2e still writes to `test-results/e2e`.
+  - **(d) `vp fmt` warning:** `dev.md` notes that `npx vp fmt` without paths reformats the whole repo, so always pass
+    paths or use `npm run format`.
 - [ ] AC13b (from TE-005 round 1):
   - **Parallel e2e output:** parallel or concurrent e2e runs share `test-results/`, so use `--output /tmp/...` for
     concurrent runs.

@@ -1,7 +1,7 @@
 ---
 id: TE-005
 title: Frontend test harness (Vitest + Testing Library, Playwright + axe)
-status: in-test
+status: done
 priority: must
 epic: M0 Project scaffold and tooling
 agents: [frontend-developer, devops-engineer]
@@ -29,13 +29,13 @@ with one command, so that every UI story from now on can prove its behaviour and
 - Running Playwright against the SSR build and in CI is the CI and SSR epics' job.
 
 ## Acceptance criteria
-- [ ] AC1 (Vitest): `docker compose exec vite npm run test` runs Vitest once (`vitest run`) in a jsdom (or happy-dom)
+- [x] AC1 (Vitest): `docker compose exec vite npm run test` runs Vitest once (`vitest run`) in a jsdom (or happy-dom)
       environment, with `@testing-library/react`, `@testing-library/user-event` and `@testing-library/jest-dom`
       matchers set up globally and the `@/` path alias resolved the same way as in Vite. `npm run test:watch` runs
       watch mode (with polling on Windows).
-- [ ] AC2 (React Aria proof): a Vitest test renders a `react-aria-components` `Button` with an `onPress` handler, focuses
+- [x] AC2 (React Aria proof): a Vitest test renders a `react-aria-components` `Button` with an `onPress` handler, focuses
       it with `userEvent.tab()`, presses Enter and then Space, and asserts the handler ran twice.
-- [ ] AC3 (component axe in Vitest): an axe matcher (e.g. `vitest-axe`) is set up; a test proves it passes on
+- [x] AC3 (component axe in Vitest): an axe matcher (e.g. `vitest-axe`) is set up; a test proves it passes on
       accessible markup (a labelled input) and fails on a fixture with a known violation (an `<img>` without `alt`)
       (the failing case is asserted with `expect(...).rejects` or equivalent, so the suite stays green).
       *Clarified in rework round 1 (accessibility F1, Serious):* jsdom has no layout, so the matcher must not imply
@@ -54,11 +54,11 @@ with one command, so that every UI story from now on can prove its behaviour and
         - A test proves that a focusable `<button>` inside an `aria-hidden="true"` container makes the matcher fail.
       - **(d) Message detail (F2).** The failure message includes, per node, axe's `failureSummary` and a shortened
         `html` snippet (at most ~200 characters). This is the same format as AC5.
-- [ ] AC4 (Playwright runs in a container): `docker compose run --rm e2e npx playwright test` (a service under an `e2e`
+- [x] AC4 (Playwright runs in a container): `docker compose run --rm e2e npx playwright test` (a service under an `e2e`
       compose profile in `compose.dev.yaml`, or an equivalent single command stated in the handoff) runs the e2e suite
       in Chromium. The image is the official Playwright image whose version **equals** the `@playwright/test` version
       in `package-lock.json`, and the handoff says how to keep them in step.
-- [ ] AC5 (shared axe helper): `tests/e2e` has one helper (e.g. `expectNoA11yViolations(page, { allow })`) that runs
+- [x] AC5 (shared axe helper): `tests/e2e` has one helper (e.g. `expectNoA11yViolations(page, { allow })`) that runs
       `@axe-core/playwright` with the tags `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`, and on failure prints
       each violation's rule id, impact, help URL and target selectors.
       *Clarified in rework round 1:*
@@ -70,11 +70,11 @@ with one command, so that every UI story from now on can prove its behaviour and
         the test as an attachment (e.g. `a11y-needs-review.txt`, via `testInfo.attach`) or as an annotation, with rule
         id, page URL, selectors and `failureSummary`. They don't fail the test. A test proves that the attachment
         appears when a fixture produces an incomplete result.
-- [ ] AC6 (smoke journey, JS really loaded): a smoke test opens `/` and `/login` on the running dev app, asserts status
+- [x] AC6 (smoke journey, JS really loaded): a smoke test opens `/` and `/login` on the running dev app, asserts status
       200, asserts an element that only exists after React has rendered (e.g. the login form's email field found by its
       label with `getByLabel`), and runs the axe helper on both pages.
-- [ ] AC7 (mail-free check): the smoke test asserts that `GET /forgot-password` returns 404 (guards TE-001 AC12).
-- [ ] AC8 (allow-list for placeholders): if axe finds violations on starter-kit placeholder pages, they may only be
+- [x] AC7 (mail-free check): the smoke test asserts that `GET /forgot-password` returns 404 (guards TE-001 AC12).
+- [x] AC8 (allow-list for placeholders): if axe finds violations on starter-kit placeholder pages, they may only be
       skipped through the helper's explicit `allow` list, with one entry per rule id **and** page, each with a comment
       "starter-kit placeholder, remove in <epic>". The entries are listed in the handoff. A violation not on the list
       fails the test. (The App shell epic must end with an empty list.)
@@ -89,35 +89,35 @@ with one command, so that every UI story from now on can prove its behaviour and
       - **(c) No empty reason (F6).** The reason must name a real epic, e.g. "starter-kit placeholder, remove in App
         shell". A type (union of epic names) or a runtime check rejects an empty or whitespace-only epic name, and a
         test proves the check.
-- [ ] AC11 (e2e container write access; security L1, added in rework round 1):
+- [x] AC11 (e2e container write access; security L1, added in rework round 1):
   - **Mounts.** The `e2e` service mounts the source **read-only** (e.g. `volumes_from: ['vite:ro']`). The only
     writable bind mounts are `playwright-report/` and `test-results/`, so the container can't write to the repo or
     `.git`.
   - **Contract test.** The compose contract test (`tests/Unit/DockerDevEnvironmentContractTest.php`) asserts this.
   - **Proof.** QA confirms that `touch /var/www/html/.git/hooks/x` (or the mounted repo path) fails inside the e2e
     container.
-- [ ] AC12 (secret masking in the e2e container; security L2, added in rework round 1):
+- [x] AC12 (secret masking in the e2e container; security L2, added in rework round 1):
   - **`bootstrap/cache`.** The `e2e` service mounts a `tmpfs` over `bootstrap/cache`.
   - **`.env*` files.** Every `.env*` file in the repo root except `.env.example` is masked in the container.
   - **Contract test.** A test fails if any such file present in the repo root lacks a mask on the `e2e` service.
-- [ ] AC9 (helper proven): a Playwright test loads a static fixture page with a known violation and asserts that the
+- [x] AC9 (helper proven): a Playwright test loads a static fixture page with a known violation and asserts that the
       helper reports it, so a broken axe setup can't pass silently.
-- [ ] AC10 (reports): Playwright writes its HTML report to `playwright-report/` and traces/screenshots on failure to
+- [x] AC10 (reports): Playwright writes its HTML report to `playwright-report/` and traces/screenshots on failure to
       `test-results/` in the bind-mounted repo, so they can be opened on Windows. Both folders are already in
       `.gitignore`.
 
 ## Quality criteria
-- [ ] Tests: QA runs `npm run test` and the e2e command twice each on Windows; both runs pass with identical results.
+- [x] Tests: QA runs `npm run test` and the e2e command twice each on Windows; both runs pass with identical results.
       QA breaks AC2 and AC6 on purpose once to confirm they can fail.
-- [ ] Accessibility: the accessibility-auditor confirms the axe tags, the reporting format and the allow-list rule
+- [x] Accessibility: the accessibility-auditor confirms the axe tags, the reporting format and the allow-list rule
       (AC3, AC5, AC8, including F1–F6 from rework round 1). No page audit.
-- [ ] Security/privacy: test-only dependencies in `devDependencies`; the Playwright image is official and pinned;
+- [x] Security/privacy: test-only dependencies in `devDependencies`; the Playwright image is official and pinned;
       `npm audit --audit-level=high` shows no new High/Critical; the e2e container has no access to `.env` secrets it
       doesn't need (it only needs the base URL).
-- [ ] i18n: not applicable (no UI strings added).
-- [ ] Performance: Vitest suite under 30 s and the e2e smoke under 2 minutes after the image is pulled (reported).
-- [ ] Docs updated: the handoff lists the commands, the localhost solution and the allow-list for TE-006.
-- [ ] Docker rebuild: yes, `docker compose up -d --build -V` after the `package.json` changes; the first e2e run pulls
+- [x] i18n: not applicable (no UI strings added).
+- [x] Performance: Vitest suite under 30 s and the e2e smoke under 2 minutes after the image is pulled (reported).
+- [x] Docs updated: the handoff lists the commands, the localhost solution and the allow-list for TE-006.
+- [x] Docker rebuild: yes, `docker compose up -d --build -V` after the `package.json` changes; the first e2e run pulls
       the Playwright image.
 
 ## Out of scope
@@ -181,4 +181,75 @@ with one command, so that every UI story from now on can prove its behaviour and
   - TE-006 AC13b: e2e docs and the jsdom limits.
 
 ## Changelog
-(filled when done)
+Closed 2026-10-12 after 1 rework round.
+
+**Verdicts (round 1)**
+- **qa-engineer: PASS** on all 12 ACs.
+  - Vitest 15/15 (10 component tests, 5 e2e-rule tests) and e2e 9/9, each run 3 times with identical results.
+  - Deliberate breaks proven for AC2, AC3 (a/c/d), AC6, AC8 (a/b), AC11 and AC12.
+  - Timings: Vitest about 2.5 s, e2e 7–9 s.
+- **accessibility-auditor: PASS.** F1–F6 are fixed. The auditor endorsed also disabling `link-in-text-block` in
+  jsdom.
+- **security-privacy-reviewer: PASS.** L1 and L2 are closed:
+  - the source is read-only to the container (uid 1001 versus volumes owned by 1000, 0 writable paths);
+  - the masks and tmpfs cover the secrets.
+
+**Commits**
+
+| Commit | Content |
+|---|---|
+| 98312ca | Harness |
+| 5cadaeb | Rework entry |
+| c97f90e | e2e lockdown |
+| 183a073 | axe fixes |
+
+**Added: Vitest**
+- **Runner:** vite-plus (`vp test`), so there is no separate `vitest` dependency.
+- **Environment:** jsdom with Testing Library and jest-dom set up globally.
+- **Matcher:** the custom `toHaveNoA11yViolations`, on axe-core 4.13.
+  - Disabled in jsdom: `color-contrast`, `link-in-text-block`, `target-size`, `scrollable-region-focusable`.
+  - Fails on incomplete results for `aria-hidden-focus` and `aria-valid-attr-value`.
+  - Writes console notes for other incomplete results.
+- **Shared formatter:** prints `summary:` (`failureSummary`) and a shortened `html:` per node.
+
+**Added: Playwright**
+- **Version:** 1.64.0, exact pin, in `mcr.microsoft.com/playwright:v1.64.0-noble`. A Pest version-sync test keeps the
+  image and the npm package in step.
+- **`e2e` compose service** (profile `e2e`):
+  - `network_mode: service:vite`, with a global-setup forward `8000 → app:8000`;
+  - hardening: read-only source, uid 1001, `cap_drop ALL`, `read_only` rootfs;
+  - tmpfs on `storage`, `bootstrap/cache` and `/tmp`;
+  - `.env` masked with `/dev/null`.
+- **Reports:** `playwright-report/html` and `test-results/e2e`.
+
+**Added: axe helper and allow-list**
+- `expectNoA11yViolations`, with a needs-review attachment (`a11y-needs-review.txt`).
+- The central `placeholderAllowList`. It has one entry: `/` color-contrast, "remove in App shell". `REMOVAL_EPICS`
+  is enforced, so an empty epic name is rejected.
+- A spec that checks for stale pages, and an AST scan against inline `allow` lists.
+
+**Added: other**
+- Compose contract tests for AC11 and AC12.
+- A "Browser tests" section in `docs/deploy/dev.md`.
+
+**Changed**
+- `vite.config.ts`: Vitest projects, and the watcher ignores the report folders.
+- `compose.dev.yaml`: the `e2e` service.
+
+**Removed:** nothing.
+
+**Migrations:** none.
+
+**New env vars:** none for the app.
+
+**Docker**
+- Only `vite` was recreated, on image `be49e2a8364a`.
+- `app` still runs the old image `4983283171d2`. The orchestrator recreates it after TE-004.
+- The first e2e run pulls the Playwright image.
+
+**Follow-ups (filed)**
+- TE-006 AC13d: `docs/testing.md` content, L4, the redundant `--output`, the `vp fmt` note.
+- Board, "Notes for the App shell epic": allow-entry node counts.
+- Board, "Follow-ups for the frontend harness": the AST scan gaps.
+- Board, "Follow-ups for M1": L5, reports are sensitive even after green runs.
+- Board, "Devops items": the vite-plus restart race and healthcheck.
