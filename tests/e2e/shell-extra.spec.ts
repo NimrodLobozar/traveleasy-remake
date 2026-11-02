@@ -66,18 +66,32 @@ test('announces the new title exactly once and restores scroll on back', async (
     });
     const before = await page.evaluate(() => window.scrollY);
     expect(before).toBeGreaterThan(0);
-    await page.getByRole('link', { name: 'Inloggen' }).first().click();
+    // dispatchEvent, not click(): click() first scrolls the (non-sticky) header back into view,
+    // which would reset scrollY to 0 before the page is left.
+    await page
+        .getByRole('link', { name: 'Inloggen' })
+        .first()
+        .dispatchEvent('click');
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByTestId('route-announcer')).toHaveText(/TravelEasy/);
     await page.waitForTimeout(400);
-    const texts = await page.evaluate(
-        () => (window as unknown as { __texts: string[] }).__texts,
-    );
-    expect(texts).toHaveLength(1);
+    // Rework 1: after a forward visit only the focus move announces; the live region stays empty.
+    expect(
+        await page.evaluate(
+            () => (window as unknown as { __texts: string[] }).__texts,
+        ),
+    ).toHaveLength(0);
 
     await page.goBack();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator('main#main')).toBeFocused();
+    // After history navigation the title is announced exactly once.
+    await expect(page.getByTestId('route-announcer')).toHaveText(/TravelEasy/);
+    await page.waitForTimeout(400);
+    expect(
+        await page.evaluate(
+            () => (window as unknown as { __texts: string[] }).__texts,
+        ),
+    ).toHaveLength(1);
     await expect
         .poll(() => page.evaluate(() => window.scrollY))
         .toBeGreaterThan(0);

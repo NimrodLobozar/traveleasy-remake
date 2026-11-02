@@ -68,9 +68,12 @@ describe('ShellLayout (TE-016)', () => {
         expect(button).toHaveAttribute('aria-controls', 'mobile-menu');
         fireEvent.click(button);
         expect(button).toHaveAttribute('aria-expanded', 'true');
-        fireEvent.keyDown(screen.getByRole('link', { name: 'Help' }), {
-            key: 'Escape',
-        });
+        fireEvent.keyDown(
+            screen.getAllByRole('link', { name: 'Help' })[0] as HTMLElement,
+            {
+                key: 'Escape',
+            },
+        );
         expect(button).toHaveAttribute('aria-expanded', 'false');
         expect(button).toHaveFocus();
     });

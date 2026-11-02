@@ -93,7 +93,7 @@ export default function SiteHeader() {
                                             className={cn(
                                                 'flex min-h-11 items-center border-l-4 border-transparent px-3 font-medium text-text hover:text-brand md:border-b-[3px] md:border-l-0',
                                                 current &&
-                                                    'border-brand bg-surface-2 md:bg-transparent',
+                                                    'border-brand bg-surface-2 font-bold underline decoration-2 underline-offset-8 md:bg-transparent',
                                             )}
                                         >
                                             {t(item.key)}

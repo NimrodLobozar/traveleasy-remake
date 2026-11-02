@@ -135,7 +135,7 @@ test.describe('skip link and focus (AC2, AC11)', () => {
 });
 
 test.describe('navigation (AC3, AC4)', () => {
-    test('moves focus to the h1, updates the title, announces it once and resets scroll', async ({
+    test('forward: focus moves to the h1, the title updates, the live region stays empty, scroll resets', async ({
         page,
     }) => {
         await openHome(page);
@@ -145,19 +145,24 @@ test.describe('navigation (AC3, AC4)', () => {
 
         await expect(page.locator('h1')).toBeFocused();
         await expect(page).toHaveTitle(/ \| TravelEasy$/);
-        const title = await page.title();
-        const announcer = page.getByTestId('route-announcer');
-        await expect(announcer).toHaveText(title);
+        // The focus move is the only announcement after a forward visit.
+        await page.waitForTimeout(300);
+        await expect(page.getByTestId('route-announcer')).toHaveText('');
         expect(await page.evaluate(() => window.scrollY)).toBe(0);
     });
 
-    test('back navigation moves focus to main', async ({ page }) => {
+    test('back: focus moves to main and the title is announced once', async ({
+        page,
+    }) => {
         await openHome(page);
         await page.getByRole('link', { name: 'Inloggen' }).first().click();
         await expect(page).toHaveURL(/\/login$/);
         await page.goBack();
         await expect(page).toHaveURL(/\/$/);
         await expect(page.locator('main#main')).toBeFocused();
+        await expect(page.getByTestId('route-announcer')).toHaveText(
+            await page.title(),
+        );
     });
 
     test('is clean after an Inertia navigation', async ({ page }) => {
@@ -246,7 +251,7 @@ test.describe('mobile (AC6, AC8, AC12)', () => {
         await page.getByLabel('Van').fill('');
         await page.getByRole('button', { name: 'Zoek reizen' }).click();
 
-        const summary = page.getByRole('group', {
+        const summary = page.getByRole('region', {
             name: 'Er is iets niet ingevuld',
         });
         await expect(summary).toBeFocused();
@@ -287,5 +292,33 @@ test.describe('desktop targets (AC12)', () => {
             expect(size.h, size.name).toBeGreaterThanOrEqual(24);
             expect(size.w, size.name).toBeGreaterThanOrEqual(24);
         }
+    });
+});
+
+test.describe('search form (rework 1)', () => {
+    test('fields are required, and an error clears once the field is corrected', async ({
+        page,
+    }) => {
+        await openHome(page);
+        for (const name of ['Van', 'Naar', 'Vertrek', 'Reizigers']) {
+            await expect(page.getByLabel(name)).toHaveAttribute('required', '');
+        }
+        await page.getByLabel('Van').fill('');
+        await page.getByRole('button', { name: 'Zoek reizen' }).click();
+        const summary = page.getByRole('region', {
+            name: 'Er is iets niet ingevuld',
+        });
+        await expect(summary).toBeFocused();
+
+        await page.getByLabel('Van').fill('Amsterdam');
+        await expect(page.getByLabel('Van')).toHaveAttribute(
+            'aria-invalid',
+            'false',
+        );
+        await expect(page.locator('#search-from-error')).toHaveCount(0);
+        await expect(page.getByLabel('Naar')).toHaveAttribute(
+            'aria-invalid',
+            'true',
+        );
     });
 });

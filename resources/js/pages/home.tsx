@@ -10,11 +10,22 @@ const FIELDS: readonly Field[] = ['from', 'to', 'date', 'travellers'];
 const inputClass =
     'min-h-12 w-full rounded-md border-2 border-border bg-surface px-3 text-text aria-invalid:border-danger';
 
+function isInvalid(field: Field, raw: string): boolean {
+    const value = raw.trim();
+    if (field === 'travellers') {
+        const count = Number(value);
+
+        return !Number.isInteger(count) || count < 1 || count > 9;
+    }
+
+    return value === '';
+}
+
 /** Public home (TE-016 placeholder): the search itself is built in M3; this page proves the shell. */
 export default function Home() {
     const { t } = useTranslation();
     const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
-    const summary = useRef<HTMLFieldSetElement>(null);
+    const summary = useRef<HTMLElement>(null);
     const failed = FIELDS.filter((field) => errors[field] !== undefined);
 
     const messages: Record<Field, string> = {
@@ -22,6 +33,13 @@ export default function Home() {
         to: t('search.error.to'),
         date: t('search.error.date'),
         travellers: t('search.error.travellers'),
+    };
+
+    const onChange = (field: Field, value: string) => {
+        if (errors[field] !== undefined && !isInvalid(field, value)) {
+            const { [field]: _fixed, ...rest } = errors;
+            setErrors(rest);
+        }
     };
 
     const onSubmit = (event: SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
@@ -34,15 +52,7 @@ export default function Home() {
         };
         const next: Partial<Record<Field, string>> = {};
         for (const field of FIELDS) {
-            const value = read(field).trim();
-            const travellers = Number(value);
-            const invalid =
-                field === 'travellers'
-                    ? !Number.isInteger(travellers) ||
-                      travellers < 1 ||
-                      travellers > 9
-                    : value === '';
-            if (invalid) {
+            if (isInvalid(field, read(field))) {
                 next[field] = messages[field];
             }
         }
@@ -113,16 +123,18 @@ export default function Home() {
                             className="mt-4 flex flex-col gap-4"
                         >
                             {failed.length > 0 && (
-                                <fieldset
+                                <section
                                     ref={summary}
                                     tabIndex={-1}
+                                    aria-labelledby="search-errors"
                                     className="rounded-md border-2 border-danger p-3"
                                 >
-                                    <legend className="px-1">
-                                        <h3 className="font-bold text-danger">
-                                            {t('search.error.title')}
-                                        </h3>
-                                    </legend>
+                                    <h3
+                                        id="search-errors"
+                                        className="font-bold text-danger"
+                                    >
+                                        {t('search.error.title')}
+                                    </h3>
                                     <ul className="mt-1 list-disc pl-5">
                                         {failed.map((field) => (
                                             <li key={field}>
@@ -136,7 +148,7 @@ export default function Home() {
                                             </li>
                                         ))}
                                     </ul>
-                                </fieldset>
+                                </section>
                             )}
                             {FIELDS.map((field) => (
                                 <div
@@ -170,6 +182,10 @@ export default function Home() {
                                                 : undefined
                                         }
                                         autoComplete="off"
+                                        required
+                                        onChange={(event) => {
+                                            onChange(field, event.target.value);
+                                        }}
                                         aria-invalid={
                                             errors[field] !== undefined
                                         }
