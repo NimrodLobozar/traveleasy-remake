@@ -43,6 +43,7 @@ given. Run all commands from the repo root.
 | `vite` | Vite dev server with HMR (Node 24.21.0, plus PHP for Wayfinder) | http://localhost:5173 (`VITE_PORT`) | default |
 | `db` | PostgreSQL 18.6, named volume `traveleasy-remake_pgdata` | not published; host `db` inside Docker | default |
 | `adminer` | Adminer 6.1.1, database GUI | http://localhost:8081 (`ADMINER_PORT`) | `tools` |
+| `ssr` | Inertia SSR server (`node bootstrap/ssr/ssr.js`), same image, 256 MB | not published; `http://ssr:13714` inside Docker | `ssr` |
 | `e2e` | Playwright 1.64.0 + axe browser tests (Chromium), one-shot | none (shares `vite`'s network) | `e2e` |
 
 - All ports are bound to `127.0.0.1` only, so nothing is reachable from the LAN.
@@ -246,16 +247,47 @@ Pages are rendered to HTML by a separate Node process; the browser then hydrates
 `resources/js/ssr.tsx` (built by `npm run build` = `vp build && vp build --ssr` into `bootstrap/ssr/ssr.js`).
 
 - **Dev stays client-side.** While the Vite dev server runs (`public/hot` exists), Laravel skips SSR, so HMR works as
-  before. SSR is checked against a build; the `ssr` compose service and the CI smoke test come with TE-008.
+  before. SSR is checked against a build, in the opt-in `ssr` profile (below).
 - **Fallback.** If the SSR process is down or slow, the page is served for client-side rendering (HTTP 200, no error text).
 - **Env vars** (documented in `.env.example`): `INERTIA_SSR_ENABLED`, `INERTIA_SSR_URL` (how Laravel reaches it),
   `INERTIA_SSR_TIMEOUT` (seconds), `INERTIA_SSR_HOST` and `INERTIA_SSR_PORT` (where the Node server listens; default
   `127.0.0.1:13714`). The SSR server has no authentication: never publish its port on the host.
-- **Try it by hand:** `npm run build`, then start the server with `node bootstrap/ssr/ssr.js` (or
-  `php artisan inertia:start-ssr`) in a container, and point `INERTIA_SSR_URL` at it. Laravel needs `public/hot` to be
-  absent for this. Measured on the dev PC (TE-007): median response of `/` 263 ms with SSR vs 257 ms without (+6 ms).
+- **Measured on the dev PC (TE-007): median response of `/` 263 ms with SSR vs 257 ms without (+6 ms).
 - **Browser-only code** (`window`, `document`, `localStorage`, `sessionStorage`, `navigator`) must not run at module level
   or during render; `npm run check` fails on it (see [testing.md](../testing.md#ssr-safe-code-rule)).
+
+### The `ssr` profile (TE-008)
+
+`ssr` runs `node bootstrap/ssr/ssr.js` from the dev image. `app` always has `INERTIA_SSR_URL=http://ssr:13714`; it only
+matters when the profile is up and `public/hot` is absent. `ssr` publishes **no port** (its `/shutdown` endpoint is
+unauthenticated), listens on `0.0.0.0` only inside the compose network (`INERTIA_SSR_HOST` is set on `ssr` alone), has
+no DB access and no secrets (`.env` masked, no env file), and is hardened like the e2e container: non-root,
+`cap_drop: [ALL]`, `no-new-privileges`, read-only root and source, tmpfs for `storage`, `bootstrap/cache` and `/tmp`,
+memory limit **256 MB** (V8 old space capped at 160 MB, as in ADR-0002).
+
+**How HMR and SSR coexist.** The only switch is the hot file: Vite writes `public/hot` while it runs, and Laravel skips
+SSR (and loads assets from Vite) when it exists. The helper deletes the file and restores it by restarting `vite`, so
+the Vite container never has to stop (the `e2e` container shares its network). One helper, any shell:
+
+| Task | Command |
+|---|---|
+| SSR mode on: build, remove `public/hot`, start `ssr` (no HMR meanwhile) | `bash scripts/dev-ssr.sh on` |
+| SSR smoke test: `on`, check SSR up, stop `ssr`, check the fallback, start `ssr` again | `bash scripts/dev-ssr.sh smoke` |
+| Back to normal dev: stop `ssr`, restart `vite` (writes `public/hot`, HMR again) | `bash scripts/dev-ssr.sh off` |
+| Browser tests against the SSR build (needs `on` first) | `docker compose run --rm e2e` |
+
+The smoke test itself is `scripts/ssr-smoke.mjs`, plain Node with no Docker specifics (CI calls it directly):
+`node scripts/ssr-smoke.mjs --mode on|down [--url http://127.0.0.1:8000] [--path /] [--text "Heading"]`
+(`npm run test:ssr` / `test:ssr:down` are the same, run in `app` or `vite`). `on` fails unless `/` answers 200 with
+`<html lang>`, a `data-server-rendered` root and an `<h1>`; `down` passes with "SSR down: client-side fallback OK"
+when `/` still answers 200 and has the embedded page data but no server markup. A failing `on` check means the page fell
+back to client rendering: read `docker compose logs ssr` and the "Inertia SSR render failed" warning in
+`storage/logs/laravel.log`.
+
+While in SSR mode, source edits do **not** show up until you run `on` again (it rebuilds). Finish with `off`.
+In Git Bash, prefix `MSYS_NO_PATHCONV=1` when you pass `--path /x` to `docker compose exec` (it rewrites a leading `/`).
+The hot file is fragile: if Vite restarts (for example after you edit `vite.config.ts` or `lint.rules.ts`, which it
+imports) it writes `public/hot` again and SSR silently switches off; the smoke test then says so. Run `on` again.
 
 ## Browser tests (Playwright + axe)
 Test-writing rules, the axe helper and the allow-list are in the [testing guide](../testing.md). This section covers

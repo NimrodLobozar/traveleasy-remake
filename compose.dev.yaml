@@ -40,6 +40,10 @@ services:
             # Lets `php artisan serve` handle parallel requests (requires --no-reload; Laravel still reads
             # .env on every request, so .env edits apply without a restart).
             PHP_CLI_SERVER_WORKERS: ${PHP_CLI_SERVER_WORKERS:-4}
+            # Where Laravel reaches the SSR server (the `ssr` profile). Harmless without the profile: SSR is
+            # skipped while public/hot exists (Vite dev server running), and a missing server falls back to
+            # client-side rendering (TE-007).
+            INERTIA_SSR_URL: http://ssr:13714
         command:
             [
                 'php',
@@ -103,6 +107,67 @@ services:
             retries: 6
             start_period: 60s
 
+    ssr:
+        # Inertia SSR server (TE-008): the same dev image, running the SSR bundle that `npm run build` writes to
+        # bootstrap/ssr. Opt-in: `docker compose --profile ssr up -d ssr`. `app` reaches it at http://ssr:13714.
+        # It only renders pages; Laravel is the only client.
+        #
+        # - NO published port: the server has no authentication and its /shutdown endpoint is open (ADR-0002 D2).
+        #   It must also never join a shared proxy network (npm_shared) in production.
+        # - Listens on 0.0.0.0 here (INERTIA_SSR_HOST) so `app` can reach it; the default elsewhere is 127.0.0.1.
+        # - No DB, no secrets: no env_file, only the variables below; `.env` is masked with an empty file,
+        #   storage/ and bootstrap/cache are empty tmpfs, the source is read-only, no PHP is started.
+        # - Hardened like the app: non-root (uid 1000 from the image), cap_drop ALL, no-new-privileges, read-only
+        #   rootfs. node_modules comes from the image (the dev SSR bundle is not self-contained yet, TE-012).
+        # - Memory limit 256 MB (V8 old space capped at 160 MB), the figure ADR-0002 sets for production.
+        <<: *dev-image
+        pull_policy: never
+        profiles: ['ssr']
+        entrypoint: ['sh', '-c']
+        # Waits for the bundle instead of crash-looping when `npm run build` has not run yet.
+        command:
+            - |
+                until [ -f bootstrap/ssr/ssr.js ]; do
+                    echo '[ssr] bootstrap/ssr/ssr.js not found; run: docker compose exec vite npm run build'
+                    sleep 5
+                done
+                exec node bootstrap/ssr/ssr.js
+        working_dir: /var/www/html
+        environment:
+            NODE_ENV: production
+            NODE_OPTIONS: --max-old-space-size=160
+            INERTIA_SSR_HOST: 0.0.0.0
+            INERTIA_SSR_PORT: '13714'
+        volumes:
+            - .:/var/www/html:ro
+            - /var/www/html/node_modules
+            - type: bind
+              source: /dev/null
+              target: /var/www/html/.env
+              read_only: true
+        tmpfs:
+            - /var/www/html/storage:size=1m
+            - /var/www/html/bootstrap/cache:size=1m
+            - /tmp
+        read_only: true
+        cap_drop: ['ALL']
+        security_opt: ['no-new-privileges:true']
+        mem_limit: 256m
+        networks:
+            - default
+        healthcheck:
+            test:
+                [
+                    'CMD',
+                    'node',
+                    '-e',
+                    "fetch('http://127.0.0.1:13714/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 3
+            start_period: 20s
+
     e2e:
         # Playwright + axe browser tests (TE-005), opt-in and one-shot: `docker compose run --rm e2e`.
         # Runs `npm run test:e2e` in Chromium; extra args replace the command, e.g.
@@ -159,6 +224,8 @@ services:
         environment:
             E2E_BASE_URL: http://localhost:8000
             E2E_FORWARD: 8000=app:8000
+            # Set to 1 (`run -e E2E_REQUIRE_SSR=1`) to make the hydration test fail instead of skip without SSR.
+            E2E_REQUIRE_SSR: ${E2E_REQUIRE_SSR:-}
             NPM_CONFIG_UPDATE_NOTIFIER: 'false'
             HOME: /tmp
             # Playwright deletes and recreates its output folders, which fails on a mount point under the

@@ -27,7 +27,7 @@ test('home page renders with React and passes axe', async ({ page }) => {
 
     expect(response?.status()).toBe(200);
     // The Inertia root is empty in the server HTML; this link only exists once React rendered.
-    await expect(page.getByRole('link', { name: 'Log in' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Inloggen' })).toBeVisible();
     await expectNoA11yViolations(page, { allow: placeholderAllowList });
     expect(problems).toEqual([]);
 });
@@ -40,7 +40,7 @@ test('login page renders the form with React and passes axe', async ({
     const response = await page.goto('/login');
 
     expect(response?.status()).toBe(200);
-    await expect(page.getByLabel('Email address')).toBeVisible();
+    await expect(page.getByLabel('E-mailadres')).toBeVisible();
     await expectNoA11yViolations(page, { allow: placeholderAllowList });
     expect(problems).toEqual([]);
 });

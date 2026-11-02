@@ -3,10 +3,11 @@ import { expect, test } from '@playwright/test';
 // TE-007 AC3: loading the home page logs no console error, which includes React's hydration
 // warnings (React reports a server/client markup mismatch through console.error).
 //
-// Today the e2e run goes against the dev app (Vite HMR), where SSR is skipped, so this proves the
-// client render is clean. TE-008 must run this same spec against the production-style build with
-// the `ssr` service up, so hydration is exercised: that is when `data-server-rendered` is set and
-// the second test stops skipping.
+// Against the dev app (Vite HMR) SSR is skipped, so the first test proves the client render is clean
+// and the second one skips. After `bash scripts/dev-ssr.sh on` (production-style build, `ssr` service
+// up; TE-008) the page is server-rendered and the second test really checks hydration. With
+// E2E_REQUIRE_SSR=1 (`docker compose run --rm -e E2E_REQUIRE_SSR=1 e2e`) it fails instead of skipping,
+// so a silently missing SSR can't pass.
 
 test('the home page logs no console errors or page errors', async ({
     page,
@@ -24,7 +25,7 @@ test('the home page logs no console errors or page errors', async ({
     const response = await page.goto('/');
 
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole('link', { name: 'Log in' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Inloggen' })).toBeVisible();
     // Give hydration and late effects a moment to log.
     await page.waitForLoadState('networkidle');
 
@@ -47,9 +48,14 @@ test('a server-rendered home page hydrates without warnings', async ({
     const serverRendered = await page
         .locator('#app[data-server-rendered]')
         .count();
+    const requireSsr = (process.env.E2E_REQUIRE_SSR ?? '') !== '';
+    expect(
+        requireSsr && serverRendered === 0,
+        'E2E_REQUIRE_SSR is set but the page is not server-rendered',
+    ).toBe(false);
     test.skip(
         serverRendered === 0,
-        'SSR is off in this environment (dev server); TE-008 enables it',
+        'SSR is off in this environment (dev server); run `bash scripts/dev-ssr.sh on` first',
     );
 
     expect(errors).toEqual([]);

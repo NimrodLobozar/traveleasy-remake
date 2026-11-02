@@ -387,6 +387,18 @@ lazily on first use in the browser; do not suppress it. Fixture test: `lint-plug
 `lint-rules`). Server rendering itself is covered by `resources/js/ssr.test.tsx` (`renderToString` in a Node
 environment) and the console-error check `tests/e2e/console.spec.ts`.
 
+### SSR smoke test (TE-008)
+
+`scripts/ssr-smoke.mjs` fetches a page and checks the HTML, with no browser and no Docker specifics, so CI can run it
+against any URL. `--mode on` needs HTTP 200, `<html lang>`, the Inertia root marked `data-server-rendered` and an `<h1>`
+inside it (`--text` checks a given string instead). A page that touches `window` while rendering makes the render fail;
+Laravel then falls back to client-side rendering and the marker is missing, so the test fails with a message that points
+at the ssr logs. `--mode down` runs with the SSR server stopped: `/` must still answer 200 with `<html lang>` and the
+embedded page data, and prints "SSR down: client-side fallback OK". Locally: `bash scripts/dev-ssr.sh smoke` (does both
+checks); see [dev.md](deploy/dev.md#the-ssr-profile-te-008). The Playwright suite, including the hydration test in
+`console.spec.ts` (which only runs when `#app[data-server-rendered]` is present), runs against the SSR build after
+`bash scripts/dev-ssr.sh on`.
+
 ### i18n tests, server side (TE-009)
 
 `tests/Feature/I18n/LocaleResolutionTest.php` covers the locale chain (cookie, `Accept-Language`, default), the
