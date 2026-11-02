@@ -52,6 +52,7 @@ Update this table when a phase changes.
 - 2026-10-11: **Larastan at level max with no baseline**; paratest is pinned to 7.26.0 until Pest allows `^7.26.1` (`docs/stories/TE-003-code-quality-tooling.md`).
 - 2026-10-12: The Playwright **e2e container is hardened**: read-only source, non-owner uid, `cap_drop ALL`, read-only rootfs, tmpfs for writable paths, `.env` masked, no secrets; Playwright is pinned exactly and kept in sync with its image by a test (`docs/stories/TE-005-vitest-playwright-axe-harness.md`).
 - 2026-10-12: **Agent models** are pinned per agent to save tokens: Opus for orchestrator, architect, backend-developer and security-privacy-reviewer; Sonnet for the other agents; reasoning effort `high` for architect, backend-developer and security-privacy-reviewer, `medium` for the rest; the orchestrator passes Haiku + low effort per call for mechanical tasks (`.claude/agents/orchestrator.md` § Rules).
+- 2026-11-03: **`compose.dev.yaml` is standalone**, no longer merged on top of `compose.yaml` (Compose resolves every `${VAR:?}` in all listed files before merging, so production's required secrets broke a fresh-clone dev start); dev selects it via `COMPOSE_FILE=compose.dev.yaml` in `.env` (see `.env.example`), so `docker compose up -d` is unchanged; `compose.yaml` is production-only (`docs/stories/TE-024-production-compose-for-portainer.md`).
 - 2026-11-02: **Brand**: the designer proposes a neutral wordmark, palette and a friendly, clear tone of voice; the owner approves in the Claude Design review (`docs/stories/TE-016-accessible-base-layout.md`, `docs/stories/TE-020-design-tokens-and-type-scale.md`).
 - 2026-11-02: **No host port in production**: Nginx Proxy Manager reaches the web container over the shared external Docker network `npm_shared` (compose name `npm_network`); only the web-facing service joins it, no service publishes `ports:` (CI guard), and the M0 proxy host has a LAN-only access list (`docs/stories/TE-024-production-compose-for-portainer.md`, `docs/stories/TE-026-first-lan-only-deploy.md`).
 - 2026-11-02: **The owner does every Portainer and NPM step himself** from exact step-by-step instructions written by the agents; agents get no access to the server (`docs/stories/TE-026-first-lan-only-deploy.md`).
@@ -109,7 +110,7 @@ The `vite` alias hides Vite advisories from `npm audit`; check them by hand on e
 | Seed | Manual only, never automatic: `docker compose exec app php artisan db:seed`. Warning: the kit seeder creates `test@example.com` / `password`; dev only, never on a reachable server |
 
 Fixed principles:
-- Everything runs in Docker. `compose.yaml` deploys as a Portainer stack; `compose.dev.yaml` adds dev overrides.
+- Everything runs in Docker. `compose.yaml` is production-only and deploys as a Portainer stack; `compose.dev.yaml` is a **standalone** dev stack (not merged with `compose.yaml`), selected through `COMPOSE_FILE=compose.dev.yaml` in `.env`.
 - Relational database with versioned migrations. No business logic in stored procedures.
 - TypeScript (strict) for frontend code.
 - No runtime CDNs, third-party fonts or trackers; everything is bundled and self-hosted.
