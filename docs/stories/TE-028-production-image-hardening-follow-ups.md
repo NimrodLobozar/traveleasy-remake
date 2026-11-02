@@ -1,7 +1,7 @@
 ---
 id: TE-028
 title: Production image hardening follow-ups (chore)
-status: in-progress
+status: done
 priority: must
 epic: M0 CI/CD to GHCR
 agents: [devops-engineer, backend-developer]
@@ -26,17 +26,17 @@ leftovers, no exposed hidden files and no third-party references before the firs
       then each returns 404, including the kit's `public/.htaccess` (removed in the production stage, or denied by the Caddyfile for
       `/.*`); and `GET /.well-known/` paths keep working (a request for an existing file under `public/.well-known/` returns 200,
       a missing one 404). `verify.sh` checks both.
-- [ ] AC3 (privacy): Given the `/up` route, when requested, then the response is a minimal plain-text or empty body with no external
+- [x] AC3 (privacy): Given the `/up` route, when requested, then the response is a minimal plain-text or empty body with no external
       references (no `fonts.bunny.net` or `jsdelivr` preconnects, no `http(s)://` host at all); a feature test asserts that no external
       host appears in the body, and the health check of TE-012 still passes (200 only when the DB is reachable).
 
 ## Quality criteria
-- [ ] Tests: `verify.sh` extended for AC1 and AC2; Pest feature test for AC3; no regression in the existing 40 verify checks.
-- [ ] Accessibility: n/a.
-- [ ] Security/privacy: security-privacy-reviewer confirms the three findings are closed; the image size stays under 1.07 GB.
-- [ ] i18n: n/a.
-- [ ] Performance: image start to healthy stays under 30 s.
-- [ ] Docs updated: `docs/deploy/production-image.md`.
+- [x] Tests: `verify.sh` extended for AC1 and AC2; Pest feature test for AC3; no regression in the existing 40 verify checks.
+- [x] Accessibility: n/a.
+- [x] Security/privacy: security-privacy-reviewer confirms the three findings are closed; the image size stays under 1.07 GB.
+- [x] i18n: n/a.
+- [x] Performance: image start to healthy stays under 30 s.
+- [x] Docs updated: `docs/deploy/production-image.md`.
 
 ## Out of scope
 - Compose hardening (TE-024), Trivy and publishing (TE-014).
@@ -48,4 +48,18 @@ leftovers, no exposed hidden files and no third-party references before the firs
 (empty)
 
 ## Changelog
-(filled when done)
+- **Date:** 2026-11-02
+- **Testers:**
+  - qa-engineer: PASS (image 1.02 GB, `verify.sh` all checks passed, healthy in 7 s, Pest 625, mutation proved the ownership check fails).
+  - security-privacy-reviewer: PASS (no findings).
+- **Commits:**
+  - `2655be7`: root-owned copies via `--chown=0:0`, Caddyfile 404 for `/.*` except `/.well-known/*`, `.htaccess` removed.
+  - `96a3a46`: plain-text `/up` (`OK` / `Unavailable`), `app/Http/Controllers/HealthController.php`.
+- **Added:** `app/Http/Controllers/HealthController.php`; Caddyfile rule returning 404 for hidden top-level paths except `/.well-known/*`; `verify.sh` checks for AC1 and AC2.
+- **Changed:** production `Dockerfile` copies `public/` and `bootstrap/ssr/ssr.js` with `--chown=0:0`; `/up` returns plain text without external references.
+- **Removed:** kit `public/.htaccess` from the production image.
+- **Migrations:** none.
+- **New env vars:** none.
+- **Docker rebuild:** yes, the production image must be rebuilt (Dockerfile and Caddyfile changed).
+- **Note for later:** the Caddyfile rule covers top-level dotfiles only; `verify.sh` would catch a nested one in `public/`.
+
