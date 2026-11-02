@@ -67,6 +67,10 @@ I know the whole path from `git push` to a running stack works.
       container or via the Docker gateway is ignored. Evidence is pasted by the owner.
 - [ ] AC12 (privacy, logs): Given NPM keeps access logs with client IPs, when the doc is read, then it states NPM's log location
       and retention (14 days or less, or how to set it), and that the app's own request logs carry no client IP (TE-024 AC10).
+- [ ] AC13 (security Low #5, 2026-11-03): Given `APP_ENV=production` and `APP_URL` starts with `https://`, when
+      `SESSION_SECURE_COOKIE=false` is set, then the production boot check refuses to start (clear message, nonzero exit), so the
+      LAN-over-HTTP exception (AC10e) cannot stay on by accident after HTTPS arrives; with an `http://` `APP_URL` the exception is
+      still accepted. A Pest test covers both cases.
 - [ ] AC9 (owner does the server steps): Given the doc, when read, then every Portainer and NPM step (create the proxy host, the
       access list, the stack, the env file, the redeploy) is written as an exact click-by-click/command instruction for the
       owner, with the expected result after each step; agents do not access the server, Portainer or NPM, and the evidence for

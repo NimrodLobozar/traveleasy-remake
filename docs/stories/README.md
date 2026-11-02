@@ -18,10 +18,10 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-010](TE-010-i18n-key-completeness-check.md) | i18n key-completeness check | must | done | 0 | not-needed |
 | [TE-011](TE-011-adr-0002-production-runtime.md) | ADR-0002 production runtime (web server, SSR packaging, migrate-on-start) | must | done | 0 | not-needed |
 | [TE-012](TE-012-production-image.md) | Production multi-stage image with entrypoint, health check and hardening | must | done | 0 | not-needed |
-| [TE-013](TE-013-ci-quality-gates.md) | GitHub Actions pipeline, part 1: quality gates | must | ready | 0 | not-needed |
+| [TE-013](TE-013-ci-quality-gates.md) | GitHub Actions pipeline, part 1: quality gates | must | done | 0 | not-needed |
 | [TE-014](TE-014-ci-image-build-scan-publish.md) | GitHub Actions pipeline, part 2: amd64 build, Trivy, publish to GHCR | must | ready | 0 | not-needed |
 | [TE-015](TE-015-security-headers-and-csp-baseline.md) | Security headers and CSP baseline (nonces) | must | done | 0 | not-needed |
-| [TE-016](TE-016-accessible-base-layout.md) | Accessible base layout (landmarks, skip link, route-change focus, empty axe allow-list) | must | ready | 0 | required |
+| [TE-016](TE-016-accessible-base-layout.md) | Accessible base layout (landmarks, skip link, route-change focus, empty axe allow-list) | must | in-test | 1 | required |
 | [TE-017](TE-017-language-switch.md) | Language switch nl/en with persisted preference | must | ready | 0 | required (TE-016 artifact) |
 | [TE-018](TE-018-theme-light-dark-no-flash.md) | Light/dark theme with a manual override and no flash under SSR | must | ready | 0 | required (TE-016 artifact) |
 | [TE-019](TE-019-localised-error-pages.md) | Localised error pages (403, 404, 419, 429, 500, 503) with a request ID | must | ready | 0 | required (TE-016 artifact) |
@@ -29,18 +29,19 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-021](TE-021-base-component-specs.md) | Base component specs (states, keyboard, ARIA) | must | ready | 0 | required |
 | [TE-022](TE-022-base-components-forms-and-feedback.md) | Base components I: button, link, field, select, number field, alert, banner | must | ready | 0 | required (TE-021 approval) |
 | [TE-023](TE-023-base-components-complex-widgets.md) | Base components II: combobox, date picker, table, dialog, toast, pagination | must | ready | 0 | required (TE-021 approval) |
-| [TE-024](TE-024-production-compose-for-portainer.md) | Production compose.yaml for Portainer (pinned tag, health checks, limits, ssr) | must | ready | 0 | not-needed |
+| [TE-024](TE-024-production-compose-for-portainer.md) | Production compose.yaml for Portainer (pinned tag, health checks, limits, ssr) | must | done | 0 | not-needed |
 | [TE-025](TE-025-portainer-env-file-and-secrets-helper.md) | One-file Portainer env file and the secrets helper command | must | ready | 0 | not-needed |
 | [TE-026](TE-026-first-lan-only-deploy.md) | First LAN-only deploy to the home server (**owner-gated**) | must | ready | 0 | not-needed |
 | [TE-027](TE-027-bump-php-8-5-12-dev-image.md) | Bump PHP to 8.5.12 in the dev image (chore) | must | done | 0 | not-needed |
 | [TE-028](TE-028-production-image-hardening-follow-ups.md) | Production image hardening follow-ups (chore) | must | done | 0 | not-needed |
+| [TE-029](TE-029-ci-and-deploy-hardening-follow-ups.md) | CI and deploy hardening follow-ups (chore) | should | ready | 0 | not-needed |
 
 ### Epics
 - **M0 Project scaffold and tooling:** TE-001, TE-003, TE-004, TE-005 (docs part in TE-006).
 - **M0 Docker dev environment:** TE-002, TE-006.
 - **M0 Server-side rendering:** TE-007, TE-008.
 - **M0 i18n infrastructure:** TE-009, TE-010.
-- **M0 CI/CD to GHCR:** TE-011 (ADR-0002), TE-012, TE-013, TE-014, TE-028.
+- **M0 CI/CD to GHCR:** TE-011 (ADR-0002), TE-012, TE-013, TE-014, TE-028, TE-029.
 - **M0 App shell:** TE-015, TE-016, TE-017, TE-018, TE-019.
 - **M0 Design system:** TE-020, TE-021, TE-022, TE-023.
 - **M0 First home-server deploy:** TE-024, TE-025, TE-026.
@@ -145,6 +146,9 @@ yet. When M1 stories are written, put each item below into the matching story as
 - **Trusted proxies:** moved to M0 (TE-011 decision, TE-012 AC12, TE-025 AC3, TE-026 AC11).
 - **Rate limits never rely on IP alone** (reviewer, 2026-11-02; client IPs can be spoofed through `X-Forwarded-For` until TE-026
   AC11 is proven): every limiter in the rate-limit story also keys per account (or per session/username), not just per IP.
+- **Request ID in logs + later services (from TE-024 close, 2026-11-03):** JSON logs carry a request ID (TE-024 AC10, not done; no
+  client IPs are logged because the Caddy access log is off), and the `worker`, `scheduler` and `backup` services are added with
+  `depends_on: app: condition: service_healthy`.
 - **Worker/scheduler start order:** the `worker` and `scheduler` service stories add `depends_on: app: condition: service_healthy`,
   so they never run new code while `app` is still migrating (TE-024 AC15 does this for the services that exist in M0).
 - **ADR-0002 requirements for M1 stories:**

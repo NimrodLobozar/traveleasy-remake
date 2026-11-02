@@ -1,13 +1,13 @@
 ---
 id: TE-016
 title: Accessible base layout (landmarks, skip link, route-change focus, axe allow-list ends empty)
-status: ready
+status: in-test
 priority: must
 epic: M0 App shell
 agents: [ux-ui-designer, frontend-developer]
 testers: [qa-engineer, accessibility-auditor]
 design: required
-rework_rounds: 0
+rework_rounds: 1
 ---
 
 ## User story
@@ -80,7 +80,29 @@ I navigate, so that I can find the content and the navigation without a mouse.
   the owner approves in the Claude Design review. Refined in TE-020.
 
 ## Rework log
-(empty)
+### Round 1 - 2026-11-03
+**qa-engineer: FAIL on AC4.** On `/` at scrollY 250, clicking "Inloggen" and going back leaves scrollY at 0 for 2 s.
+`history.scrollRestoration` is `manual`, so Inertia/`RouteFocus` must restore it; focus correctly goes to `<main>`.
+Evidence: `tests/e2e/shell-extra.spec.ts` "announces the new title exactly once and restores scroll on back" (commit 0389c1c).
+Everything else passed (AC1-3, AC5-12; Vitest 197, Pest 638, e2e 40 + 2 skipped, SSR 40 + 1 skipped).
+Expected fix: restore the saved scroll position on back/forward (history) navigation while keeping focus on `<main>`.
+
+**accessibility-auditor: PASS**, with findings to fix in this round:
+- [ ] (Moderate, 3.3.2/4.1.2) Error summary in `resources/js/pages/home.tsx:115-140` is a `<fieldset tabIndex=-1>` with an
+      `<h3>` in the legend, announced as "group". Make it a `div`/`section` with `aria-labelledby` and a heading
+      (`docs/design/system.md:212`).
+- [ ] (Moderate, 4.1.3) Possible double announcement, `resources/js/components/route-focus.tsx:39-52`: title announced via
+      focus on the `<h1>` and again via the polite live region about 80 ms later. QA's runtime test saw it once.
+      **Criterion clarified (AC3/AC4):** after a **forward** navigation the only announcement is the focus move to the
+      `<h1>` (live region stays empty); the live-region title message is used only after **back/forward** (history)
+      navigation, where focus goes to `<main>`. The e2e test must assert both cases.
+- [ ] (Minor, 3.3.2) The four search inputs get `required`/`aria-required`, and a field's error clears once corrected.
+- [ ] (Minor, 1.4.1/1.4.11) Current-page indicator in `site-header.tsx:94-97` needs a non-colour cue (underline or weight)
+      that also shows in forced colours.
+- [ ] (Minor, 2.4.4/3.2.4) Nav "Help" and footer "Help and frequently asked questions" both point to `/help`; use
+      consistent link text for the same target.
+
+**Still open:** manual screen-reader check of AC3 (accessibility-auditor, next audit).
 
 ## Changelog
 (filled when done)
