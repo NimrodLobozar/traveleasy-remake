@@ -1,13 +1,13 @@
 ---
 id: TE-020
 title: Design tokens and type scale (Claude Design artifact, token file, contrast tests)
-status: ready
+status: in-progress
 priority: must
 epic: M0 Design system
 agents: [ux-ui-designer, frontend-developer]
 testers: [qa-engineer, accessibility-auditor]
-design: required
-rework_rounds: 0
+design: approved:https://claude.ai/artifact/KpkwG622UtFs86E939td2U
+rework_rounds: 1
 ---
 
 ## User story
@@ -72,7 +72,29 @@ that every screen looks consistent and meets contrast rules by construction.
   voice; the owner approves in the Claude Design review (same as TE-016).
 
 ## Rework log
-(empty)
+### Round 1, 2026-11-02
+- **accessibility-auditor: FAIL.** The token pairs pass; the failures are in starter-kit components that consume the aliased tokens.
+  - **SERIOUS, 1.4.3 (AC8):** `bg-destructive text-white` is hard-coded in `resources/js/components/ui/button.tsx:15` and
+    `ui/badge.tsx:17`. In dark, `--danger` #ff8a80 with white text is about 2.3:1. Affects the delete-user, two-factor and passkey
+    destructive buttons. Fix: use `text-on-danger` (or `text-destructive-foreground`; 8.2:1 in dark) and drop `dark:bg-destructive/60`.
+  - **SERIOUS/MODERATE, 1.4.11 + 2.4.7:** `outline-none` plus `focus-visible:ring-[3px] ring-ring/50` in `ui/button.tsx:8`,
+    `ui/badge.tsx:8` and `ui/checkbox.tsx:20` bypasses the global 3 px solid `--focus` outline (`tokens.css:284`). The 50 % halo is
+    about 2.2:1 in light, and `border-ring` equals the fill on a default button. `app-header.tsx:196` does the same (`ring-2` +
+    `outline-none`). Fix: every focusable component shows the approved focus indicator at full strength.
+- **qa-engineer: PASS** (Pest 546, Vitest 168, e2e 24 + 2 skipped), with one clarification for AC8: the axe scan of the shell in
+  dark theme is not visibly covered in `tests/e2e/tokens.spec.ts`.
+- **Criteria clarified/added (AC12 to AC14 below):** AC8 is made explicit about components and the dark scan.
+- **Expected fix:** frontend-developer changes the four components and the header, adds the tests below, then re-run both testers.
+
+## Rework criteria (round 1)
+- [ ] AC12 (a11y 1.4.3): Given any component under `resources/js`, when a test scans the sources (or checks the component state
+      pairs for contrast), then it fails if `text-white` or `text-black` is hard-coded on a token fill; destructive button and badge
+      reach at least 4.5:1 in light and dark.
+- [ ] AC13 (a11y 1.4.11, 2.4.7): Given a button, badge, checkbox and header link focused by keyboard, when a Vitest or Playwright
+      test reads the focus indicator, then each has a solid outline or ring at full strength (the 3 px `--focus` style) with at
+      least 3:1 against adjacent colours in light and dark; no `outline-none` without an equivalent indicator.
+- [ ] AC14 (AC8 clarified): Given the shell page, when Playwright runs axe in the dark theme, then there is an explicit dark-theme
+      scan with zero violations, next to the light one in `tests/e2e/tokens.spec.ts`.
 
 ## Changelog
 (filled when done)

@@ -1,7 +1,7 @@
 ---
 id: TE-012
 title: Production multi-stage image with entrypoint, health check and hardening
-status: in-progress
+status: done
 priority: must
 epic: M0 CI/CD to GHCR
 agents: [devops-engineer, backend-developer]
@@ -40,22 +40,22 @@ deploy is repeatable and safe.
       and serves `/up`, then it works (writable paths on tmpfs or volumes).
 - [x] AC4: Given the PHP ini of the production stage, when inspected, then `display_errors=Off`, `expose_php=Off`,
       `opcache.validate_timestamps=0`, and the dev ini is not present.
-- [~] AC5: Given a running container, when `HEALTHCHECK` fires, then it requests the app's health route and reports healthy
+- [x] AC5: Given a running container, when `HEALTHCHECK` fires, then it requests the app's health route and reports healthy
       only when the app answers 200 and the database is reachable; it reports unhealthy within 60 s of the DB going away.
-- [~] AC6: Given the entrypoint, when the `app` container starts against an empty database, then it waits for the DB (with a
+- [x] AC6 (carry-over: `traveleasy:seed-reference` is a documented stub until the reference tables exist in M2, database-engineer): Given the entrypoint, when the `app` container starts against an empty database, then it waits for the DB (with a
       timeout and a clear message), migrates, seeds `reference` only, and starts serving; on a non-empty DB it only migrates; it
       never seeds `demo` or the kit's `test@example.com` user. `worker`/`scheduler` run the same image but skip migrations.
-- [~] AC7: Given a failed migration, when the entrypoint runs, then the container exits non-zero with the migration error
+- [x] AC7: Given a failed migration, when the entrypoint runs, then the container exits non-zero with the migration error
       (without printing env values), so the stack shows unhealthy instead of serving a half-migrated app.
-- [ ] AC8: Given `APP_ENV=production` and `APP_DEBUG=true` (or `APP_KEY` empty), when the app boots, then it refuses to start
+- [x] AC8: Given `APP_ENV=production` and `APP_DEBUG=true` (or `APP_KEY` empty), when the app boots, then it refuses to start
       with a clear message (boot check from `docs/plan.md` § 7).
-- [ ] AC9: Given `APP_ENV=production`, when `GET /_inertia/devtools/entries` is requested, then it returns 404; the image
+- [x] AC9: Given `APP_ENV=production`, when `GET /_inertia/devtools/entries` is requested, then it returns 404; the image
       sets `INERTIA_DEVTOOLS_ENABLED=false` by default.
 - [x] AC10: Given the base images (PHP, Node, web server), when the Dockerfile is read, then they are pinned by tag **and**
       digest, and the final image carries OCI labels (source, revision, version, licence MIT).
 - [x] AC11: Given the image is built twice from the same commit, when sizes are compared, then the size is recorded in
       `docs/deploy/` and does not exceed the ADR-0002 D9 estimate (about 860 MB uncompressed) by more than 25 % (about 1.07 GB).
-- [ ] AC12: Given the app container runs behind a proxy, when `X-Forwarded-*` headers arrive from outside the configured
+- [x] AC12: Given the app container runs behind a proxy, when `X-Forwarded-*` headers arrive from outside the configured
       proxy network, then they are ignored (TrustProxies limited to the NPM address/network from env, never `*`). Only
       `X-Forwarded-For`, `-Proto` and `-Port` are trusted (not `-Host`, not `Forwarded`); a feature test sends each header from a
       trusted and an untrusted source and shows the client IP, scheme and port change only for the trusted one.
@@ -68,7 +68,7 @@ deploy is repeatable and safe.
       set by the web server since Laravel middleware does not see static files; a verify-script check proves it.
 - [x] AC17 (follow-up TE-015): Given the production image, when its config is inspected, then `expose_php=Off`,
       `APP_ENV=production`, `APP_DEBUG=false` and the Inertia devtools are off; `docker/prod/verify.sh` asserts each.
-- [ ] AC18 (follow-up TE-015): Given the production `ssr` service definition, when read, then it has no `env_file`, no secrets, no
+- [ ] AC18 (carry-over, moved to TE-024 AC17; follow-up TE-015): Given the production `ssr` service definition, when read, then it has no `env_file`, no secrets, no
       published port and is not on `npm_shared`; a test fails if any of these appears.
 
 ## Quality criteria
@@ -99,3 +99,11 @@ deploy is repeatable and safe.
   AC8 boot check (production + APP_DEBUG/APP_KEY), AC12 TrustProxies from `TRUSTED_PROXIES` (X-Forwarded-For/-Proto/-Port only) with
   feature test, https URL generation; AC9 devtools route returns 404 (proven). AC18 (ssr service definition test) waits for the
   production compose (TE-024). Trivy scan runs in CI (TE-014).
+- 2026-11-02 closed. Commits 4118259 (image, entrypoint, verify script), 734f8e9 (backend: `/up` DB check, boot check, TrustProxies,
+  migration-failure proof), 071c56f (health check every 10 s).
+  Results: image 1.017 GB (limit 1.07 GB); `verify.sh` all checks pass; healthy in 8 s; unhealthy 38 s after the DB went away
+  (limit 60 s); HEALTHCHECK `--interval=10s --timeout=5s --start-period=90s --retries=3`.
+  Added: commands `traveleasy:boot-check` and `traveleasy:seed-reference` (stub); `TrustProxies` middleware; `/up` now checks the DB.
+  Migrations: none. New env vars: `TRUSTED_PROXIES` and the others documented in `.env.example` (AC13). Docker: new production target.
+  Carry-overs: AC6 seeding is a stub until M2 (database-engineer); AC18 moved to TE-024 AC17; Low findings go to TE-028.
+  qa-engineer PASS, security-privacy-reviewer PASS (2026-11-02).

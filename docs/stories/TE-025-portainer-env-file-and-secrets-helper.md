@@ -55,6 +55,9 @@ manual configuration hunt.
 - [ ] AC10 (follow-up TE-015, 2026-11-02): Given the Portainer env file, when read, then it contains `HSTS_MAX_AGE`,
       `HSTS_INCLUDE_SUBDOMAINS`, `HSTS_PRELOAD` and `CSP_REPORT_PATH` with safe documented defaults (no reporting endpoint, no
       preload), and the parser/consistency tests of AC7 and AC9 cover them.
+- [ ] AC11 (TE-012 security review, 2026-11-02): Given the Portainer env file, when read, then it does not set or override
+      `INERTIA_DEVTOOLS_ENABLED` (the image default `false` stays), and it sets `SESSION_SECURE_COOKIE=true` (the LAN-over-HTTP
+      exception for M0 is documented in TE-026 AC10e); a test fails if the file enables devtools or leaves the cookie flag unset.
 
 ## Quality criteria
 - [ ] Tests: Pest tests for the command (output format, entropy length, no files written via a fake filesystem, non-TTY failure);
