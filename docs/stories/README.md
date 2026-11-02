@@ -21,7 +21,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-013](TE-013-ci-quality-gates.md) | GitHub Actions pipeline, part 1: quality gates | must | done | 0 | not-needed |
 | [TE-014](TE-014-ci-image-build-scan-publish.md) | GitHub Actions pipeline, part 2: amd64 build, Trivy, publish to GHCR | must | ready | 0 | not-needed |
 | [TE-015](TE-015-security-headers-and-csp-baseline.md) | Security headers and CSP baseline (nonces) | must | done | 0 | not-needed |
-| [TE-016](TE-016-accessible-base-layout.md) | Accessible base layout (landmarks, skip link, route-change focus, empty axe allow-list) | must | in-test | 1 | required |
+| [TE-016](TE-016-accessible-base-layout.md) | Accessible base layout (landmarks, skip link, route-change focus, empty axe allow-list) | must | done | 1 | required |
 | [TE-017](TE-017-language-switch.md) | Language switch nl/en with persisted preference | must | ready | 0 | required (TE-016 artifact) |
 | [TE-018](TE-018-theme-light-dark-no-flash.md) | Light/dark theme with a manual override and no flash under SSR | must | ready | 0 | required (TE-016 artifact) |
 | [TE-019](TE-019-localised-error-pages.md) | Localised error pages (403, 404, 419, 429, 500, 503) with a request ID | must | ready | 0 | required (TE-016 artifact) |
@@ -129,6 +129,12 @@ From the TE-006 close (2026-10-12).
 ### Follow-ups for the frontend harness
 - **Welcome page (from TE-020 close, 2026-11-02):** `resources/js/pages/welcome.tsx` still has hard-coded colours and `text-white`.
   Replace it when the public home is built (TE-016 or M3), then remove it from the hex-scan allow-list.
+- **Scroll-restore and title timers (from TE-016 rework, 2026-11-03, Minor, a11y):** the scroll-restore retry (150 ms) and the
+  title write (80 ms) use loose timers, so rapid back/forward presses could briefly overlap announcements.
+- **`aria-current` forced-colours check (from TE-016, 2026-11-03):** the check in the nav can't run until a nav item points to a
+  real page; enable it when the first real page exists.
+- **`ScaffoldContractTest` flake (from TE-016 close, 2026-11-03, QA watch item):** failed once in `composer check` and passed on
+  the rerun; investigate the flakiness.
 
 ## Follow-ups for M1
 Found while TE-001 was tested (2026-10-11; security-privacy-reviewer and qa-engineer). There are no M1 story files
