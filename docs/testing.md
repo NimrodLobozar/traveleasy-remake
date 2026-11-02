@@ -387,6 +387,55 @@ lazily on first use in the browser; do not suppress it. Fixture test: `lint-plug
 `lint-rules`). Server rendering itself is covered by `resources/js/ssr.test.tsx` (`renderToString` in a Node
 environment) and the console-error check `tests/e2e/console.spec.ts`.
 
+### SSR smoke test (TE-008)
+
+`scripts/ssr-smoke.mjs` fetches a page and checks the HTML, with no browser and no Docker specifics, so CI can run it
+against any URL. `--mode on` needs HTTP 200, `<html lang>`, the Inertia root marked `data-server-rendered` and an `<h1>`
+inside it (`--text` checks a given string instead). A page that touches `window` while rendering makes the render fail;
+Laravel then falls back to client-side rendering and the marker is missing, so the test fails with a message that points
+at the ssr logs. `--mode down` runs with the SSR server stopped: `/` must still answer 200 with `<html lang>` and the
+embedded page data, and prints "SSR down: client-side fallback OK". Locally: `bash scripts/dev-ssr.sh smoke` (does both
+checks); see [dev.md](deploy/dev.md#the-ssr-profile-te-008). The Playwright suite, including the hydration test in
+`console.spec.ts` (which only runs when `#app[data-server-rendered]` is present), runs against the SSR build after
+`bash scripts/dev-ssr.sh on`.
+
+### i18n tests, server side (TE-009)
+
+`tests/Feature/I18n/LocaleResolutionTest.php` covers the locale chain (cookie, `Accept-Language`, default), the
+allow-list (bad cookie values are ignored, never echoed, never an error), the shared `locale`/`fallbackLocale`/
+`translations` props, `<html lang>`, and that lang values are plain text. Rules for new i18n tests:
+- Laravel test requests send `Accept-Language: en-us,en;q=0.5` unless you override it; send `''` to get the default.
+- Set the cookie with `withUnencryptedCookie('locale', …)` (the cookie isn't encrypted).
+- Don't assert on real UI strings: merge fixture lines from `tests/Fixtures/lang/*.json` with
+  `app('translation.loader')->addJsonPath(...)`. Details: [i18n](design/i18n.md).
+
+### i18n tests, client side (TE-009)
+
+Vitest, next to the code in `resources/js/lib/i18n/`:
+- `format.test.ts`: `formatMoney` (nl `€ 1.234,50`, en `€1,234.50`, JPY, fractional cents rejected), `formatDate` and
+  `formatDateTime` with an explicit time zone (day boundary, DST switch on 2026-03-29, zone label).
+- `translate.test.ts`: `:name`, `:Name`, `:NAME` placeholders, a missing key returns the key (and throws under test),
+  values are never re-scanned, markup stays plain text.
+- `use-translation.test.tsx`: `renderToString` in a node environment for `nl` and `en` (SSR), escaping of interpolated
+  markup.
+- `lang-files.test.ts`: both lang files have the same sorted keys and placeholders, no `<` or `>`, and every
+  `t('key')` in `resources/js` exists in both, so a missing key fails the suite.
+- `resources/js/ssr.test.tsx`: the welcome page renders in `nl` and `en`, with identical markup on a second render.
+- A component that calls `useTranslation()` needs a page: mock `usePage` as in `use-translation.test.tsx`, or render
+  through `createInertiaApp`. Developer note: [i18n](design/i18n.md).
+
+### Security headers and CSP tests (TE-015)
+
+- `tests/Unit/SecurityHeadersTest.php`: the header builder (directives, nonce format, HSTS switches, Vite dev origins,
+  report path) with no app.
+- `tests/Feature/Security/SecurityHeadersTest.php`: headers on pages, error responses (403/404/419/429/500/503), JSON
+  errors, files and `/up`; nonce per request and on every inline `<script>`/`<style>` (parsed with `Dom\HTMLDocument`;
+  `te015WithViteDevServer()` points Vite at a temporary hot file so the dev tags are rendered); HSTS via
+  `config(['app.url' => 'https://…'])`; the Vite origin via `$this->app->detectEnvironment(fn () => 'local')`.
+- `tests/Arch/InlineScriptTest.php`: no inline handlers, `javascript:` URLs or unreviewed raw-HTML sinks in Blade and
+  `resources/js` (rules and proof snippets in `tests/Support/MarkupRules.php`).
+- Browser: `tests/e2e/csp.spec.ts` (zero violations). Details: [security headers](deploy/security-headers.md).
+
 ### Manual check: Vite advisories
 
 `vite` in `package.json` is an npm alias for `@voidzero-dev/vite-plus-core@0.3.3`, so **`npm audit` can't see Vite

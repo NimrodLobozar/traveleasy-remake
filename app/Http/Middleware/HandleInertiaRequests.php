@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Data\SharedUserData;
+use App\Enums\Locale;
 use App\Models\User;
+use App\Support\I18n\Translations;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -40,6 +42,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $locale = Locale::current();
 
         return [
             ...parent::share($request),
@@ -48,6 +51,11 @@ class HandleInertiaRequests extends Middleware
                 // Never share the Eloquent model itself: only the whitelisted fields in SharedUserData.
                 'user' => $user instanceof User ? SharedUserData::fromModel($user) : null,
             ],
+            // TE-009 shared-prop contract (docs/design/i18n.md): the resolved locale and its flat key => string
+            // map, already merged over the fallback locale. Only the active locale's strings are sent.
+            'locale' => $locale->value,
+            'fallbackLocale' => Locale::fallback()->value,
+            'translations' => fn (): array => app(Translations::class)->for($locale),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

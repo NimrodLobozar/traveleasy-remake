@@ -63,6 +63,13 @@ deploy is repeatable and safe.
       `INERTIA_DEVTOOLS_ENABLED`, `TRUSTED_PROXIES` and `PASSKEYS_USER_HANDLE_SECRET` (the last as "unused until M1 decides").
 - [ ] AC15 (follow-up TE-007, ADR-0002 D2): Given `vite.config.ts` sets `ssr.noExternal: true`, when the SSR bundle runs in the
       production image (no `node_modules`), then it starts and renders `/` server-side; record the proof in the story.
+- [ ] AC16 (follow-up TE-015, 2026-11-02): Given the production web server, when a static file (e.g. `/favicon.ico`) is
+      requested, then it carries `X-Content-Type-Options: nosniff` plus the CSP and frame headers (`frame-ancestors 'none'`),
+      set by the web server since Laravel middleware does not see static files; a verify-script check proves it.
+- [ ] AC17 (follow-up TE-015): Given the production image, when its config is inspected, then `expose_php=Off`,
+      `APP_ENV=production`, `APP_DEBUG=false` and the Inertia devtools are off; `docker/prod/verify.sh` asserts each.
+- [ ] AC18 (follow-up TE-015): Given the production `ssr` service definition, when read, then it has no `env_file`, no secrets, no
+      published port and is not on `npm_shared`; a test fails if any of these appears.
 
 ## Quality criteria
 - [ ] Tests: a Pest/shell test for the boot check (AC8); a script `docker/prod/verify.sh` that asserts AC1 to AC5, AC9

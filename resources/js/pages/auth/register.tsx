@@ -1,4 +1,4 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, setLayoutProps } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { useTranslation } from '@/lib/i18n';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
 
@@ -14,9 +15,16 @@ type Props = {
 };
 
 export default function Register({ passwordRules }: Props) {
+    const { t } = useTranslation();
+
+    setLayoutProps({
+        title: t('auth.register.heading'),
+        description: t('auth.register.description'),
+    });
+
     return (
         <>
-            <Head title="Register" />
+            <Head title={t('auth.register.title')} />
             <Form
                 {...store.form()}
                 resetOnSuccess={['password', 'password_confirmation']}
@@ -27,7 +35,9 @@ export default function Register({ passwordRules }: Props) {
                     <>
                         <div className="grid gap-6">
                             <div className="grid gap-2">
-                                <Label htmlFor="name">Name</Label>
+                                <Label htmlFor="name">
+                                    {t('common.field.name')}
+                                </Label>
                                 <Input
                                     id="name"
                                     type="text"
@@ -36,7 +46,9 @@ export default function Register({ passwordRules }: Props) {
                                     autoFocus
                                     autoComplete="name"
                                     name="name"
-                                    placeholder="Full name"
+                                    placeholder={t(
+                                        'common.field.name_placeholder',
+                                    )}
                                 />
                                 <InputError
                                     message={errors.name}
@@ -45,26 +57,32 @@ export default function Register({ passwordRules }: Props) {
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
+                                <Label htmlFor="email">
+                                    {t('common.field.email')}
+                                </Label>
                                 <Input
                                     id="email"
                                     type="email"
                                     required
                                     autoComplete="email"
                                     name="email"
-                                    placeholder="email@example.com"
+                                    placeholder={t(
+                                        'common.field.email_placeholder',
+                                    )}
                                 />
                                 <InputError message={errors.email} />
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="password">Password</Label>
+                                <Label htmlFor="password">
+                                    {t('common.field.password')}
+                                </Label>
                                 <PasswordInput
                                     id="password"
                                     required
                                     autoComplete="new-password"
                                     name="password"
-                                    placeholder="Password"
+                                    placeholder={t('common.field.password')}
                                     passwordrules={passwordRules}
                                 />
                                 <InputError message={errors.password} />
@@ -72,14 +90,16 @@ export default function Register({ passwordRules }: Props) {
 
                             <div className="grid gap-2">
                                 <Label htmlFor="password_confirmation">
-                                    Confirm password
+                                    {t('common.field.password_confirm')}
                                 </Label>
                                 <PasswordInput
                                     id="password_confirmation"
                                     required
                                     autoComplete="new-password"
                                     name="password_confirmation"
-                                    placeholder="Confirm password"
+                                    placeholder={t(
+                                        'common.field.password_confirm',
+                                    )}
                                     passwordrules={passwordRules}
                                 />
                                 <InputError
@@ -93,13 +113,15 @@ export default function Register({ passwordRules }: Props) {
                                 data-test="register-user-button"
                             >
                                 {processing && <Spinner />}
-                                Create account
+                                {t('auth.register.submit')}
                             </Button>
                         </div>
 
                         <div className="text-center text-sm text-muted-foreground">
-                            Already have an account?{' '}
-                            <TextLink href={login()}>Log in</TextLink>
+                            {t('auth.register.already')}{' '}
+                            <TextLink href={login()}>
+                                {t('auth.register.log_in')}
+                            </TextLink>
                         </div>
                     </>
                 )}
@@ -107,8 +129,3 @@ export default function Register({ passwordRules }: Props) {
         </>
     );
 }
-
-Register.layout = {
-    title: 'Create an account',
-    description: 'Enter your details below to create your account',
-};

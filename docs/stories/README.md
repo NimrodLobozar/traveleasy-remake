@@ -13,14 +13,14 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-005](TE-005-vitest-playwright-axe-harness.md) | Frontend test harness (Vitest + Testing Library, Playwright + axe) | must | done | 1 | not-needed |
 | [TE-006](TE-006-dev-and-testing-docs.md) | Developer docs (dev.md, testing.md) and exact stack versions in CLAUDE.md | must | done | 1 | not-needed |
 | [TE-007](TE-007-inertia-ssr-entry-point.md) | Inertia SSR entry point, SSR build and SSR-safe code rules | must | done | 0 | not-needed |
-| [TE-008](TE-008-ssr-service-and-smoke-test.md) | SSR service in compose (dev profile) and an SSR smoke test | must | ready | 0 | not-needed |
-| [TE-009](TE-009-i18n-infrastructure.md) | i18n infrastructure (nl/en JSON lang files, SSR-safe t(), Intl formatting) | must | ready | 0 | not-needed |
+| [TE-008](TE-008-ssr-service-and-smoke-test.md) | SSR service in compose (dev profile) and an SSR smoke test | must | done | 0 | not-needed |
+| [TE-009](TE-009-i18n-infrastructure.md) | i18n infrastructure (nl/en JSON lang files, SSR-safe t(), Intl formatting) | must | done | 0 | not-needed |
 | [TE-010](TE-010-i18n-key-completeness-check.md) | i18n key-completeness check | must | ready | 0 | not-needed |
 | [TE-011](TE-011-adr-0002-production-runtime.md) | ADR-0002 production runtime (web server, SSR packaging, migrate-on-start) | must | done | 0 | not-needed |
 | [TE-012](TE-012-production-image.md) | Production multi-stage image with entrypoint, health check and hardening | must | ready | 0 | not-needed |
 | [TE-013](TE-013-ci-quality-gates.md) | GitHub Actions pipeline, part 1: quality gates | must | ready | 0 | not-needed |
 | [TE-014](TE-014-ci-image-build-scan-publish.md) | GitHub Actions pipeline, part 2: amd64 build, Trivy, publish to GHCR | must | ready | 0 | not-needed |
-| [TE-015](TE-015-security-headers-and-csp-baseline.md) | Security headers and CSP baseline (nonces) | must | ready | 0 | not-needed |
+| [TE-015](TE-015-security-headers-and-csp-baseline.md) | Security headers and CSP baseline (nonces) | must | done | 0 | not-needed |
 | [TE-016](TE-016-accessible-base-layout.md) | Accessible base layout (landmarks, skip link, route-change focus, empty axe allow-list) | must | ready | 0 | required |
 | [TE-017](TE-017-language-switch.md) | Language switch nl/en with persisted preference | must | ready | 0 | required (TE-016 artifact) |
 | [TE-018](TE-018-theme-light-dark-no-flash.md) | Light/dark theme with a manual override and no flash under SSR | must | ready | 0 | required (TE-016 artifact) |
@@ -73,6 +73,21 @@ Not tied to a story yet. Pick up at the next devops touch, or as a small `chore`
 - **Dependency audit triage (2026-11-02, from TE-007):** re-check at TE-027 and in TE-013's audit gate.
   - `composer audit`: symfony/mime CVE-2026-45070 (not exploitable, the app sends no mail); phpunit (dev only).
   - `npm audit`: vitest/mocker and undici (dev only; `npm audit --omit=dev` finds 0).
+  - Bumps to plan (2026-11-02, from TE-008/TE-015 reviews): `undici` (via jsdom, test only), `@vitest/mocker`, phpunit and
+    symfony/mime; re-check at TE-027.
+- **Lint and dev `ssr` hardening (2026-11-02, security Low, from TE-008):**
+  - the `no-node-process` lint rule can be bypassed via `globalThis.process`, `global.process`, `import('node:process')`,
+    `require('process')` or a re-export, and it only checks `*.ts`/`*.tsx`; close these gaps with fixtures;
+  - the dev `ssr` service masks only `.env`; copy the e2e service's masking of all `.env*` files except `.env.example`, plus its
+    contract test.
+- **e2e passthrough:** `E2E_CSP_500_PATH` on the e2e compose service (needed by TE-019 AC11).
+
+### General accessibility note
+Content in another language than the page (for example English place names or flight data on a Dutch page) gets a `lang`
+attribute (WCAG 3.1.2); use the helper from TE-009. Every story that shows such content checks it.
+
+### Follow-up for M1 (or the first story that shows these fields)
+- The server-made texts `created_at_diff` and `last_used_at_diff` are not localised yet (from TE-009).
 
 ### Follow-ups from TE-006
 From the TE-006 close (2026-10-12).

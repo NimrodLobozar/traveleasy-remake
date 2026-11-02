@@ -43,6 +43,12 @@ and can quote a reference to the owner.
       produce a 500 (covered in TE-007 AC4); a genuine render error renders the 500 page.
 - [ ] AC9: Given the security headers of TE-015, when an error page is served (including from the web server for 502/504
       upstream errors if the web server serves a static page per ADR-0002), then the headers are present.
+- [ ] AC10 (moved from TE-015 AC3, 2026-11-02): Given a deterministic way to render the 500 page in tests (for example a
+      testing-only route registered only when `APP_ENV` is `testing` or `local`, never in production), when an arch test runs,
+      then it proves the route cannot exist in production.
+- [ ] AC11 (moved from TE-015 AC3): Given the e2e compose service, when it runs, then the `E2E_CSP_500_PATH` variable is passed
+      through to it (devops), and the 500 check in `tests/e2e/csp.spec.ts` is un-skipped and shows zero CSP violations in
+      Chromium, with and without SSR.
 
 ## Quality criteria
 - [ ] Tests: Pest feature test per status (code, localisation both locales, request ID, no leak); Vitest for the component;

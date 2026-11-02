@@ -4,13 +4,15 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from '@/lib/i18n';
+import type { Translator } from '@/lib/i18n';
 
 type Props = {
     onSuccess: () => void;
 };
 
 /** Suggests a device name from the user agent. Browser-only: call it from an event handler. */
-function guessDeviceName(): string {
+function guessDeviceName(t: Translator): string {
     const ua = navigator.userAgent;
 
     const browser = [
@@ -29,11 +31,16 @@ function guessDeviceName(): string {
         { pattern: /Windows/, name: 'Windows' },
     ].find(({ pattern }) => pattern.test(ua))?.name;
 
-    return [browser, os].filter(Boolean).join(' on ') || '';
+    if (browser && os) {
+        return t('passkey.device_name', { browser, os });
+    }
+
+    return browser ?? os ?? '';
 }
 
 export default function PasskeyRegistration({ onSuccess }: Props) {
     const [name, setName] = useState('');
+    const { t } = useTranslation();
 
     const [showForm, setShowForm] = useState(false);
     const { register, isLoading, error, isSupported } = usePasskeyRegister({
@@ -62,7 +69,7 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
     if (!isSupported) {
         return (
             <div className="text-sm text-muted-foreground">
-                Passkeys are not supported in this browser.
+                {t('passkey.unsupported')}
             </div>
         );
     }
@@ -72,11 +79,11 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
             <Button
                 variant="outline"
                 onClick={() => {
-                    setName(guessDeviceName());
+                    setName(guessDeviceName(t));
                     setShowForm(true);
                 }}
             >
-                Add passkey
+                {t('passkey.add')}
             </Button>
         );
     }
@@ -89,7 +96,7 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
             className="space-y-4 rounded-lg border border-border bg-muted/50 p-4"
         >
             <div className="grid gap-2">
-                <Label htmlFor="passkey-name">Passkey name</Label>
+                <Label htmlFor="passkey-name">{t('passkey.name.label')}</Label>
                 <Input
                     id="passkey-name"
                     type="text"
@@ -97,13 +104,13 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
                     onChange={(e) => {
                         setName(e.target.value);
                     }}
-                    placeholder="e.g., MacBook Pro, iPhone"
+                    placeholder={t('passkey.name.placeholder')}
                     className="mt-1 block w-full border-foreground/20"
                     // oxlint-disable-next-line jsx-a11y/no-autofocus -- intended focus management: the name field is the only control of this dialog step
                     autoFocus
                 />
                 <p className="text-xs text-muted-foreground">
-                    A name helps you identify this passkey later.
+                    {t('passkey.name.hint')}
                 </p>
             </div>
 
@@ -111,10 +118,12 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
 
             <div className="flex gap-2">
                 <Button type="submit" disabled={isLoading || !name.trim()}>
-                    {isLoading ? 'Registering...' : 'Register passkey'}
+                    {isLoading
+                        ? t('passkey.registering')
+                        : t('passkey.register')}
                 </Button>
                 <Button type="button" variant="ghost" onClick={handleCancel}>
-                    Cancel
+                    {t('passkey.cancel')}
                 </Button>
             </div>
         </form>

@@ -17,6 +17,8 @@
         "test": "vp test run",
         "test:watch": "vp test watch",
         "test:e2e": "playwright test --config tests/e2e/playwright.config.ts",
+        "test:ssr": "node scripts/ssr-smoke.mjs --mode on",
+        "test:ssr:down": "node scripts/ssr-smoke.mjs --mode down",
         "check": "npm run generate && npm run lint && npm run format:check && npm run types:check",
         "check:fix": "npm run generate && vp check --fix"
     },

@@ -52,6 +52,9 @@ manual configuration hunt.
       the release list or is `latest`.
 - [ ] AC9: Given `.env.example` (dev) and the Portainer file, when both are read, then every variable in one that exists in the other
       has the same meaning; production-only and dev-only variables are labelled.
+- [ ] AC10 (follow-up TE-015, 2026-11-02): Given the Portainer env file, when read, then it contains `HSTS_MAX_AGE`,
+      `HSTS_INCLUDE_SUBDOMAINS`, `HSTS_PRELOAD` and `CSP_REPORT_PATH` with safe documented defaults (no reporting endpoint, no
+      preload), and the parser/consistency tests of AC7 and AC9 cover them.
 
 ## Quality criteria
 - [ ] Tests: Pest tests for the command (output format, entropy length, no files written via a fake filesystem, non-TTY failure);

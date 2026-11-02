@@ -1,0 +1,6 @@
+{
+    "te009.fixture.both": "Both (en)",
+    "te009.fixture.greeting": "Hello :name",
+    "te009.fixture.only_en": "Only in English",
+    "te009.fixture.script": "</script><script>window.te009=1</script>"
+}

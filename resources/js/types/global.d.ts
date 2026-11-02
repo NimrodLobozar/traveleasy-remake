@@ -1,3 +1,4 @@
+import type { Locale, Messages } from '@/lib/i18n';
 import type { Auth } from '@/types/auth';
 import type { FlashToast } from '@/types/ui';
 
@@ -16,6 +17,8 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             sidebarOpen: boolean;
+            locale: Locale;
+            translations: Messages;
             [key: string]: unknown;
         };
     }

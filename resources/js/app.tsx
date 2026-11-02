@@ -1,5 +1,6 @@
 import { createInertiaApp } from '@inertiajs/react';
 import { initializeTheme } from '@/hooks/use-appearance';
+import { readCspNonce } from '@/lib/csp-nonce';
 import { layoutFor } from '@/lib/inertia-layout';
 import { pageTitle } from '@/lib/page-title';
 import { withProviders } from '@/lib/with-providers';
@@ -10,6 +11,8 @@ void createInertiaApp({
     layout: layoutFor,
     strictMode: true,
     withApp: withProviders,
+    // Inertia's progress bar and error dialog inject <style> tags; they need the CSP nonce (TE-015).
+    nonce: readCspNonce(),
     progress: {
         color: '#4B5563',
     },
