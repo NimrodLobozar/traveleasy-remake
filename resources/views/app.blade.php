@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ($appearance ?? 'system') == 'dark'])>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ($appearance ?? 'system') == 'dark']) @if (($appearance ?? 'system') !== 'system') data-theme="{{ $appearance === 'dark' ? 'dark' : 'light' }}" @endif>
     <head>
         <meta charset="utf-8">
         {{-- TE-015: the per-request CSP nonce for scripts that add <style>/<script> at runtime (Vite, Inertia). --}}
@@ -17,6 +17,8 @@
                     if (prefersDark) {
                         document.documentElement.classList.add('dark');
                     }
+
+                    document.documentElement.dataset.theme = prefersDark ? 'dark' : 'light';
                 }
             })();
         </script>
@@ -24,13 +26,16 @@
         {{-- Inline style to set the HTML background color based on our theme in app.css --}}
         <style nonce="{{ Vite::cspNonce() }}">
             html {
-                background-color: oklch(1 0 0);
+                background-color: #f7f9fa; /* = --bg light (tokens.css; a test keeps them equal) */
             }
 
             html.dark {
-                background-color: oklch(0.145 0 0);
+                background-color: #0e1a20; /* = --bg dark */
             }
         </style>
+
+        {{-- TE-020: preload the primary (latin) Figtree face; same-origin, but fonts always need crossorigin. --}}
+        <link rel="preload" href="{{ Vite::asset('resources/fonts/figtree-latin-wght-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
 
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">

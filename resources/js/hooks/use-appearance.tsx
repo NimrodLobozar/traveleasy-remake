@@ -49,6 +49,7 @@ const applyTheme = (appearance: Appearance): void => {
     const isDark = isDarkMode(appearance);
 
     document.documentElement.classList.toggle('dark', isDark);
+    document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
     document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
 };
 
