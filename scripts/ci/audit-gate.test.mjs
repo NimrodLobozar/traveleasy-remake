@@ -63,6 +63,11 @@ const ignoreFile = (overrides = {}) => ({
     ],
 });
 
+/**
+ * @param {string} tool
+ * @param {unknown} report
+ * @param {unknown} ignore
+ */
 const runWith = (tool, report, ignore) => {
     const dir = mkdtempSync(join(tmpdir(), 'audit-gate-'));
     writeFileSync(join(dir, 'report.json'), JSON.stringify(report));

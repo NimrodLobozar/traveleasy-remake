@@ -75,9 +75,13 @@ export function npmAdvisories(report) {
             if (typeof entry === 'string') continue;
             const item = asRecord(entry);
             const ghsa = asString(item.url).split('/').pop() ?? '';
-            const ids = [ghsa, String(item.source ?? '')].filter(
-                (id) => id !== '',
-            );
+            const ids = [
+                ghsa,
+                typeof item.source === 'number' ||
+                typeof item.source === 'string'
+                    ? String(item.source)
+                    : '',
+            ].filter((id) => id !== '');
             const key = ids.join('|');
             if (seen.has(key)) continue;
             seen.add(key);
@@ -211,8 +215,8 @@ export function run(argv, now = new Date()) {
     const failed = blocking.length > 0 || problems.length > 0;
     lines.push(
         failed
-            ? `${tool} audit gate FAILED: ${blocking.length} blocking advisory(ies), ${problems.length} ignore-file problem(s).`
-            : `${tool} audit gate passed (${ignored.length} ignored, ${informational.length} below high).`,
+            ? `${tool} audit gate FAILED: ${String(blocking.length)} blocking advisory(ies), ${String(problems.length)} ignore-file problem(s).`
+            : `${tool} audit gate passed (${String(ignored.length)} ignored, ${String(informational.length)} below high).`,
     );
     return { code: failed ? 1 : 0, lines };
 }

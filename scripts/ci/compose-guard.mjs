@@ -71,7 +71,7 @@ export function checkCompose(model) {
 
         const tag = image.split('@')[0]?.split('/').pop() ?? '';
         if (image === '') v.push(`${name}: no image.`);
-        else if (!tag.includes(':') || /:latest$/.test(tag))
+        else if (!tag.includes(':') || tag.endsWith(':latest'))
             v.push(`${name}: image "${image}" is untagged or uses :latest.`);
 
         for (const volume of Array.isArray(s.volumes) ? s.volumes : []) {
@@ -93,7 +93,9 @@ export function checkCompose(model) {
             if (onNpm.length !== 1)
                 v.push(`${name}: must join the ${NPM_NETWORK_NAME} network.`);
             else {
-                const aliases = rec(rec(s.networks)[onNpm[0] ?? '']).aliases;
+                const aliases = /** @type {unknown} */ (
+                    rec(rec(s.networks)[onNpm[0] ?? '']).aliases
+                );
                 if (!Array.isArray(aliases) || !aliases.includes(NPM_ALIAS))
                     v.push(
                         `${name}: needs the network alias ${NPM_ALIAS} on ${NPM_NETWORK_NAME}.`,
@@ -233,7 +235,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     process.stderr.write(
         violations.length === 0
             ? 'compose guard passed.\n'
-            : `compose guard FAILED: ${violations.length} violation(s).\n`,
+            : `compose guard FAILED: ${String(violations.length)} violation(s).\n`,
     );
     process.exit(violations.length === 0 ? 0 : 1);
 }
