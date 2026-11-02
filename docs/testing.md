@@ -387,6 +387,16 @@ lazily on first use in the browser; do not suppress it. Fixture test: `lint-plug
 `lint-rules`). Server rendering itself is covered by `resources/js/ssr.test.tsx` (`renderToString` in a Node
 environment) and the console-error check `tests/e2e/console.spec.ts`.
 
+### i18n tests, server side (TE-009)
+
+`tests/Feature/I18n/LocaleResolutionTest.php` covers the locale chain (cookie, `Accept-Language`, default), the
+allow-list (bad cookie values are ignored, never echoed, never an error), the shared `locale`/`fallbackLocale`/
+`translations` props, `<html lang>`, and that lang values are plain text. Rules for new i18n tests:
+- Laravel test requests send `Accept-Language: en-us,en;q=0.5` unless you override it; send `''` to get the default.
+- Set the cookie with `withUnencryptedCookie('locale', …)` (the cookie isn't encrypted).
+- Don't assert on real UI strings: merge fixture lines from `tests/Fixtures/lang/*.json` with
+  `app('translation.loader')->addJsonPath(...)`. Details: [i18n](design/i18n.md).
+
 ### Manual check: Vite advisories
 
 `vite` in `package.json` is an npm alias for `@voidzero-dev/vite-plus-core@0.3.3`, so **`npm audit` can't see Vite
