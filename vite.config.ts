@@ -20,6 +20,30 @@ const devServerPort = Number(process.env.VITE_PORT ?? 5173);
 // (Vitest doesn't process CSS) and wayfinder (would run `php artisan` on every test run).
 const isVitest = process.env.VITEST !== undefined;
 
+// Sonner 2 injects its CSS as an inline <style> tag without a nonce when the module loads, which
+// the CSP (style-src 'self' 'nonce-...', no 'unsafe-inline'; TE-015) blocks. The same CSS is
+// imported as a stylesheet in components/ui/sonner.tsx, so switch the injection off. Throws if a
+// Sonner update changes the code, so this workaround can't rot silently.
+const sonnerNoInlineStyle = () => ({
+    name: 'sonner-no-inline-style',
+    enforce: 'pre' as const,
+    transform(code: string, id: string) {
+        if (!/[\\/]sonner[\\/]dist[\\/]index\.mjs/.test(id)) {
+            return null;
+        }
+
+        const marker = 'function __insertCSS(code) {';
+
+        if (!code.includes(marker)) {
+            throw new Error(
+                'sonner-no-inline-style: __insertCSS not found; check the Sonner update (TE-015)',
+            );
+        }
+
+        return code.replace(marker, `${marker} return;`);
+    },
+});
+
 export default defineConfig({
     plugins: lazyPlugins(() => [
         laravel({
@@ -28,6 +52,7 @@ export default defineConfig({
             ssr: 'resources/js/ssr.tsx',
             refresh: true,
         }),
+        sonnerNoInlineStyle(),
         !isVitest && inertia(),
         react(),
         babel({
@@ -39,6 +64,8 @@ export default defineConfig({
                 formVariants: true,
             }),
     ]),
+    // Keep Sonner out of the dev dependency pre-bundle so sonnerNoInlineStyle() sees its source.
+    optimizeDeps: { exclude: ['sonner'] },
     // Component tests (TE-005): `npm run test` = `vp test run`, `npm run test:watch` = `vp test watch`.
     // Watch mode reuses `server.watch` below, so it polls in the container like the dev server.
     // Browser tests (Playwright + axe) live in tests/e2e and have their own playwright.config.ts.
