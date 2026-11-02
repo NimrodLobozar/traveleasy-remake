@@ -1,25 +1,37 @@
 <?php
 
+use App\Http\Controllers\HealthController;
 use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetLocale;
+use App\Http\Middleware\TrustProxies;
+use App\Support\Health\HealthCheckFailed;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Middleware\TrustProxies as FrameworkTrustProxies;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
-        health: '/up',
+        // TE-028 AC3: our own plain-text `/up` (no external URLs), outside the `web` group; the framework's
+        // `health:` page references fonts.bunny.net and jsdelivr.
+        then: function (): void {
+            Route::get('/up', HealthController::class)->name('health');
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // TE-015: outermost global middleware, so every response, including rendered exceptions, gets the CSP
         // and the other security headers, and the nonce exists before anything renders.
         $middleware->prepend(AddSecurityHeaders::class);
+
+        // TE-012 AC12: trust X-Forwarded-For/-Proto/-Port only from TRUSTED_PROXIES (never `*`, never -Host).
+        $middleware->replace(FrameworkTrustProxies::class, TrustProxies::class);
 
         // Plain, allow-listed UI preferences; never personal data. `locale` is validated by LocaleResolver (TE-009).
         $middleware->encryptCookies(except: ['appearance', 'locale', 'sidebar_state']);
@@ -32,6 +44,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // TE-012 AC5: the health check logs the cause itself, without connection details.
+        $exceptions->dontReport(HealthCheckFailed::class);
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

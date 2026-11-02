@@ -27,7 +27,8 @@ version.
       (pinned tags only); a tag that does not match `v*.*.*` publishes nothing.
 - [ ] AC3: Given the built image, when Trivy scans it (OS and library vulnerabilities, secrets, misconfiguration), then the
       job fails on any High or Critical finding that is not in a reviewed `.trivyignore` (each line has an ID, a reason and
-      an expiry date); the report is attached as a workflow artifact for 3 days (failure only if it contains secrets).
+      an expiry date); the report is attached as a workflow artifact for 3 days (failure only if it contains secrets). The secret scan is
+      explicitly enabled (`--scanners vuln,secret,misconfig`), and the Trivy scanner image (or action) is pinned by digest (TE-012 review).
 - [ ] AC4: Given the Trivy scan fails, when the job ends, then nothing was pushed to GHCR (scan runs before push, on the
       locally loaded image).
 - [ ] AC5: Given the dev image and the Playwright image, when the weekly scheduled workflow runs, then both are scanned and a

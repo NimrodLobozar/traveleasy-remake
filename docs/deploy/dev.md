@@ -39,7 +39,7 @@ given. Run all commands from the repo root.
 
 | Service | What it runs | URL / port | Profile |
 |---|---|---|---|
-| `app` | `php artisan serve` (PHP 8.5.11), migrates on start | http://localhost:8000 (`APP_PORT`) | default |
+| `app` | `php artisan serve` (PHP 8.5.12), migrates on start | http://localhost:8000 (`APP_PORT`) | default |
 | `vite` | Vite dev server with HMR (Node 24.21.0, plus PHP for Wayfinder) | http://localhost:5173 (`VITE_PORT`) | default |
 | `db` | PostgreSQL 18.6, named volume `traveleasy-remake_pgdata` | not published; host `db` inside Docker | default |
 | `adminer` | Adminer 6.1.1, database GUI | http://localhost:8081 (`ADMINER_PORT`) | `tools` |

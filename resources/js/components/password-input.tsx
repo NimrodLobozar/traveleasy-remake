@@ -26,7 +26,7 @@ export default function PasswordInput({
                 onClick={() => {
                     setShowPassword((prev) => !prev);
                 }}
-                className="absolute inset-y-0 right-0 flex items-center rounded-r-md px-3 text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+                className="absolute inset-y-0 right-0 flex items-center rounded-r-md px-3 text-muted-foreground hover:text-foreground"
                 aria-label={
                     showPassword
                         ? t('common.password.hide')

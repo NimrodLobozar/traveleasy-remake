@@ -56,6 +56,8 @@ I know the whole path from `git push` to a running stack works.
       host to `http://traveleasy-app:8080` with a LAN-only access list, (c) turn "Force SSL" on once HTTPS exists and leave NPM's
       HSTS off (the app sets HSTS), (d) make a manual backup before any data-destroying migration, and (e) the LAN-over-HTTP
       `SESSION_SECURE_COOKIE` exception for M0.
+      Note (TE-012 review, 2026-11-02): NPM's HSTS stays off because the app sets HSTS. The reviewer also suggested setting
+      `TRUSTED_PROXIES` to the `npm_shared` CIDR; that was rejected, because the accepted decision is a single fixed NPM IP (AC11).
 - [ ] AC11 (proxy trust, reviewer Medium 2026-11-02): Given NPM trusts every private range and passes on the client's
       `X-Forwarded-For`, and the app must not trust the whole `npm_shared` CIDR (that includes its gateway and neighbouring
       containers), when the doc is followed, then (a) NPM has a fixed IP on `npm_shared`, (b) `TRUSTED_PROXIES` contains only that

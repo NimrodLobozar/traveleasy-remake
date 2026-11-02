@@ -68,11 +68,11 @@ laravel-data + typescript-transformer, routes from Wayfinder; PostgreSQL. npm is
 replace ESLint and Prettier (TE-003); there is **no Mailpit** or any mail catcher, because the app sends no e-mail
 (ADR-0005).
 
-**Versions** (2026-10-12; from `composer.lock`, `package-lock.json`, `Dockerfile` and the compose image tags):
+**Versions** (2026-11-02; from `composer.lock`, `package-lock.json`, `Dockerfile` and the compose image tags):
 
 | Component | Version | Component | Version |
 |---|---|---|---|
-| PHP (`php:8.5.11-cli-trixie`) | 8.5.11 | Node (`node:24.21.0-trixie-slim`) | 24.21.0 |
+| PHP (`php:8.5.12-cli-trixie`) | 8.5.12 | Node (`node:24.21.0-trixie-slim`) | 24.21.0 |
 | Composer | 2.10.3 | npm | 11.19.0 |
 | Laravel | 13.35.0 | React / react-dom | 19.3.0 |
 | Fortify | 1.41.0 | @inertiajs/react | 3.9.1 |
@@ -101,7 +101,7 @@ The `vite` alias hides Vite advisories from `npm audit`; check them by hand on e
 | Tests (frontend) | `docker compose exec vite npm run test` |
 | Tests (e2e + axe) | `docker compose run --rm e2e` (needs `app` and `vite` healthy; one run at a time) |
 | SSR smoke test (build, SSR up and down, then back to HMR with `... off`) | `bash scripts/dev-ssr.sh smoke` (see `docs/deploy/dev.md`) |
-| Checks | `docker compose exec app composer check` (Pint, Larastan **and** the Pest suite) / `docker compose exec vite npm run check` (generate, oxlint, oxfmt check, `tsc`) |
+| Checks | `docker compose exec app composer check` (Pint, Larastan **and** the Pest suite) / `docker compose exec vite npm run check` (generate, oxlint, oxfmt check, `tsc`, `i18n:check`) |
 | Format | `docker compose exec app composer format` / `docker compose exec vite npm run format`. Both rewrite every file in scope (`npm run format` is `vp fmt` without paths); for one file use `docker compose exec vite npx vp fmt <path>` |
 | Build | `docker compose exec vite npm run build` |
 | Generate TS types + routes | `docker compose exec vite npm run generate` |

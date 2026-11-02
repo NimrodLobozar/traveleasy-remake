@@ -424,6 +424,25 @@ Vitest, next to the code in `resources/js/lib/i18n/`:
 - A component that calls `useTranslation()` needs a page: mock `usePage` as in `use-translation.test.tsx`, or render
   through `createInertiaApp`. Developer note: [i18n](design/i18n.md).
 
+### Design tokens (TE-020)
+
+- `resources/js/design/tokens.test.ts` (Vitest): WCAG contrast of every allowed text/background pair in light and dark (4.5:1 text; 3:1 for
+  `--border`, including on surface-2, and the focus ring; `on-brand` on `--brand` for a highlighted option), the no-JS dark block equals the dark
+  block, one reduced-motion block, rem type scale, self-hosted woff2 under 120 KB, and no raw hex colour outside `resources/css/tokens.css`
+  (allow-list in the test: starter-kit `welcome.tsx` until TE-016, the low-contrast fixture in `harness.test.tsx`). To allow a new pair, add it
+  to `allowedPairs`.
+- `tests/e2e/tokens.spec.ts` (Playwright): body 16 px / 24 px in Figtree with fonts served same-origin, dark tokens under `data-theme`, reduced
+  motion durations, and the WCAG 1.4.12 text-spacing overrides (applied as a constructed stylesheet, which the strict CSP allows) at 320 and 1280 px.
+
+### i18n key-completeness check (TE-010)
+
+`npm run i18n:check` (`scripts/i18n-check.ts`, run by Node's type stripping; also part of `npm run check`) reads `lang/nl.json`, `lang/en.json`,
+`resources/js`, `app/` and `resources/views`. Errors (exit 1, with file and line): a key missing from one file, an empty value or a value equal
+to its key, differing `:placeholders` (case-insensitive), a static `t('a.b')`, `__('a.b')` or `@lang('a.b')` with no entry. Warnings (exit 0):
+unused keys, and `__('English text')` calls that are not keys. A dynamic key such as a template literal `locale.name.${x}` is invisible to the
+scan: add its prefix to `dynamicPrefixes` in `i18n-check.config.json`. Tests: `resources/js/lib/i18n/i18n-check.test.ts` (temp-dir fixtures).
+CI (TE-013) calls `npm run i18n:check` (or `npm run check`, which includes it).
+
 ### Security headers and CSP tests (TE-015)
 
 - `tests/Unit/SecurityHeadersTest.php`: the header builder (directives, nonce format, HSTS switches, Vite dev origins,

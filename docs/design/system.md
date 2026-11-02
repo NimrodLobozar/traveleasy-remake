@@ -86,7 +86,16 @@ Headings use `text-wrap: balance`; running text max width 65ch (lead 56ch). Lett
 - Targets: at least 44 x 44 px for touch layouts; at least 24 x 24 px always (WCAG 2.5.8). The 36 px small button is for precise
   pointer, dense staff tables only.
 
-Machine-readable file: frontend-developer creates `resources/css/tokens.css` from this section (TE-020 AC3).
+Machine-readable file: `resources/css/tokens.css` (TE-020 AC3, implemented). It holds the CSS custom properties for both themes, the
+Tailwind theme (`@theme inline`), the `@font-face` rules, the type scale, the reduced-motion rule and the global focus ring. Notes:
+- Tailwind names: `bg-bg`, `bg-surface`, `bg-surface-2`, `text-text`, `text-text-muted`, `border-line`, `bg-brand`, `text-on-brand`, `text-danger`...
+  `text-muted` is **not** the spec's muted text: the starter kit's `muted`/`muted-foreground` names stay as aliases (`bg-muted` = surface-2,
+  `text-muted-foreground` = text-muted) so existing components keep working. `border-input` and `ring` alias `--border` and `--focus`.
+- Dark theme applies on `.dark`, `[data-theme='dark']` and, with neither present (no JavaScript), under `prefers-color-scheme`. The theme script
+  and `use-appearance` set both `.dark` and `data-theme`; TE-018 owns the switch UI.
+- Font: Figtree variable, latin (20 KB) and latin-ext (10 KB) woff2 in `resources/fonts/`, taken from Fontsource (`@fontsource-variable/figtree`),
+  licence SIL OFL 1.1, copy in `resources/fonts/OFL.txt` (copyright 2022 The Figtree Project Authors). The latin face is preloaded in `app.blade.php`.
+- The pair list lives in `resources/js/design/tokens.test.ts` (includes the AC10 and AC11 pairs); that test also forbids raw hex outside `tokens.css`.
 
 ## 3. App shell (TE-016 to TE-019, approved)
 

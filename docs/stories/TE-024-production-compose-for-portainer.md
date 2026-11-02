@@ -95,6 +95,11 @@ bumping one tag and rolling back means setting the old one.
 - [ ] AC16 (follow-up TE-007): Given the production file, when read, then `app` sets `INERTIA_SSR_URL=http://ssr:13714`,
       `INERTIA_SSR_HOST=0.0.0.0` is set only on `ssr`, and `ssr` has no `ports:` and is not on `npm_shared`, because the SSR
       `/shutdown` endpoint has no authentication.
+- [ ] AC17 (moved from TE-012 AC18; TE-012 review, 2026-11-02): Given the production file, when parsed, then (a) `ssr` has no
+      `env_file`, no secrets, no published port and is not on `npm_shared`, and a test fails if any of these appears; (b) every service
+      that can run read-only sets `security_opt: [no-new-privileges:true]`, `cap_drop: [ALL]`, `read_only: true` and the needed `tmpfs`
+      (AC3 is checked per service by the same test); (c) `db-init` never prints its password (its logs and `docker inspect` output are
+      grepped, see AC5).
 
 ## Quality criteria
 - [ ] Tests: a CI job brings the production file up with throwaway secrets, waits for healthy, runs the smoke script (SSR HTML,

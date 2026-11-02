@@ -32,7 +32,7 @@ Facts checked on 2026-11-02:
 - FrankenPHP **1.13.4** (26 Oct 2026, Caddy 2.11.7, PHP 8.5.12 ZTS) is maintained under the PHP Foundation (`github.com/php/frankenphp`).
   1.13.2 to 1.13.4 were security or bug-fix releases, mostly for **worker mode**.
 - PHP **8.5.12** (22 Oct 2026) fixes two core security advisories (GHSA-w8hw-w9fx-j79w, GHSA-6wmf-4rv5-p3rp). The dev
-  image still pins 8.5.11.
+  image has run 8.5.12 since TE-027.
 - Inertia v3 production SSR = `vite build --ssr` plus a long-running Node server with `/render`, `/health` and an
   **unauthenticated `/shutdown`** route. The Laravel adapter falls back to client-side rendering when the server is down
   (`config/inertia.php`: `throw_on_error=false`, 2 s timeout).
@@ -339,8 +339,7 @@ FrankenPHP base 631 MB + extensions ≈ 15 MB + `node` 121 MB + `vendor` (no-dev
   release; SSR/client skew can't happen.
 - The production base differs from dev (FrankenPHP ZTS vs `php:cli` NTS). The production image is therefore smoke-tested
   in CI, and the extension list is shared between the stages.
-- Production starts at **PHP 8.5.12**. The dev image (8.5.11) should be bumped as well; that's a separate devops chore,
-  not part of this ADR.
+- Production starts at **PHP 8.5.12**. The dev image bump to 8.5.12 is done (TE-027).
 - A FrankenPHP security release means a base-image bump and a new tag. Classic mode keeps the recent worker-mode issues
   out of scope, but its releases still have to be followed.
 - Migrations follow expand/contract, which costs an extra release for renames and drops. In exchange, rollback is always
@@ -375,7 +374,7 @@ Stories this ADR constrains (the task-writer updates their wording now that it's
   Dependabot on digests, a weekly rebuild.
 - **M1 stories:** HIBP verifier with a ≈ 3 s timeout and a fail-open test; `trustHosts()`; worker/scheduler heartbeat
   health checks.
-- **Devops chore:** bump the dev image to PHP 8.5.12.
+- **Devops chore (done, TE-027):** bump the dev image to PHP 8.5.12.
 
 ## Owner answers (2026-11-02)
 
