@@ -64,6 +64,9 @@ export default defineConfig({
                 formVariants: true,
             }),
     ]),
+    // The production image carries the `node` binary but no node_modules (ADR-0002 D2, TE-012 AC15), so the SSR
+    // bundle must contain every dependency. Without this, `bootstrap/ssr/ssr.js` imports packages by name.
+    ssr: { noExternal: true },
     // Keep Sonner out of the dev dependency pre-bundle so sonnerNoInlineStyle() sees its source.
     optimizeDeps: { exclude: ['sonner'] },
     // Component tests (TE-005): `npm run test` = `vp test run`, `npm run test:watch` = `vp test watch`.

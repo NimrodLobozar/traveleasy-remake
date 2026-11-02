@@ -36,6 +36,7 @@ resources/js/wayfinder
 resources/js/types/generated
 
 # Tooling and docs not needed in an image
+tests
 .claude
 .idea
 .vscode
