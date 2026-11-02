@@ -101,7 +101,7 @@ The `vite` alias hides Vite advisories from `npm audit`; check them by hand on e
 | Tests (frontend) | `docker compose exec vite npm run test` |
 | Tests (e2e + axe) | `docker compose run --rm e2e` (needs `app` and `vite` healthy; one run at a time) |
 | SSR smoke test (build, SSR up and down, then back to HMR with `... off`) | `bash scripts/dev-ssr.sh smoke` (see `docs/deploy/dev.md`) |
-| Checks | `docker compose exec app composer check` (Pint, Larastan **and** the Pest suite) / `docker compose exec vite npm run check` (generate, oxlint, oxfmt check, `tsc`) |
+| Checks | `docker compose exec app composer check` (Pint, Larastan **and** the Pest suite) / `docker compose exec vite npm run check` (generate, oxlint, oxfmt check, `tsc`, `i18n:check`) |
 | Format | `docker compose exec app composer format` / `docker compose exec vite npm run format`. Both rewrite every file in scope (`npm run format` is `vp fmt` without paths); for one file use `docker compose exec vite npx vp fmt <path>` |
 | Build | `docker compose exec vite npm run build` |
 | Generate TS types + routes | `docker compose exec vite npm run generate` |
