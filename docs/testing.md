@@ -409,6 +409,18 @@ allow-list (bad cookie values are ignored, never echoed, never an error), the sh
 - Don't assert on real UI strings: merge fixture lines from `tests/Fixtures/lang/*.json` with
   `app('translation.loader')->addJsonPath(...)`. Details: [i18n](design/i18n.md).
 
+### Security headers and CSP tests (TE-015)
+
+- `tests/Unit/SecurityHeadersTest.php`: the header builder (directives, nonce format, HSTS switches, Vite dev origins,
+  report path) with no app.
+- `tests/Feature/Security/SecurityHeadersTest.php`: headers on pages, error responses (403/404/419/429/500/503), JSON
+  errors, files and `/up`; nonce per request and on every inline `<script>`/`<style>` (parsed with `Dom\HTMLDocument`;
+  `te015WithViteDevServer()` points Vite at a temporary hot file so the dev tags are rendered); HSTS via
+  `config(['app.url' => 'https://…'])`; the Vite origin via `$this->app->detectEnvironment(fn () => 'local')`.
+- `tests/Arch/InlineScriptTest.php`: no inline handlers, `javascript:` URLs or unreviewed raw-HTML sinks in Blade and
+  `resources/js` (rules and proof snippets in `tests/Support/MarkupRules.php`).
+- Browser: `tests/e2e/csp.spec.ts` (zero violations). Details: [security headers](deploy/security-headers.md).
+
 ### Manual check: Vite advisories
 
 `vite` in `package.json` is an npm alias for `@voidzero-dev/vite-plus-core@0.3.3`, so **`npm audit` can't see Vite
