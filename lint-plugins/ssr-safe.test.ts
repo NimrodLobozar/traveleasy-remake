@@ -77,3 +77,36 @@ tester.run('ssr-safe/no-browser-globals-in-render', rule, {
         },
     ],
 });
+
+// TE-008 AC10: `process` is for the SSR entry only; a component must not read server env vars.
+const processRule = plugin.rules['no-node-process'];
+const processMessage = /`process` is only for the SSR entry/;
+
+tester.run('ssr-safe/no-node-process', processRule, {
+    valid: [
+        // Public build-time settings go through Vite.
+        `export function Page() { return <p>{import.meta.env.VITE_APP_NAME}</p>; }`,
+        // typeof is harmless, a local binding and a property name are not the global.
+        `const isNode = typeof process !== 'undefined';`,
+        `export function Page({ process }) { return <p>{process.name}</p>; }`,
+        `export function Page({ job }) { return <p>{job.process}</p>; }`,
+    ],
+    invalid: [
+        {
+            code: `export function Page() { return <p>{process.env.APP_KEY}</p>; }`,
+            errors: [{ message: processMessage }],
+        },
+        {
+            code: `const key = process.env.APP_KEY;`,
+            errors: [{ message: processMessage }],
+        },
+        {
+            code: `import process from 'node:process';\nexport const port = Number(process.env.PORT);`,
+            errors: [{ message: processMessage }],
+        },
+        {
+            code: `import { env } from 'process';`,
+            errors: [{ message: processMessage }],
+        },
+    ],
+});

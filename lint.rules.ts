@@ -28,6 +28,10 @@ import type { OxlintConfig } from 'vite-plus/lint';
  * component or hook, and allows them in effects, event handlers and `typeof` checks. oxlint's
  * built-in `no-restricted-globals` can't tell render from effect code, hence the plugin. It only
  * applies to resources/js (see `overrides`).
+ *
+ * `ssr-safe/no-node-process` (TE-008 AC10) bans `process` and `node:process` in resources/js
+ * except ssr.tsx and tests, so a component can't render a server environment variable into the
+ * HTML even though tsconfig `types: ["node"]` lets `process.env` typecheck everywhere.
  */
 
 /** typescript-eslint `eslint-recommended` + `@eslint/js` recommended, minus what tsc checks. */
@@ -358,11 +362,22 @@ export const lintConfig: OxlintConfig = {
         {
             // Server-rendered code only. Tests run in jsdom and may use the browser freely.
             files: ['resources/js/**/*.{ts,tsx}'],
-            rules: { 'ssr-safe/no-browser-globals-in-render': 'error' },
+            rules: {
+                'ssr-safe/no-browser-globals-in-render': 'error',
+                'ssr-safe/no-node-process': 'error',
+            },
         },
         {
             files: ['resources/js/**/*.test.{ts,tsx}', 'resources/js/test/**'],
-            rules: { 'ssr-safe/no-browser-globals-in-render': 'off' },
+            rules: {
+                'ssr-safe/no-browser-globals-in-render': 'off',
+                'ssr-safe/no-node-process': 'off',
+            },
+        },
+        {
+            // The one file that runs only on the server and reads its settings from the environment.
+            files: ['resources/js/ssr.tsx'],
+            rules: { 'ssr-safe/no-node-process': 'off' },
         },
     ],
     // Generated code (Wayfinder, typescript-transformer) and build output; nothing hand-written.

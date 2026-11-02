@@ -193,7 +193,52 @@ const noBrowserGlobalsInRender = {
     },
 };
 
+/**
+ * Components are bundled for the browser and for the SSR server, and the SSR process holds the
+ * server's environment. `process.env.X` in a component would render a server variable into the
+ * HTML (TE-008 AC10), so `process` is reserved for the server entry (ssr.tsx); lint.rules.ts
+ * turns this rule off for that file and for tests. Use `import.meta.env.VITE_*` instead.
+ * @type {import('@oxlint/plugins').Rule}
+ */
+const noNodeProcess = {
+    meta: {
+        type: 'problem',
+        docs: {
+            description:
+                'Disallow the Node `process` global (and node:process) outside the SSR entry, so components cannot read server environment variables.',
+        },
+        messages: {
+            forbidden:
+                '`process` is only for the SSR entry (ssr.tsx). A component could render a server environment variable into the HTML; use import.meta.env.VITE_* for public settings.',
+        },
+        schema: [],
+    },
+    create(context) {
+        return {
+            Identifier(node) {
+                if (
+                    node.name === 'process' &&
+                    isUnguardedGlobalReference(node, context)
+                ) {
+                    context.report({ node, messageId: 'forbidden' });
+                }
+            },
+            ImportDeclaration(node) {
+                if (
+                    node.source.value === 'node:process' ||
+                    node.source.value === 'process'
+                ) {
+                    context.report({ node, messageId: 'forbidden' });
+                }
+            },
+        };
+    },
+};
+
 export default {
     meta: { name: 'ssr-safe' },
-    rules: { 'no-browser-globals-in-render': noBrowserGlobalsInRender },
+    rules: {
+        'no-browser-globals-in-render': noBrowserGlobalsInRender,
+        'no-node-process': noNodeProcess,
+    },
 };
