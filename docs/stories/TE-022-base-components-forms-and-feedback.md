@@ -54,6 +54,10 @@ looks the same.
       reduced to a non-motion cue.
 - [ ] AC12: Given SSR, when each component is rendered on the server, then there is no hydration warning and no `window` use at
       render.
+- [ ] AC13 (a11y Moderate 1.4.11, 2026-11-02): Given the unchecked checkbox and the input border (`border-input`), when the
+      TE-020 token contrast test runs, then both reach at least 3:1; the components use that token.
+- [ ] AC14 (a11y Minor 2.5.8): Given the checkbox, when measured, then its box is `size-5` (20 px) or larger and the hit area
+      meets AC9.
 
 ## Quality criteria
 - [ ] Tests: Vitest + Testing Library + axe per component (roles, names, states, keyboard); Playwright (real Chromium) for target

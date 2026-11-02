@@ -50,6 +50,9 @@ without fighting accessibility.
       render; popovers render client-side only where React Aria requires it, without layout shift.
 - [ ] AC10: Given an end-of-M0 check, when the full axe suite runs on every page and showcase state, then the allow-list is still
       empty (TE-016 AC7 assertion stays green).
+- [ ] AC11 (TE-021 audit re-check, 2026-11-02): Given the React Aria `ToastRegion`, when rendered, then the story verifies whether
+      it can drop its `alertdialog` role (so it is not announced as a dialog) and records the result; if it can, it does, and a
+      Testing Library test asserts the final role.
 
 ## Quality criteria
 - [ ] Tests: Vitest + Testing Library + axe per component (keyboard, roles, live regions); Playwright for AC8; i18n formats both

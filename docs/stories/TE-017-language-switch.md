@@ -29,8 +29,8 @@ language on every visit.
 - [ ] AC3: Given the switch, when it posts to the server (`POST /locale`, CSRF-protected, throttled), then only `nl` or `en`
       is accepted; any other value returns a 422 with an inline error and the locale is unchanged.
 - [ ] AC4: Given the switch succeeded, when the visitor returns in a new browser session, then a `locale` cookie
-      (first-party, `Secure` in HTTPS, `SameSite=Lax`, 1 year, `HttpOnly` not needed because React reads it from props) keeps
-      the language; without a cookie the `Accept-Language` chain of TE-009 applies.
+      (first-party, `Secure` in HTTPS, `SameSite=Lax`, `HttpOnly`, 1 year; React reads the locale from Inertia props, not from
+      the cookie; decision 2026-11-02, replaces "HttpOnly not needed") keeps the language; without a cookie the `Accept-Language` chain of TE-009 applies.
 - [ ] AC5: Given JavaScript is disabled, when the visitor uses the control, then it still works as a normal form post and
       redirects back to the same page (progressive enhancement).
 - [ ] AC6: Given any page, when it is rendered under SSR with the `locale=en` cookie, then the server HTML is already in

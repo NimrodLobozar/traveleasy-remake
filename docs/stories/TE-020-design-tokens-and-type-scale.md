@@ -49,6 +49,11 @@ that every screen looks consistent and meets contrast rules by construction.
       the shell axe scans in both themes still pass.
 - [ ] AC9: Given the doc, when read, then it states the brand decision (name, mark, tone of voice) actually used and links the
       owner answer.
+- [ ] AC10 (a11y Moderate 1.4.11, TE-015/TE-009 audit, 2026-11-02): Given the unchecked checkbox border and the input border
+      (`border-input`, the shadcn default), when the token contrast test runs in light and dark, then they reach at least 3:1
+      against their background; the pair is in the declared list.
+- [ ] AC11 (TE-021 audit re-check): Given the contrast pair list of AC4, then it also contains `--border` on surface-2 and the
+      on-brand text on a `--brand` highlighted option (e.g. a selected listbox item), each meeting its threshold.
 
 ## Quality criteria
 - [ ] Tests: Vitest contrast test (AC4), Vitest hex-colour scan (AC3), Playwright text-spacing and reduced-motion tests (AC5,
