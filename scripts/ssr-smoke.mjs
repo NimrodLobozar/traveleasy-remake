@@ -10,9 +10,22 @@
 // Env equivalents: SSR_SMOKE_URL, SSR_SMOKE_PATH, SSR_SMOKE_TEXT. Exit code 0 = pass, 1 = fail, 2 = usage.
 import process from 'node:process';
 
+/**
+ * @param {NodeJS.WriteStream} stream
+ * @param {string} line
+ */
+const say = (stream, line) => {
+    stream.write(`${line}\n`);
+};
+
 const args = process.argv.slice(2);
+/**
+ * @param {string} name
+ * @param {string} fallback
+ * @returns {string}
+ */
 const option = (name, fallback) => {
-    const index = args.indexOf(`--${name}`);
+    const index = args.indexOf('--' + name);
     const value = index === -1 ? undefined : args[index + 1];
     return value ?? fallback;
 };
@@ -26,12 +39,13 @@ const path = option('path', process.env.SSR_SMOKE_PATH ?? '/');
 const text = option('text', process.env.SSR_SMOKE_TEXT ?? '');
 
 if (mode !== 'on' && mode !== 'down') {
-    console.error(`Unknown --mode "${mode}"; use "on" or "down".`);
+    say(process.stderr, `Unknown --mode "${mode}"; use "on" or "down".`);
     process.exit(2);
 }
 
+/** @param {string} message */
 const fail = (message) => {
-    console.error(`SSR smoke (${mode}) FAILED for ${path}: ${message}`);
+    say(process.stderr, `SSR smoke (${mode}) FAILED for ${path}: ${message}`);
     process.exit(1);
 };
 
@@ -43,12 +57,12 @@ try {
     });
 } catch (error) {
     fail(
-        `could not fetch ${base}${path} (${error instanceof Error ? error.message : error}).`,
+        `could not fetch ${base}${path} (${String(error instanceof Error ? error.message : error)}).`,
     );
 }
 
 if (response.status !== 200) {
-    fail(`expected HTTP 200, got ${response.status}.`);
+    fail(`expected HTTP 200, got ${String(response.status)}.`);
 }
 
 const html = await response.text();
@@ -73,7 +87,7 @@ if (mode === 'down') {
             'no embedded Inertia page data; the client-side fallback cannot start.',
         );
     }
-    console.log('SSR down: client-side fallback OK');
+    say(process.stdout, 'SSR down: client-side fallback OK');
     process.exit(0);
 }
 
@@ -101,4 +115,4 @@ if (text === '' ? !/<h1[\s>]/i.test(root) : !root.includes(text)) {
     );
 }
 
-console.log('SSR on: server-rendered content OK');
+say(process.stdout, 'SSR on: server-rendered content OK');

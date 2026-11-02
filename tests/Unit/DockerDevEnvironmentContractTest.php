@@ -130,17 +130,49 @@ test('compose.dev.yaml publishes ports on 127.0.0.1 only and never on db', funct
     }
 });
 
-test('compose.dev.yaml has exactly the dev services, Adminer and e2e only behind their profiles', function () {
+test('compose.dev.yaml has exactly the dev services, Adminer, e2e and ssr only behind their profiles', function () {
     $services = Arr::array(composeFile('compose.dev.yaml'), 'services');
 
     // e2e (TE-005): Playwright browser tests, one-shot via `docker compose run --rm e2e`.
-    expect(array_keys($services))->toEqualCanonicalizing(['db', 'app', 'vite', 'adminer', 'e2e'])
+    expect(array_keys($services))->toEqualCanonicalizing(['db', 'app', 'vite', 'adminer', 'e2e', 'ssr'])
         ->and(Arr::get($services, 'adminer.profiles'))->toBe(['tools'])
         // Profile-gated, so plain `docker compose up -d` never starts it; one-shot, so no restart policy.
         ->and(Arr::get($services, 'e2e.profiles'))->toBe(['e2e'])
+        ->and(Arr::get($services, 'ssr.profiles'))->toBe(['ssr'])
         ->and($services['e2e'])->not->toHaveKey('restart')
         ->and($services['app'])->not->toHaveKey('profiles')
         ->and($services['vite'])->not->toHaveKey('profiles');
+});
+
+// --- TE-008: the opt-in SSR server (profile `ssr`) -----------------------------------------------
+
+test('the ssr service is hardened: no ports, no secrets, no DB, read-only, limited memory', function () {
+    $ssr = Arr::array(composeFile('compose.dev.yaml'), 'services.ssr');
+
+    expect($ssr)->not->toHaveKeys(['ports', 'env_file', 'build', 'privileged', 'cap_add', 'network_mode'])
+        ->and($ssr['read_only'])->toBeTrue()
+        ->and($ssr['cap_drop'])->toBe(['ALL'])
+        ->and($ssr['security_opt'])->toBe(['no-new-privileges:true'])
+        ->and($ssr['mem_limit'])->toBe('256m')
+        ->and($ssr['networks'])->toBe(['default'])
+        // The SSR server listens on all interfaces only here (reachable inside the compose network).
+        ->and(Arr::get($ssr, 'environment.INERTIA_SSR_HOST'))->toBe('0.0.0.0')
+        ->and(array_keys(Arr::array($ssr, 'environment')))->toEqualCanonicalizing([
+            'NODE_ENV', 'NODE_OPTIONS', 'INERTIA_SSR_HOST', 'INERTIA_SSR_PORT',
+        ]);
+
+    // The source is read-only and `.env` is masked by an empty read-only bind.
+    $volumes = array_map(static fn (mixed $v): string => is_string($v) ? $v : json_encode($v, JSON_THROW_ON_ERROR), Arr::array($ssr, 'volumes'));
+    expect($volumes)->toContain('.:/var/www/html:ro')
+        ->and(Arr::first(Arr::array($ssr, 'volumes'), static fn (mixed $v): bool => is_array($v) && ($v['target'] ?? '') === '/var/www/html/.env'))
+        ->toMatchArray(['source' => '/dev/null', 'read_only' => true]);
+
+    // `app` is the only service that gets the SSR URL, and the host setting stays off every other service.
+    $services = Arr::array(composeFile('compose.dev.yaml'), 'services');
+    expect(Arr::get($services, 'app.environment.INERTIA_SSR_URL'))->toBe('http://ssr:13714');
+    foreach (['app', 'vite', 'e2e'] as $name) {
+        expect(array_keys(Arr::array(Arr::array($services, $name), 'environment')))->not->toContain('INERTIA_SSR_HOST');
+    }
 });
 
 // --- TE-005 AC11, AC12 + security QC: the e2e (Playwright) container -----------------------------

@@ -224,8 +224,6 @@ services:
         environment:
             E2E_BASE_URL: http://localhost:8000
             E2E_FORWARD: 8000=app:8000
-            # Set to 1 (`run -e E2E_REQUIRE_SSR=1`) to make the hydration test fail instead of skip without SSR.
-            E2E_REQUIRE_SSR: ${E2E_REQUIRE_SSR:-}
             NPM_CONFIG_UPDATE_NOTIFIER: 'false'
             HOME: /tmp
             # Playwright deletes and recreates its output folders, which fails on a mount point under the
