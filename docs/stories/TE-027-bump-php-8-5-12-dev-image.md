@@ -1,7 +1,7 @@
 ---
 id: TE-027
 title: Bump PHP to 8.5.12 in the dev image (chore)
-status: ready
+status: in-progress
 priority: must
 epic: none
 agents: [devops-engineer]
@@ -22,13 +22,13 @@ advisories and match the production base of ADR-0002.
   `docker compose up -d --build` (DB kept). Clean up dangling images only with the project-scoped commands in `docs/deploy/dev.md`.
 
 ## Acceptance criteria
-- [ ] AC1: Given the `Dockerfile`, when read, then the PHP base image is `php:8.5.12-cli-trixie` (tag, and digest if the file pins
+- [x] AC1: Given the `Dockerfile`, when read, then the PHP base image is `php:8.5.12-cli-trixie` (tag, and digest if the file pins
       digests) and no other reference to 8.5.11 remains in the repo.
-- [ ] AC2: Given a rebuilt `app` container, when `docker compose exec app php -v` runs, then it prints `PHP 8.5.12`, and `php -m` shows
+- [x] AC2: Given a rebuilt `app` container, when `docker compose exec app php -v` runs, then it prints `PHP 8.5.12`, and `php -m` shows
       the same extensions as before the bump.
 - [ ] AC3: Given the rebuilt stack, when `composer check` (Pint, Larastan, Pest), `npm run check`, `npm run test` and the e2e + axe
       run execute, then all pass with no new deprecations or skipped tests.
-- [ ] AC4: Given `CLAUDE.md`, when read, then the versions table says PHP 8.5.12 and the date of the table is updated.
+- [x] AC4: Given `CLAUDE.md`, when read, then the versions table says PHP 8.5.12 and the date of the table is updated.
 
 ## Quality criteria
 - [ ] Tests: the existing suites are the proof (AC3); no new test needed.
@@ -49,4 +49,9 @@ advisories and match the production base of ADR-0002.
 (empty)
 
 ## Changelog
-(filled when done)
+- 2026-11-02 devops: Dockerfile `PHP_VERSION=8.5.12`; CLAUDE.md versions table (dated 2026-11-02) and dev.md updated. Rebuilt with
+  `docker compose rm -s -f -v app vite` + `up -d --build`; `php -v` = 8.5.12 (NTS), `php -m` identical to before; all healthy.
+  Pint, Larastan, `npm run test` (168) pass. AC3 open: Pest has 6 failures in `InertiaSsrTest` (500, Vite manifest lacks
+  `resources/fonts/figtree-latin-wght-normal.woff2`): caused by the uncommitted TE-020 font work with a stale `public/build`, not by
+  the bump; needs `npm run build` after TE-020 lands. e2e not run (frontend work in progress).
+  Audits unchanged (see board, Devops items). The `base` image digest is not pinned (the Dockerfile pins tags only); that is TE-012 for production.

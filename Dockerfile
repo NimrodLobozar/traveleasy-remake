@@ -12,7 +12,7 @@
 #
 # Base images are official and pinned. Bump them deliberately (and rebuild with `up -d --build -V`).
 
-ARG PHP_VERSION=8.5.11
+ARG PHP_VERSION=8.5.12
 ARG NODE_VERSION=24.21.0
 ARG COMPOSER_VERSION=2.10.3
 ARG DEBIAN_RELEASE=trixie

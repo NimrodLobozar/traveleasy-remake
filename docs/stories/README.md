@@ -15,9 +15,9 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-007](TE-007-inertia-ssr-entry-point.md) | Inertia SSR entry point, SSR build and SSR-safe code rules | must | done | 0 | not-needed |
 | [TE-008](TE-008-ssr-service-and-smoke-test.md) | SSR service in compose (dev profile) and an SSR smoke test | must | done | 0 | not-needed |
 | [TE-009](TE-009-i18n-infrastructure.md) | i18n infrastructure (nl/en JSON lang files, SSR-safe t(), Intl formatting) | must | done | 0 | not-needed |
-| [TE-010](TE-010-i18n-key-completeness-check.md) | i18n key-completeness check | must | ready | 0 | not-needed |
+| [TE-010](TE-010-i18n-key-completeness-check.md) | i18n key-completeness check | must | in-progress | 0 | not-needed |
 | [TE-011](TE-011-adr-0002-production-runtime.md) | ADR-0002 production runtime (web server, SSR packaging, migrate-on-start) | must | done | 0 | not-needed |
-| [TE-012](TE-012-production-image.md) | Production multi-stage image with entrypoint, health check and hardening | must | ready | 0 | not-needed |
+| [TE-012](TE-012-production-image.md) | Production multi-stage image with entrypoint, health check and hardening | must | in-progress | 0 | not-needed |
 | [TE-013](TE-013-ci-quality-gates.md) | GitHub Actions pipeline, part 1: quality gates | must | ready | 0 | not-needed |
 | [TE-014](TE-014-ci-image-build-scan-publish.md) | GitHub Actions pipeline, part 2: amd64 build, Trivy, publish to GHCR | must | ready | 0 | not-needed |
 | [TE-015](TE-015-security-headers-and-csp-baseline.md) | Security headers and CSP baseline (nonces) | must | done | 0 | not-needed |
@@ -25,14 +25,14 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-017](TE-017-language-switch.md) | Language switch nl/en with persisted preference | must | ready | 0 | required (TE-016 artifact) |
 | [TE-018](TE-018-theme-light-dark-no-flash.md) | Light/dark theme with a manual override and no flash under SSR | must | ready | 0 | required (TE-016 artifact) |
 | [TE-019](TE-019-localised-error-pages.md) | Localised error pages (403, 404, 419, 429, 500, 503) with a request ID | must | ready | 0 | required (TE-016 artifact) |
-| [TE-020](TE-020-design-tokens-and-type-scale.md) | Design tokens and type scale (artifact, token file, contrast tests) | must | ready | 0 | required |
+| [TE-020](TE-020-design-tokens-and-type-scale.md) | Design tokens and type scale (artifact, token file, contrast tests) | must | in-progress | 0 | required |
 | [TE-021](TE-021-base-component-specs.md) | Base component specs (states, keyboard, ARIA) | must | ready | 0 | required |
 | [TE-022](TE-022-base-components-forms-and-feedback.md) | Base components I: button, link, field, select, number field, alert, banner | must | ready | 0 | required (TE-021 approval) |
 | [TE-023](TE-023-base-components-complex-widgets.md) | Base components II: combobox, date picker, table, dialog, toast, pagination | must | ready | 0 | required (TE-021 approval) |
 | [TE-024](TE-024-production-compose-for-portainer.md) | Production compose.yaml for Portainer (pinned tag, health checks, limits, ssr) | must | ready | 0 | not-needed |
 | [TE-025](TE-025-portainer-env-file-and-secrets-helper.md) | One-file Portainer env file and the secrets helper command | must | ready | 0 | not-needed |
 | [TE-026](TE-026-first-lan-only-deploy.md) | First LAN-only deploy to the home server (**owner-gated**) | must | ready | 0 | not-needed |
-| [TE-027](TE-027-bump-php-8-5-12-dev-image.md) | Bump PHP to 8.5.12 in the dev image (chore) | must | ready | 0 | not-needed |
+| [TE-027](TE-027-bump-php-8-5-12-dev-image.md) | Bump PHP to 8.5.12 in the dev image (chore) | must | in-progress | 0 | not-needed |
 
 ### Epics
 - **M0 Project scaffold and tooling:** TE-001, TE-003, TE-004, TE-005 (docs part in TE-006).
@@ -75,6 +75,8 @@ Not tied to a story yet. Pick up at the next devops touch, or as a small `chore`
   - `npm audit`: vitest/mocker and undici (dev only; `npm audit --omit=dev` finds 0).
   - Bumps to plan (2026-11-02, from TE-008/TE-015 reviews): `undici` (via jsdom, test only), `@vitest/mocker`, phpunit and
     symfony/mime; re-check at TE-027.
+  - **Re-checked at TE-027 (2026-11-02, after the PHP 8.5.12 rebuild):** unchanged. `composer audit`: phpunit CVE-2026-119193
+    (dev only) and symfony/mime CVE-2026-45070 (no mail sent); `npm audit`: 6 (4 moderate, 2 high: undici via jsdom, @vitest/mocker; dev/test only). No bump taken here.
 - **Lint and dev `ssr` hardening (2026-11-02, security Low, from TE-008):**
   - the `no-node-process` lint rule can be bypassed via `globalThis.process`, `global.process`, `import('node:process')`,
     `require('process')` or a re-export, and it only checks `*.ts`/`*.tsx`; close these gaps with fixtures;

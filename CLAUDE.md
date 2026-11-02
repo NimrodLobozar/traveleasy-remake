@@ -68,11 +68,11 @@ laravel-data + typescript-transformer, routes from Wayfinder; PostgreSQL. npm is
 replace ESLint and Prettier (TE-003); there is **no Mailpit** or any mail catcher, because the app sends no e-mail
 (ADR-0005).
 
-**Versions** (2026-10-12; from `composer.lock`, `package-lock.json`, `Dockerfile` and the compose image tags):
+**Versions** (2026-11-02; from `composer.lock`, `package-lock.json`, `Dockerfile` and the compose image tags):
 
 | Component | Version | Component | Version |
 |---|---|---|---|
-| PHP (`php:8.5.11-cli-trixie`) | 8.5.11 | Node (`node:24.21.0-trixie-slim`) | 24.21.0 |
+| PHP (`php:8.5.12-cli-trixie`) | 8.5.12 | Node (`node:24.21.0-trixie-slim`) | 24.21.0 |
 | Composer | 2.10.3 | npm | 11.19.0 |
 | Laravel | 13.35.0 | React / react-dom | 19.3.0 |
 | Fortify | 1.41.0 | @inertiajs/react | 3.9.1 |
