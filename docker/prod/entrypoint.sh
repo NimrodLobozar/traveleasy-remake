@@ -1,12 +1,14 @@
 #!/bin/sh
 # Production entrypoint (ADR-0002 D3, D4): `traveleasy-entrypoint <role> [args]`.
 #
-#   app        wait for the DB, migrate, seed reference data (empty tables only), cache, run FrankenPHP. The only role that migrates.
+#   app        boot check, wait for the DB, migrate, seed reference data (empty tables only), cache, run FrankenPHP. The only role that migrates.
 #   ssr        node bootstrap/ssr/ssr.js (no PHP boot, no DB, no secrets)
-#   worker     queue worker, never migrates
-#   scheduler  schedule:work, never migrates
+#   worker     boot check, queue worker, never migrates
+#   scheduler  boot check, schedule:work, never migrates
 #   other      exec "$@" unchanged: no DB wait, no boot side effects (e.g. the secrets helper of TE-025)
 #
+# The boot check (TE-012 AC8) refuses to start with APP_DEBUG=true or an empty/invalid APP_KEY in production, or a
+# wildcard TRUSTED_PROXIES. It runs for app/worker/scheduler only, never for ssr or the pass-through.
 # Env-dependent caches are written here at start, into tmpfs (APP_*_CACHE), never at build time.
 # Output never includes environment values.
 set -eu
@@ -19,6 +21,7 @@ log() { printf '[entrypoint:%s] %s\n' "$role" "$*" >&2; }
 prepare_runtime() {
     mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views \
         storage/framework/testing "$(dirname "$APP_CONFIG_CACHE")"
+    php artisan traveleasy:boot-check --no-interaction
 }
 
 case "$role" in

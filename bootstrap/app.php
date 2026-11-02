@@ -4,10 +4,13 @@ use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetLocale;
+use App\Http\Middleware\TrustProxies;
+use App\Support\Health\HealthCheckFailed;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Middleware\TrustProxies as FrameworkTrustProxies;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -21,6 +24,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // and the other security headers, and the nonce exists before anything renders.
         $middleware->prepend(AddSecurityHeaders::class);
 
+        // TE-012 AC12: trust X-Forwarded-For/-Proto/-Port only from TRUSTED_PROXIES (never `*`, never -Host).
+        $middleware->replace(FrameworkTrustProxies::class, TrustProxies::class);
+
         // Plain, allow-listed UI preferences; never personal data. `locale` is validated by LocaleResolver (TE-009).
         $middleware->encryptCookies(except: ['appearance', 'locale', 'sidebar_state']);
 
@@ -32,6 +38,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // TE-012 AC5: the health check logs the cause itself, without connection details.
+        $exceptions->dontReport(HealthCheckFailed::class);
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

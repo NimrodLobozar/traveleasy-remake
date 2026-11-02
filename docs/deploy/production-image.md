@@ -23,17 +23,25 @@ hardened like production and removes everything it made, also on failure. It nev
 | Code | `composer install --no-dev --classmap-authoritative`; built client + SSR bundles; no `tests/`, `docs/`, `.git`, `.env`, `resources/js` |
 | User | uid/gid 10001. Code is root-owned and not writable by it. Writable: `storage/app` (volume), tmpfs paths below |
 | Env defaults | `APP_ENV=production`, `APP_DEBUG=false`, `INERTIA_DEVTOOLS_ENABLED=false`, `LOG_CHANNEL=stderr` |
-| Health check | `php healthcheck.php`: `GET 127.0.0.1:8080/up` with `Host:` of `APP_URL`; 15 s interval, 90 s start period |
+| Health check | `php healthcheck.php`: `GET 127.0.0.1:8080/up` with `Host:` of `APP_URL`; 15 s interval, 90 s start period. `/up` answers 200 only when the database answers a query (`App\Support\Health\DatabaseHealthCheck`), otherwise a generic 500 after one connection attempt (no framework retries), so the container turns unhealthy within 60 s of the DB going away (54 s measured on Docker Desktop, where the failing DNS lookup alone takes about 4 s) |
 | Labels | OCI source, revision, version, created, licence (MIT) |
 
 ## Entrypoint roles (`traveleasy-entrypoint <role>`)
 
 | Role | Does |
 |---|---|
-| `app` (default) | waits for the DB (`DB_WAIT_TIMEOUT`, default 60 s), `migrate --force`, `traveleasy:seed-reference --if-empty`, `optimize`, then FrankenPHP. Exits non-zero on any failure. Only this role migrates |
+| `app` (default) | boot check, waits for the DB (`DB_WAIT_TIMEOUT`, default 60 s), `migrate --force`, `traveleasy:seed-reference --if-empty`, `optimize`, then FrankenPHP. Exits non-zero on any failure. Only this role migrates |
 | `ssr` | `node bootstrap/ssr/ssr.js` (no PHP, no DB, no secrets); set `INERTIA_SSR_HOST=0.0.0.0` |
-| `worker`, `scheduler` | wait for the DB, `optimize`, then `queue:work` / `schedule:work`; never migrate |
+| `worker`, `scheduler` | boot check, wait for the DB, `optimize`, then `queue:work` / `schedule:work`; never migrate |
 | anything else | `exec "$@"` unchanged: no DB wait, no side effects (e.g. the secrets helper of TE-025) |
+
+**Boot check** (`php artisan traveleasy:boot-check`, TE-012 AC8): the `app`, `worker` and `scheduler` roles exit 1 before
+the DB wait, with a `Refusing to start: …` line per problem, when `APP_ENV=production` and `APP_DEBUG=true`, when `APP_KEY`
+is empty or not a valid key for the cipher, or when `TRUSTED_PROXIES` is not a list of specific IPs/CIDRs (`*`, `**`,
+`REMOTE_ADDR`, `/0`). Messages name the variable, never its value. The `ssr` role and the pass-through never run it.
+
+**Failed migration** (AC7): `migrate --force` failing stops the `app` role with exit 1 and the migration error before
+FrankenPHP starts, so a half-migrated app never serves. `verify.sh` proves it against a database with a conflicting table.
 
 Config, route and event caches are written at start into `/tmp/laravel` (`APP_*_CACHE`), never into a layer: the cached
 config contains secrets. The build only proves that `optimize` works and discards the output.
@@ -42,6 +50,14 @@ config contains secrets. The build only proves that `optimize` works and discard
 
 `read_only: true`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, and tmpfs (owned by uid 10001) at `/tmp`,
 `/var/www/html/storage/framework`, `/data` and `/config`; a named volume at `/var/www/html/storage/app`.
+
+## Behind Nginx Proxy Manager (AC12, ADR-0002 D6)
+
+`TRUSTED_PROXIES` is a comma-separated list of IPs or CIDR ranges: the CIDR of `npm_shared`
+(`docker network inspect npm_shared`) or NPM's single IP. Empty means no proxy is trusted. Only `X-Forwarded-For`,
+`-Proto` and `-Port` are honoured, and only from those addresses (`App\Http\Middleware\TrustProxies`); `X-Forwarded-Host`,
+`-Prefix` and `Forwarded` never are. With `X-Forwarded-Proto: https` from NPM, generated URLs (routes, `asset()`, Vite) are
+https. A wildcard value makes the boot check refuse to start and the middleware refuse to serve.
 
 ## Size (AC11)
 

@@ -38,4 +38,11 @@ return [
         'vite_dev_port' => (int) env('VITE_PORT', 5173),
     ],
 
+    /*
+    | TE-012 AC12 (ADR-0002 D6): the reverse proxies whose X-Forwarded-For/-Proto/-Port headers are trusted, as a
+    | comma-separated list of IP addresses or CIDR ranges (the `npm_shared` network or NPM's single IP). Empty = trust
+    | no proxy. `*`, `**`, `REMOTE_ADDR` and /0 ranges are rejected (App\Support\Security\TrustedProxies).
+    */
+    'trusted_proxies' => (string) env('TRUSTED_PROXIES', ''),
+
 ];

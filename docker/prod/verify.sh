@@ -22,7 +22,7 @@ DB_PASS="$(openssl rand -hex 16)"
 FAILED=0
 
 cleanup() {
-    docker rm -f "$APP" "$SSR" "$DB" "${RUN}-fail" >/dev/null 2>&1
+    docker rm -f "$APP" "$SSR" "$DB" "${RUN}-fail" "${RUN}-boot" "${RUN}-ssr8" "${RUN}-migfail" >/dev/null 2>&1
     docker network rm "$NET" >/dev/null 2>&1
 }
 trap cleanup EXIT
@@ -90,6 +90,49 @@ check "AC6/AC7 DB wait times out with exit code != 0 and a clear message" bash -
 check "AC7 the failure output does not echo env values" bash -c "! grep -q 'sekret-value-123' ${TMPDIR:-/tmp}/${RUN}-fail.log"
 rm -f "${TMPDIR:-/tmp}/${RUN}-fail.log"
 
+# AC8: the boot check refuses to start app/worker/scheduler with APP_DEBUG=true, an empty APP_KEY or a wildcard
+# TRUSTED_PROXIES, before the DB wait and with a clear message; never for the ssr role or the pass-through.
+BOOT_LOG="${TMPDIR:-/tmp}/${RUN}-boot.log"
+boot_refuses() { # boot_refuses <role> <expected message> <env...>
+    local role="$1" msg="$2"; shift 2
+    docker run --rm --name "${RUN}-boot" --network "$NET" "${HARDEN[@]}" -e DB_HOST=db -e DB_WAIT_TIMEOUT=4 \
+        "$@" "$IMAGE" "$role" >"$BOOT_LOG" 2>&1
+    local code=$?
+    [ "$code" -ne 0 ] && grep -q "Refusing to start: $msg" "$BOOT_LOG" && ! grep -q 'database .* is ready\|migrating' "$BOOT_LOG"
+}
+check "AC8 app refuses to start with APP_DEBUG=true" boot_refuses app 'APP_DEBUG is true' -e APP_KEY="$KEY" -e APP_DEBUG=true
+check "AC8 app refuses to start with an empty APP_KEY" boot_refuses app 'APP_KEY is empty' -e APP_KEY=
+check "AC8 app refuses to start with TRUSTED_PROXIES=*" boot_refuses app 'TRUSTED_PROXIES contains \[\*\]' -e APP_KEY="$KEY" -e 'TRUSTED_PROXIES=*'
+check "AC8 worker refuses to start with APP_DEBUG=true" boot_refuses worker 'APP_DEBUG is true' -e APP_KEY="$KEY" -e APP_DEBUG=true
+check "AC8 scheduler refuses to start with an empty APP_KEY" boot_refuses scheduler 'APP_KEY is empty' -e APP_KEY=
+LEAK_KEY='base64:dG9vLXNob3J0LXNla3JldA=='   # 16 bytes: an invalid key for AES-256, so the check must refuse it
+docker run --rm --name "${RUN}-boot" "${HARDEN[@]}" -e APP_KEY="$LEAK_KEY" "$IMAGE" app >"$BOOT_LOG" 2>&1
+check "AC8 an invalid APP_KEY is refused without printing it" bash -c "grep -q 'Refusing to start: APP_KEY' $BOOT_LOG && ! grep -q 'dG9vLXNob3J0LXNla3JldA' $BOOT_LOG"
+check "AC8 the pass-through runs one-off commands without APP_KEY, even with APP_DEBUG=true" \
+    docker run --rm --name "${RUN}-boot" "${HARDEN[@]}" -e APP_KEY= -e APP_DEBUG=true "$IMAGE" php artisan --version
+docker run -d --name "${RUN}-ssr8" --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+    -e APP_KEY= -e APP_DEBUG=true "$IMAGE" ssr >/dev/null
+sleep 3
+check "AC8 the ssr role starts without APP_KEY, even with APP_DEBUG=true" \
+    bash -c "[ \"\$(docker inspect -f '{{.State.Running}}' ${RUN}-ssr8)\" = true ] && ! docker logs ${RUN}-ssr8 2>&1 | grep -q 'Refusing to start'"
+docker rm -f "${RUN}-ssr8" >/dev/null 2>&1
+rm -f "$BOOT_LOG"
+
+# AC7: a failed migration makes the app role exit non-zero with the migration error, before it serves anything and
+# without printing env values. The database `migfail` already has a `users` table, so the first migration fails.
+docker exec "$DB" psql -q -U traveleasy -d traveleasy -c 'create database migfail' >/dev/null
+docker exec "$DB" psql -q -U traveleasy -d migfail -c 'create table users (id int)' >/dev/null
+MIG_LOG="${TMPDIR:-/tmp}/${RUN}-migfail.log"
+docker run --name "${RUN}-migfail" --network "$NET" "${HARDEN[@]}" -e APP_KEY="$KEY" \
+    -e DB_CONNECTION=pgsql -e DB_HOST=db -e DB_PORT=5432 -e DB_DATABASE=migfail -e DB_USERNAME=traveleasy \
+    -e DB_PASSWORD="$DB_PASS" "$IMAGE" app >"$MIG_LOG" 2>&1
+code=$?
+check "AC7 a failed migration exits non-zero with the migration error" bash -c "[ $code -ne 0 ] && grep -q 'migrating' $MIG_LOG && grep -qi 'already exists' $MIG_LOG"
+check "AC7 the app never starts serving after a failed migration" bash -c "! grep -q 'starting FrankenPHP' $MIG_LOG && [ \"\$(docker inspect -f '{{.State.Running}}' ${RUN}-migfail)\" = false ]"
+check "AC7 the migration error does not print env values" bash -c "! grep -qF '$DB_PASS' $MIG_LOG && ! grep -qF '${KEY#base64:}' $MIG_LOG"
+docker rm -f "${RUN}-migfail" >/dev/null 2>&1
+rm -f "$MIG_LOG"
+
 START=$(date +%s)
 docker run -d --name "$APP" --network "$NET" --platform linux/amd64 "${HARDEN[@]}" \
     -e APP_URL="https://${APP_HOST}" -e APP_KEY="$KEY" -e TRUSTED_PROXIES=10.255.255.255 \
@@ -131,6 +174,23 @@ check "AC16 PHP responses keep the app's nonce CSP (not overridden)" grep -Eqi "
 
 check "AC3 the root filesystem is read-only" bash -c "! docker exec $APP sh -c 'touch /var/www/html/x 2>/dev/null || touch /usr/x 2>/dev/null'"
 check "AC1 history has no secrets" bash -c "! docker history --no-trunc $IMAGE | grep -Eqi '(password|secret)=[^ ]+'"
+
+# AC5: with the database gone, /up answers 500 at once (no details) and the container turns unhealthy within 60 s.
+docker stop "$DB" >/dev/null
+DOWN=$(date +%s)
+UP_DOWN="$(get /up)"
+check "AC5 /up answers 500 when the database is unreachable" grep -q '^HTTP/[0-9.]* 500' <<<"$UP_DOWN"
+check "AC5 the failed /up leaks no connection details" bash -c "! grep -Eqi 'SQLSTATE|pgsql|PDO|Connection refused|could not translate|db:5432|$DB_PASS' <<<\"\$1\"" _ "$UP_DOWN"
+unhealthy=1
+while [ $(( $(date +%s) - DOWN )) -le 60 ]; do
+    if [ "$(docker inspect -f '{{.State.Health.Status}}' "$APP")" = unhealthy ]; then unhealthy=0; break; fi
+    sleep 2
+done
+if [ "$unhealthy" -eq 0 ]; then
+    pass "AC5 the container is unhealthy $(( $(date +%s) - DOWN )) s after the database went away"
+else
+    fail "AC5 the container did not turn unhealthy within 60 s of the database going away"
+fi
 
 if [ "$FAILED" -eq 0 ]; then echo "ALL CHECKS PASSED"; else echo "SOME CHECKS FAILED"; fi
 exit "$FAILED"
