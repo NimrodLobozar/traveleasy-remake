@@ -17,8 +17,9 @@ had (all of them must come back, in better form) and every mistake that must not
 | Agent team + workflow | Done (`.claude/agents/`, see § How work flows) |
 | Tech-stack decision | Done: `docs/adr/0001-tech-stack.md` (Accepted) |
 | Product plan / roadmap | Done: `docs/plan.md` (Accepted); ADR-0005 and ADR-0006 Accepted; no open owner questions |
-| Design system | Not started (`docs/design/`, links in `docs/design/previews.md`) |
-| Scaffolding + Docker dev env | Done: TE-001 to TE-006 (scaffold, Docker dev env, tooling, arch tests, Vitest/Playwright harness, docs). Other M0 epics (SSR, CI/GHCR, app shell, design system, i18n, first deploy) not started |
+| Design system | In progress: tokens (TE-020) and app shell (TE-016) designs approved, Direction A "Fjord"; component specs (TE-021) in owner review (`docs/design/system.md`, links in `docs/design/previews.md`) |
+| Scaffolding + Docker dev env | Done: TE-001 to TE-006 |
+| M0 build (remaining epics) | In progress: TE-007 to TE-027 written; done: TE-007 (SSR entry), TE-008 (ssr service + smoke), TE-009 (i18n), TE-011 (ADR-0002 accepted), TE-015 (CSP + headers). Next: TE-010, TE-016 to TE-019, TE-012 to TE-014, TE-022/023, TE-024 to TE-027 |
 
 Update this table when a phase changes.
 
