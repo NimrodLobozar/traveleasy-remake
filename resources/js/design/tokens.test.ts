@@ -267,6 +267,54 @@ function scan(dir: string): string[] {
     });
 }
 
+describe('components use tokens, not hard-coded colours or hidden focus (AC12, AC13)', () => {
+    it('hard-codes no text-white or text-black and hides no outline', () => {
+        const offenders: string[] = [];
+        const rules: [RegExp, string][] = [
+            [
+                /\btext-(white|black)\b/,
+                'hard-coded text-white/black (use a token pair)',
+            ],
+            [
+                /\bdark:bg-destructive\/\d+/,
+                'translucent destructive fill (contrast); use the token',
+            ],
+            [
+                /(^|[\s"'`:])(focus(-visible)?:)?outline-(none|hidden)\b/,
+                'outline removed (the global 3 px --focus outline must show)',
+            ],
+            [
+                /(focus|focus-visible):ring-/,
+                'ring used as the focus indicator instead of the --focus outline',
+            ],
+        ];
+
+        for (const file of scan(join(root, 'resources/js'))) {
+            const rel = relative(root, file).replaceAll('\\', '/');
+
+            if (
+                !rel.endsWith('.tsx') ||
+                rel.endsWith('.test.tsx') ||
+                hexAllowList.has(rel)
+            ) {
+                continue;
+            }
+
+            readFileSync(file, 'utf8')
+                .split('\n')
+                .forEach((line, i) => {
+                    for (const [re, why] of rules) {
+                        if (re.test(line)) {
+                            offenders.push(`${rel}:${String(i + 1)}: ${why}`);
+                        }
+                    }
+                });
+        }
+
+        expect(offenders).toEqual([]);
+    });
+});
+
 describe('no raw hex colours outside the token file (AC3)', () => {
     it('finds none in resources/js, resources/css and resources/views', () => {
         const offenders: string[] = [];

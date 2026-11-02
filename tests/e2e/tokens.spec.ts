@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { placeholderAllowList } from './a11y-allow-list';
+import { expectNoA11yViolations } from './axe';
 
 // TE-020: the design tokens as the browser sees them (AC5 text spacing, AC6 self-hosted fonts,
 // AC7 reduced motion, both themes). The contrast maths is in resources/js/design/tokens.test.ts.
@@ -146,4 +148,94 @@ test('WCAG 1.4.12 text spacing overrides clip and overlap nothing on /, 320 px a
 
         expect(problems, `width ${String(width)}`).toEqual([]);
     }
+});
+
+// TE-020 rework 1 (AC13, AC14): the keyboard focus indicator is the approved 3 px solid --focus
+// outline at full strength, with at least 3:1 against the page, in both themes; and the shell has an
+// explicit dark-theme axe scan.
+
+function luminance([r, g, b]: number[]): number {
+    const [lr, lg, lb] = [r, g, b].map((v) => {
+        const c = (v ?? 0) / 255;
+
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+
+    return 0.2126 * (lr ?? 0) + 0.7152 * (lg ?? 0) + 0.0722 * (lb ?? 0);
+}
+
+for (const scheme of ['light', 'dark'] as const) {
+    for (const path of ['/', '/login']) {
+        test(`keyboard focus shows the solid 3 px --focus outline on ${path} (${scheme}) (AC13)`, async ({
+            page,
+        }) => {
+            await page.emulateMedia({ colorScheme: scheme });
+            await page.goto(path);
+            await expect(page.locator('h1, h2').first()).toBeVisible();
+
+            const seen: string[] = [];
+
+            for (let i = 0; i < 14; i++) {
+                await page.keyboard.press('Tab');
+                await page.waitForTimeout(400); // let colour transitions (up to 300 ms) finish
+
+                const r = await page.evaluate(() => {
+                    const el = document.activeElement;
+
+                    if (!el || el === document.body) {
+                        return null;
+                    }
+
+                    const s = getComputedStyle(el);
+                    const probe = document.createElement('span');
+
+                    probe.style.color = 'var(--focus)';
+                    probe.style.backgroundColor = 'var(--bg)';
+                    document.body.append(probe);
+
+                    const p = getComputedStyle(probe);
+                    const out = {
+                        name: `${el.tagName.toLowerCase()}[${el.getAttribute('type') ?? ''}]`,
+                        style: s.outlineStyle,
+                        width: s.outlineWidth,
+                        color: s.outlineColor,
+                        focus: p.color,
+                        bg: p.backgroundColor,
+                    };
+
+                    probe.remove();
+
+                    return out;
+                });
+
+                if (!r) {
+                    continue;
+                }
+
+                seen.push(r.name);
+                expect(r.style, r.name).toBe('solid');
+                expect(r.width, r.name).toBe('3px');
+                expect(r.color, r.name).toBe(r.focus);
+
+                const rgb = (c: string) =>
+                    (c.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+                const [a, b] = [luminance(rgb(r.focus)), luminance(rgb(r.bg))];
+                const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+
+                expect(ratio, `${r.name} focus vs page`).toBeGreaterThanOrEqual(
+                    3,
+                );
+            }
+
+            expect(seen.length).toBeGreaterThan(3);
+        });
+    }
+}
+
+test('the shell passes axe in the dark theme (AC14)', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.getByRole('link', { name: 'Inloggen' })).toBeVisible();
+    await expectNoA11yViolations(page, { allow: placeholderAllowList });
 });
