@@ -19,7 +19,7 @@ had (all of them must come back, in better form) and every mistake that must not
 | Product plan / roadmap | Done: `docs/plan.md` (Accepted); ADR-0005 and ADR-0006 Accepted; no open owner questions |
 | Design system | In progress: tokens implemented (TE-020 done, Direction A "Fjord", Figtree self-hosted); app shell design (TE-016) approved; component specs (TE-021) passed a11y audit, awaiting owner approval (`docs/design/system.md`, links in `docs/design/previews.md`) |
 | Scaffolding + Docker dev env | Done: TE-001 to TE-006 |
-| M0 build (remaining epics) | In progress: TE-007 to TE-028 written. Done: TE-007, TE-008 (SSR), TE-009, TE-010 (i18n), TE-011 (ADR-0002), TE-012 (production image), TE-015 (CSP + headers), TE-020 (tokens), TE-027 (PHP 8.5.12), TE-028 (image hardening). Next: TE-016 to TE-019 (app shell), TE-013/TE-014 (CI to GHCR), TE-024/TE-025 (Portainer compose + env), TE-022/TE-023 (after TE-021 approval), TE-026 (deploy, owner-gated) |
+| M0 build (remaining epics) | In progress: TE-007 to TE-029 written. Done: TE-007 to TE-013, TE-015, TE-016 (app shell), TE-020, TE-024 (production compose), TE-027, TE-028. Next: TE-017 to TE-019 (language/theme switch, error pages), TE-014 (GHCR publish, owner go-ahead), TE-025 (env file + secrets helper), TE-029 (hardening follow-ups), TE-022/TE-023 (after TE-021 approval), TE-026 (deploy, owner-gated) |
 
 Update this table when a phase changes.
 
