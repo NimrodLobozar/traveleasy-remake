@@ -23,7 +23,7 @@ hardened like production and removes everything it made, also on failure. It nev
 | Code | `composer install --no-dev --classmap-authoritative`; built client + SSR bundles; no `tests/`, `docs/`, `.git`, `.env`, `resources/js` |
 | User | uid/gid 10001. Code is root-owned and not writable by it. Writable: `storage/app` (volume), tmpfs paths below |
 | Env defaults | `APP_ENV=production`, `APP_DEBUG=false`, `INERTIA_DEVTOOLS_ENABLED=false`, `LOG_CHANNEL=stderr` |
-| Health check | `php healthcheck.php`: `GET 127.0.0.1:8080/up` with `Host:` of `APP_URL`; 15 s interval, 90 s start period. `/up` answers 200 only when the database answers a query (`App\Support\Health\DatabaseHealthCheck`), otherwise a generic 500 after one connection attempt (no framework retries), so the container turns unhealthy within 60 s of the DB going away (54 s measured on Docker Desktop, where the failing DNS lookup alone takes about 4 s) |
+| Health check | `php healthcheck.php`: `GET 127.0.0.1:8080/up` with `Host:` of `APP_URL`; 10 s interval, 5 s timeout, 3 retries, 90 s start period. `/up` answers 200 only when the database answers a query (`App\Support\Health\DatabaseHealthCheck`), otherwise a generic 500 after one connection attempt (no framework retries), so the container turns unhealthy within 60 s of the DB going away (38 s measured on Docker Desktop, where the failing DNS lookup alone takes about 4 s) |
 | Labels | OCI source, revision, version, created, licence (MIT) |
 
 ## Entrypoint roles (`traveleasy-entrypoint <role>`)

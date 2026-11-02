@@ -231,7 +231,7 @@ RUN set -eux; \
 USER 10001:10001
 EXPOSE 8080
 
-HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=3 \
+HEALTHCHECK --interval=10s --timeout=5s --start-period=90s --retries=3 \
     CMD ["php", "/usr/local/lib/traveleasy/healthcheck.php"]
 
 ENTRYPOINT ["traveleasy-entrypoint"]
