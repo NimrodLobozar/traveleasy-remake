@@ -245,15 +245,16 @@ tests and Playwright target-size checks.
 
 ```ts
 import { expectNoA11yViolations } from './axe';
-import { placeholderAllowList } from './a11y-allow-list';
 
-await page.goto('/login');
-await expectNoA11yViolations(page, { allow: placeholderAllowList });
+await page.goto('/');
+await expectNoA11yViolations(page); // WCAG 2.0/2.1/2.2 A + AA
+await expectNoA11yViolations(page, { bestPractice: true }); // structure rules + label-content-name-mismatch
 ```
 
-`tests/e2e/axe.ts` runs @axe-core/playwright with the shared tags and throws on any violation not on the allow-list,
-on an invalid or duplicate allow entry, and on an allow entry for this page that no longer matches a violation.
-`axe-helper.spec.ts` proves the helper against static fixtures (`tests/e2e/fixtures/`), so a broken axe setup can't
+`tests/e2e/axe.ts` runs @axe-core/playwright and throws on any violation. The `bestPractice` pass (TE-016 AC9) runs axe's
+best-practice rules (landmarks, heading order, skip link, region, ...) and the experimental `label-content-name-mismatch`,
+in two runs (axe lets `withTags` and `withRules` replace each other); no rule is disabled. Use both passes on shell
+pages. `axe-helper.spec.ts` proves the helper against static fixtures (`tests/e2e/fixtures/`), so a broken axe setup can't
 pass silently.
 
 **Needs-review attachment.** Incomplete results don't fail the test. They are attached to it as
@@ -262,23 +263,15 @@ pass silently.
 
 Wait for React before scanning: the Inertia root `#app` is empty in the server HTML (see `smoke.spec.ts`).
 
-### 5.4 The allow-list (starter-kit placeholders only)
+### 5.4 No allow-list (ended in TE-016)
 
-- **One central list.** `tests/e2e/a11y-allow-list.ts` (`placeholderAllowList`) is the **only** way to allow a
-  violation. `tests/e2e/allow-usage.test.ts` (Vitest, `e2e-rules` project) fails if any file under `tests/e2e/`
-  passes `allow:` with anything else (inline arrays, other lists, `{ allow }` shorthand, non-literal options). The
-  single exception is `axe-helper.spec.ts`, which proves the mechanism.
-- **One entry per rule id and page**, only for starter-kit placeholder pages.
-- **The reason names an epic** from `REMOVAL_EPICS` (`'App shell' | 'Design system'`, in `tests/e2e/a11y-allow.ts`):
-  `'starter-kit placeholder, remove in App shell'`. The union type rejects anything else at compile time;
-  `assertValidAllowEntries()` rejects an empty or unknown epic, a blank rule or page at runtime.
-- **No stale entries.** `tests/e2e/a11y-allow-list.spec.ts` visits every page on the list and fails if the page is
-  gone (not 200) or no longer has the allowed violation. The helper also fails on such an entry in any spec.
-- **It must end empty in the App shell epic** (`expect(placeholderAllowList).toHaveLength(0)`, after which the
-  `allow` option is removed from the helper). No entry may outlive that epic, whichever epic it names.
-- **Today:** one entry, `/` `color-contrast` (kit welcome page, grey text below 4.5:1), "remove in App shell".
-- Known gap (board, "Follow-ups for the frontend harness"): the usage scan misses computed keys (`['allow']`) and
-  `.js`/`.mjs` files. An entry also hides every node of that rule on that page (board, App shell notes).
+- The axe allow-list for starter-kit placeholders is gone. The `allow` option, `REMOVAL_EPICS`, `a11y-allow.ts` and the
+  allow-list spec were removed when the starter welcome page became the shell home page. A violation is fixed, never allowed.
+- `tests/e2e/a11y-allow-list.ts` keeps an empty `placeholderAllowList`. `tests/e2e/allow-usage.test.ts` (Vitest,
+  `e2e-rules` project) asserts `toHaveLength(0)` and scans every `.ts/.tsx/.js/.mjs/.cjs` file under `tests/e2e/` with the
+  TypeScript AST. Any property named `allow` (plain, quoted, `['allow']`, template or built computed key, shorthand),
+  `x.allow`, `x['allow']`, or helper options that aren't an object literal with only `bestPractice`, fails the run. Each
+  form is proven with a fixture.
 
 ## 6. Browser test runs (Playwright)
 
@@ -429,7 +422,7 @@ Vitest, next to the code in `resources/js/lib/i18n/`:
 - `resources/js/design/tokens.test.ts` (Vitest): WCAG contrast of every allowed text/background pair in light and dark (4.5:1 text; 3:1 for
   `--border`, including on surface-2, and the focus ring; `on-brand` on `--brand` for a highlighted option), the no-JS dark block equals the dark
   block, one reduced-motion block, rem type scale, self-hosted woff2 under 120 KB, and no raw hex colour outside `resources/css/tokens.css`
-  (allow-list in the test: starter-kit `welcome.tsx` until TE-016, the low-contrast fixture in `harness.test.tsx`). To allow a new pair, add it
+  (allow-list in the test: the low-contrast fixture in `harness.test.tsx`). To allow a new pair, add it
   to `allowedPairs`.
 - `tests/e2e/tokens.spec.ts` (Playwright): body 16 px / 24 px in Figtree with fonts served same-origin, dark tokens under `data-theme`, reduced
   motion durations, and the WCAG 1.4.12 text-spacing overrides (applied as a constructed stylesheet, which the strict CSP allows) at 320 and 1280 px.

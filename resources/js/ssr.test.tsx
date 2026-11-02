@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { layoutFor } from '@/lib/inertia-layout';
 import { pageTitle } from '@/lib/page-title';
 import { withProviders } from '@/lib/with-providers';
-import Welcome from '@/pages/welcome';
+import Home from '@/pages/home';
 
 const translations = (locale: string) =>
     JSON.parse(readFileSync(`lang/${locale}.json`, 'utf8')) as Record<
@@ -18,7 +18,7 @@ const translations = (locale: string) =>
     >;
 
 const pageFor = (locale: 'nl' | 'en') => ({
-    component: 'welcome',
+    component: 'home',
     props: {
         auth: { user: null },
         errors: {},
@@ -31,14 +31,14 @@ const pageFor = (locale: 'nl' | 'en') => ({
 });
 
 describe('server-side rendering of the app root', () => {
-    it('renders the welcome page to HTML without a browser', async () => {
+    it('renders the home page to HTML without a browser', async () => {
         expect(typeof window).toBe('undefined');
 
         // Same call as ssr.tsx; without `page`, on the server, it returns the page renderer.
         const renderPage = await createInertiaApp({
             title: pageTitle,
             layout: layoutFor,
-            resolve: () => Welcome,
+            resolve: () => Home,
             strictMode: true,
             withApp: withProviders,
         });
@@ -48,8 +48,9 @@ describe('server-side rendering of the app root', () => {
 
         const result = await renderPage(pageFor('en') as never, renderToString);
 
-        expect(result.body).toContain('Let&#x27;s get started');
+        expect(result.body).toContain('Find your next trip');
         expect(result.body).toContain('Log in');
+        expect(result.body).toContain('href="#main"');
         expect(result.body).toContain('data-page=');
     });
 
@@ -57,7 +58,7 @@ describe('server-side rendering of the app root', () => {
         const renderPage = await createInertiaApp({
             title: pageTitle,
             layout: layoutFor,
-            resolve: () => Welcome,
+            resolve: () => Home,
             strictMode: true,
             withApp: withProviders,
         });
@@ -68,9 +69,9 @@ describe('server-side rendering of the app root', () => {
         const first = await renderPage(pageFor('nl') as never, renderToString);
         const second = await renderPage(pageFor('nl') as never, renderToString);
 
-        expect(first.body).toContain('Aan de slag');
+        expect(first.body).toContain('Vind je volgende reis');
         expect(first.body).toContain('Inloggen');
-        expect(first.body).not.toContain('Let&#x27;s get started');
+        expect(first.body).not.toContain('Find your next trip');
         expect(second.body).toBe(first.body);
     });
 });

@@ -3,28 +3,25 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { describe, expect, it } from 'vite-plus/test';
-import { assertValidAllowEntries } from './a11y-allow';
-import type { A11yAllowEntry } from './a11y-allow';
 import { placeholderAllowList } from './a11y-allow-list';
 
-// Static checks on the browser-test code (TE-005 AC8a, AC8c). Runs in Vitest (`npm run test`,
-// project "e2e-rules"), not in Playwright: it needs no browser and no app.
+// Static checks on the browser-test code (TE-016 AC7, AC10; earlier TE-005 AC8). Runs in Vitest
+// (`npm run test`, project "e2e-rules"), not in Playwright: it needs no browser and no app.
+// The axe allow-list ended in TE-016: the helper has no `allow` option any more, and this scan
+// makes sure nobody brings one back.
 
 const e2eDir = fileURLToPath(new URL('.', import.meta.url));
-const CENTRAL_LIST = 'placeholderAllowList';
-// The one spec that proves the allow mechanism with its own entries.
-const EXEMPT_FILES = new Set(['axe-helper.spec.ts']);
+const SCANNED = /\.[cm]?[jt]sx?$/;
 
 /**
- * Where a file allows axe violations other than through placeholderAllowList:
- * - any `allow: <x>` property (or `{ allow }` shorthand) whose value isn't `placeholderAllowList`;
- * - any expectNoA11yViolations(page, options) call whose options aren't an object literal
- *   (a variable or spread could carry inline entries).
+ * Where a file brings back an axe allow option:
+ * - any property named `allow`: `allow: x`, `'allow': x`, `['allow']: x`, a template-literal key,
+ *   a shorthand `{ allow }`, or a computed key that isn't a plain literal (it could be built);
+ * - `x.allow` and `x['allow']`;
+ * - any expectNoA11yViolations(page, options) call whose options aren't an object literal made
+ *   of plain `bestPractice` properties.
  */
-export function findInlineAllowUsages(
-    fileName: string,
-    source: string,
-): string[] {
+export function findAllowUsages(fileName: string, source: string): string[] {
     const file = ts.createSourceFile(
         fileName,
         source,
@@ -32,32 +29,43 @@ export function findInlineAllowUsages(
         true,
     );
     const found: string[] = [];
-    const where = (node: ts.Node) => {
+    const report = (node: ts.Node, what: string) => {
         const { line } = file.getLineAndCharacterOfPosition(node.getStart());
-        return `${fileName}:${String(line + 1)}`;
+        found.push(`${fileName}:${String(line + 1)} ${what}`);
     };
-    const isAllowName = (name: ts.PropertyName) =>
-        (ts.isIdentifier(name) || ts.isStringLiteral(name)) &&
-        name.text === 'allow';
+    const isLiteral = (node: ts.Node): node is ts.StringLiteralLike =>
+        ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node);
 
     const visit = (node: ts.Node): void => {
-        if (
-            ts.isPropertyAssignment(node) &&
-            isAllowName(node.name) &&
-            !(
-                ts.isIdentifier(node.initializer) &&
-                node.initializer.text === CENTRAL_LIST
-            )
-        ) {
-            found.push(
-                `${where(node)} allow: ${node.initializer.getText(file)}`,
-            );
+        if (ts.isPropertyAssignment(node)) {
+            const { name } = node;
+            if (
+                (ts.isIdentifier(name) || ts.isStringLiteral(name)) &&
+                name.text === 'allow'
+            ) {
+                report(node, `allow key: ${name.getText(file)}`);
+            } else if (ts.isComputedPropertyName(name)) {
+                const inner = name.expression;
+                if (!isLiteral(inner) || inner.text === 'allow') {
+                    report(node, `computed key: ${name.getText(file)}`);
+                }
+            }
         }
         if (
             ts.isShorthandPropertyAssignment(node) &&
             node.name.text === 'allow'
         ) {
-            found.push(`${where(node)} { allow } shorthand`);
+            report(node, '{ allow } shorthand');
+        }
+        if (ts.isPropertyAccessExpression(node) && node.name.text === 'allow') {
+            report(node, '.allow access');
+        }
+        if (
+            ts.isElementAccessExpression(node) &&
+            isLiteral(node.argumentExpression) &&
+            node.argumentExpression.text === 'allow'
+        ) {
+            report(node, "['allow'] access");
         }
         if (
             ts.isCallExpression(node) &&
@@ -71,13 +79,15 @@ export function findInlineAllowUsages(
                     ts.isObjectLiteralExpression(options) &&
                     options.properties.every(
                         (property) =>
-                            ts.isPropertyAssignment(property) ||
-                            ts.isShorthandPropertyAssignment(property),
+                            ts.isPropertyAssignment(property) &&
+                            ts.isIdentifier(property.name) &&
+                            property.name.text === 'bestPractice',
                     )
                 )
             ) {
-                found.push(
-                    `${where(node)} options must be an object literal: ${options.getText(file)}`,
+                report(
+                    node,
+                    `options must be a literal with only bestPractice: ${options.getText(file)}`,
                 );
             }
         }
@@ -88,88 +98,89 @@ export function findInlineAllowUsages(
     return found;
 }
 
-function e2eSourceFiles(dir: string): string[] {
+function sourceFiles(dir: string): string[] {
     return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
         const path = join(dir, entry.name);
         if (entry.isDirectory()) {
-            return e2eSourceFiles(path);
+            return sourceFiles(path);
         }
-        return /\.[cm]?tsx?$/.test(entry.name) ? [path] : [];
+        return SCANNED.test(entry.name) ? [path] : [];
     });
 }
 
-describe('axe allow-list usage under tests/e2e (AC8a)', () => {
-    it('allows violations only through placeholderAllowList', () => {
-        const usages = e2eSourceFiles(e2eDir)
-            .filter((path) => !EXEMPT_FILES.has(relative(e2eDir, path)))
-            .flatMap((path) =>
-                findInlineAllowUsages(
-                    relative(e2eDir, path),
-                    readFileSync(path, 'utf8'),
-                ),
-            );
+/** Line numbers (as "name:line") of the findings, one per finding. */
+const lines = (found: string[]) => found.map((entry) => entry.split(' ')[0]);
+
+describe('no axe allow option under tests/e2e (TE-016 AC7, AC10)', () => {
+    it('keeps the allow-list empty', () => {
+        expect(placeholderAllowList).toHaveLength(0);
+    });
+
+    it('finds no allow option in any .ts, .tsx, .js, .mjs or .cjs file', () => {
+        const usages = sourceFiles(e2eDir).flatMap((path) =>
+            findAllowUsages(relative(e2eDir, path), readFileSync(path, 'utf8')),
+        );
 
         expect(usages).toEqual([]);
     });
 
-    it('detects inline entries, other lists, shorthands and opaque options', () => {
+    it('scans the file types that matter', () => {
+        for (const name of ['a.ts', 'a.tsx', 'a.js', 'a.mjs', 'a.cjs']) {
+            expect(SCANNED.test(name)).toBe(true);
+        }
+        expect(SCANNED.test('a.json')).toBe(false);
+    });
+
+    it('accepts the plain calls', () => {
         const source = [
-            `await expectNoA11yViolations(page, { allow: placeholderAllowList });`,
-            `await expectNoA11yViolations(page);`,
-            `await expectNoA11yViolations(page, { allow: [{ page: '/', rule: 'x', reason: 'r' }] });`,
-            `await expectNoA11yViolations(page, { allow: otherList });`,
-            `await expectNoA11yViolations(page, { allow });`,
-            `await expectNoA11yViolations(page, options);`,
-            `await expectNoA11yViolations(page, { ...options });`,
+            'await expectNoA11yViolations(page);',
+            'await expectNoA11yViolations(page, { bestPractice: true });',
         ].join('\n');
 
-        expect(findInlineAllowUsages('probe.spec.ts', source)).toEqual([
-            "probe.spec.ts:3 allow: [{ page: '/', rule: 'x', reason: 'r' }]",
-            'probe.spec.ts:4 allow: otherList',
-            'probe.spec.ts:5 { allow } shorthand',
-            'probe.spec.ts:6 options must be an object literal: options',
-            'probe.spec.ts:7 options must be an object literal: { ...options }',
-        ]);
-    });
-});
-
-describe('allow entry reasons (AC8c)', () => {
-    it('accepts the central list', () => {
-        expect(() => {
-            assertValidAllowEntries(placeholderAllowList);
-        }).not.toThrow();
+        expect(findAllowUsages('ok.spec.ts', source)).toEqual([]);
     });
 
-    it('rejects an empty, blank or unknown epic name', () => {
-        const entry = (reason: string) =>
-            ({
-                page: '/',
-                rule: 'color-contrast',
-                reason,
-            }) as unknown as A11yAllowEntry;
-
-        for (const reason of [
-            'starter-kit placeholder, remove in ',
-            'starter-kit placeholder, remove in    ',
-            'starter-kit placeholder, remove in someday',
-            'remove later',
-        ]) {
-            expect(() => {
-                assertValidAllowEntries([entry(reason)]);
-            }).toThrow(/Invalid a11y allow entry/);
+    it('detects each way of passing allow (fixtures)', () => {
+        const cases: [string, string][] = [
+            ['plain key', 'f(page, { allow: list });'],
+            ['string key', "f(page, { 'allow': list });"],
+            ['computed literal key', "f(page, { ['allow']: list });"],
+            ['template key', 'f(page, { [`allow`]: list });'],
+            ['built key', "f(page, { ['al' + 'low']: list });"],
+            ['variable key', 'f(page, { [key]: list });'],
+            ['shorthand', 'f(page, { allow });'],
+            ['property read', 'const a = options.allow;'],
+            ['element read', "const a = options['allow'];"],
+        ];
+        for (const [name, code] of cases) {
+            const found = findAllowUsages('probe.spec.ts', code);
+            expect(found.length, name).toBeGreaterThan(0);
+            expect(lines(found)[0], name).toBe('probe.spec.ts:1');
         }
     });
 
-    it('rejects a blank epic name at the type level too', () => {
-        const blank: A11yAllowEntry = {
-            page: '/',
-            rule: 'color-contrast',
-            // @ts-expect-error -- the epic must be one of REMOVAL_EPICS, not blank
-            reason: 'starter-kit placeholder, remove in  ',
-        };
+    it('detects opaque or extra options on the helper call', () => {
+        const source = [
+            'await expectNoA11yViolations(page, options);',
+            'await expectNoA11yViolations(page, { ...options });',
+            'await expectNoA11yViolations(page, { other: true });',
+        ].join('\n');
 
-        expect(() => {
-            assertValidAllowEntries([blank]);
-        }).toThrow(/Invalid a11y allow entry/);
+        expect(lines(findAllowUsages('probe.spec.ts', source))).toEqual([
+            'probe.spec.ts:1',
+            'probe.spec.ts:2',
+            'probe.spec.ts:3',
+        ]);
+    });
+
+    it('parses plain JavaScript files too (.js, .mjs)', () => {
+        for (const name of ['probe.js', 'probe.mjs']) {
+            const found = findAllowUsages(
+                name,
+                "await expectNoA11yViolations(page, { ['allow']: list });",
+            );
+
+            expect(found.length, name).toBeGreaterThan(0);
+        }
     });
 });

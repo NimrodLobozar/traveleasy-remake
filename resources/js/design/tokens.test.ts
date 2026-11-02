@@ -246,11 +246,9 @@ const skipDirs = new Set([
     'types',
     'node_modules',
 ]);
-// welcome.tsx: starter-kit page, replaced by the home placeholder in TE-016.
 // harness.test.tsx: a deliberately low-contrast fixture for the axe harness test.
 // tokens.test.ts: this file names no hex, but keep it out of its own scan.
 const hexAllowList = new Set([
-    'resources/js/pages/welcome.tsx',
     'resources/js/test/harness.test.tsx',
     'resources/js/design/tokens.test.ts',
 ]);

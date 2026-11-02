@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { placeholderAllowList } from './a11y-allow-list';
 import { expectNoA11yViolations } from './axe';
 
 // Smoke journey on the running dev app (TE-005 AC6, AC7).
@@ -28,7 +27,7 @@ test('home page renders with React and passes axe', async ({ page }) => {
     expect(response?.status()).toBe(200);
     // The Inertia root is empty in the server HTML; this link only exists once React rendered.
     await expect(page.getByRole('link', { name: 'Inloggen' })).toBeVisible();
-    await expectNoA11yViolations(page, { allow: placeholderAllowList });
+    await expectNoA11yViolations(page);
     expect(problems).toEqual([]);
 });
 
@@ -41,7 +40,7 @@ test('login page renders the form with React and passes axe', async ({
 
     expect(response?.status()).toBe(200);
     await expect(page.getByLabel('E-mailadres')).toBeVisible();
-    await expectNoA11yViolations(page, { allow: placeholderAllowList });
+    await expectNoA11yViolations(page);
     expect(problems).toEqual([]);
 });
 

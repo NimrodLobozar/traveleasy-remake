@@ -211,7 +211,7 @@ test('AC4 when the SSR server is down, / still renders client-side with 200 and 
         ->assertDontSee('cURL error', false)
         ->assertDontSee('Connection refused', false)
         ->assertDontSee('ssr.test', false);
-    expect(te007BrowserPage($response))->toMatchArray(['component' => 'welcome', 'url' => '/']);
+    expect(te007BrowserPage($response))->toMatchArray(['component' => 'home', 'url' => '/']);
     Http::assertSentCount(1);
 });
 
@@ -224,7 +224,7 @@ test('AC4 when the SSR render fails, / renders client-side with 200 and no stack
             'browserApi' => 'window',
             'hint' => 'Wrap browser-specific code in a useEffect lifecycle hook.',
             'stack' => "ReferenceError: window is not defined\n    at render (/var/www/html/bootstrap/ssr/ssr.js:12:7)",
-            'sourceLocation' => 'resources/js/pages/welcome.tsx:12:7',
+            'sourceLocation' => 'resources/js/pages/home.tsx:12:7',
         ], 500),
     ]);
 
@@ -246,7 +246,7 @@ test('a failed SSR render is logged without page props, URL, error message or st
             'error' => 'Cannot read te007_fake_secret of undefined',
             'type' => 'render',
             'stack' => 'TypeError: Cannot read te007_fake_secret',
-            'sourceLocation' => 'resources/js/pages/welcome.tsx:3:1',
+            'sourceLocation' => 'resources/js/pages/home.tsx:3:1',
         ], 500),
     ]);
     /** @var list<MessageLogged> $logged */
@@ -264,9 +264,9 @@ test('a failed SSR render is logged without page props, URL, error message or st
     expect($entry->level)->toBe('warning')
         ->and($entry->context)->toBe([
             'type' => 'render',
-            'component' => 'welcome',
+            'component' => 'home',
             'browser_api' => null,
-            'source_location' => 'resources/js/pages/welcome.tsx:3:1',
+            'source_location' => 'resources/js/pages/home.tsx:3:1',
         ])
         ->and(json_encode([$entry->message, $entry->context]))->not->toContain('te007_fake');
 });
