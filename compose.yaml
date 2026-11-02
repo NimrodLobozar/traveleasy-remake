@@ -187,8 +187,9 @@ services:
             SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
             CACHE_STORE: database
             QUEUE_CONNECTION: database
-            # The CIDR of npm_shared (or NPM's IP): only these peers may set X-Forwarded-*. Never * and never empty-means-all.
-            TRUSTED_PROXIES: ${TRUSTED_PROXIES:?TRUSTED_PROXIES is required (the CIDR or IP of npm_shared, see docs/deploy/casaos-portainer.md)}
+            # NPM's single FIXED IP on npm_shared: only that peer may set X-Forwarded-*. Never the network CIDR, never * and
+            # never empty-means-all (the production boot check refuses ranges).
+            TRUSTED_PROXIES: ${TRUSTED_PROXIES:?TRUSTED_PROXIES is required (the fixed IP of Nginx Proxy Manager on npm_shared, see docs/deploy/casaos-portainer.md)}
             INERTIA_SSR_ENABLED: ${INERTIA_SSR_ENABLED:-true}
             INERTIA_SSR_URL: ${INERTIA_SSR_URL:-http://ssr:13714}
             INERTIA_SSR_TIMEOUT: ${INERTIA_SSR_TIMEOUT:-2}

@@ -30,8 +30,13 @@ MUST declare `depends_on: app: condition: service_healthy`, so they never run ne
 1. **The network `npm_shared` must exist.** It is created by your NPM stack. Check in a CasaOS terminal (or Portainer ->
    Networks): `docker network ls | grep npm_shared`. If the stack deploys without it, Docker stops with
    `network npm_shared declared as external, but could not be found`; fix the network, then redeploy.
-2. **Read its address range** for `TRUSTED_PROXIES`: `docker network inspect npm_shared --format '{{(index .IPAM.Config 0).Subnet}}'`
-   (for example `172.20.0.0/16`). Only these addresses may set `X-Forwarded-*`. Never use `*` or a `/0` range: the app refuses to start.
+2. **Give NPM a fixed IP on `npm_shared`** and read it. `TRUSTED_PROXIES` is that **single IP**, never the network range: trusting
+   the whole range (including Docker's gateway) would let a neighbouring container or a request through the gateway spoof client IPs.
+   In NPM's own stack, set the address under its service, for example
+   `networks: { npm_shared: { ipv4_address: 172.20.0.2 } }` (pick a free address inside the subnet shown by
+   `docker network inspect npm_shared --format '{{(index .IPAM.Config 0).Subnet}}'`; the network needs an explicit subnet), then redeploy NPM.
+   Read the result: `docker inspect <npm container> --format '{{(index .NetworkSettings.Networks "npm_shared").IPAddress}}'`.
+   The app refuses to start in production when `TRUSTED_PROXIES` is `*` or a range wider than a single address.
 3. **Generate the secrets** (interim commands; TE-025 replaces them with one helper). Run them anywhere with OpenSSL, for
    example in Git Bash, and keep the output for the next step only:
    - `DB_SUPERUSER_PASSWORD`: `openssl rand -hex 24`
@@ -46,7 +51,7 @@ MUST declare `depends_on: app: condition: service_healthy`, so they never run ne
    from your PC (or switch to the advanced mode and paste its lines). Then edit these values:
    - `APP_IMAGE_TAG`: the released tag you deploy, for example `v0.1.0` (never `latest`).
    - `APP_URL`: the public https address NPM serves, for example `https://traveleasy.example.com`.
-   - `TRUSTED_PROXIES`: the range from step 2 above.
+   - `TRUSTED_PROXIES`: NPM's fixed IP from step 2 above.
    - `DB_SUPERUSER_PASSWORD`, `DB_PASSWORD`, `APP_KEY`: the three secrets.
 4. Click **Deploy the stack**. Portainer reports an error naming the variable if a required one is empty.
 5. Open **Containers**. Within about 2 minutes `db`, `ssr` and `app` are `healthy` and `db-init` is `exited (0)`.
@@ -84,7 +89,7 @@ a message that names them.
 | `APP_KEY` | yes, secret | empty | Laravel key (`base64:...`) |
 | `DB_SUPERUSER_PASSWORD` | yes, secret | empty | PostgreSQL superuser; only `db` and `db-init` get it |
 | `DB_PASSWORD` | yes, secret | empty | password of the app role; rotate by changing it and redeploying (`db-init` applies it) |
-| `TRUSTED_PROXIES` | yes | empty | CIDR or IP of `npm_shared` |
+| `TRUSTED_PROXIES` | yes | empty | the single fixed IP of NPM on `npm_shared` (no ranges in production) |
 | `DB_USERNAME`, `DB_DATABASE` | no | `traveleasy_app`, `traveleasy` | app role and database name |
 | `SESSION_SECURE_COOKIE` | no | `true` | keep `true` behind https |
 | `LOG_LEVEL`, `APP_LOCALE`, `APP_NAME` | no | `warning`, `nl`, `TravelEasy` | |
@@ -131,11 +136,11 @@ In Portainer, **Remove** the stack and leave **Remove associated volumes** **off
 | Deploy error `required variable X is missing a value` | fill `X` in the stack's environment variables |
 | `network npm_shared declared as external, but could not be found` | the NPM network has another name or is missing; see "Before the first deploy" |
 | `db-init` exited with an error | `DB_SUPERUSER_PASSWORD` differs from the one the database was created with; use the original value (it is only applied on first creation) |
-| `app` restarts with `Refusing to start: ...` | the message names the variable (`APP_KEY`, `TRUSTED_PROXIES`, `APP_DEBUG`) |
+| `app` restarts with `Refusing to start: ...` | the message names the variable (`APP_KEY`, `TRUSTED_PROXIES` (a range or `*`), `APP_DEBUG`) |
 | `app` healthy but NPM shows 502 | proxy host must target `traveleasy-app:8080` (http), and NPM must be on `npm_shared` |
 | Login loops or "page expired" over http | `SESSION_SECURE_COOKIE=true` needs https end to end; see the NPM section |
 | `ssr` unhealthy | the site still works (client-side rendering); read the `ssr` logs, then restart only that service |
-| Wrong client addresses in logs | `TRUSTED_PROXIES` does not match the `npm_shared` range |
+| Wrong client addresses in logs | `TRUSTED_PROXIES` is not NPM's current IP (was NPM recreated without a fixed IP?) |
 
 ## Verifying the stack without Portainer
 

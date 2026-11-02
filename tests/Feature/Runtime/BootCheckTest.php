@@ -38,9 +38,22 @@ function bootCheck(TestCase $case): PendingCommand
 }
 
 test('a safe production configuration passes', function () {
-    bootAs('production', ['security.trusted_proxies' => '172.18.0.0/16']);
+    bootAs('production', ['security.trusted_proxies' => '172.18.0.2']);
 
     bootCheck($this)->assertExitCode(0)->expectsOutputToContain('Boot check passed');
+});
+
+test('production accepts a /32 and refuses a network range for TRUSTED_PROXIES', function () {
+    bootAs('production', ['security.trusted_proxies' => '172.18.0.2/32']);
+    bootCheck($this)->assertExitCode(0);
+
+    foreach (['172.18.0.0/16', '172.18.0.2, 10.0.0.0/8', 'fd00::/64'] as $range) {
+        bootAs('production', ['security.trusted_proxies' => $range]);
+        bootCheck($this)->assertExitCode(1)->expectsOutputToContain('Refusing to start: TRUSTED_PROXIES contains a network range');
+    }
+
+    bootAs('local', ['security.trusted_proxies' => '172.18.0.0/16']);
+    bootCheck($this)->assertExitCode(0);
 });
 
 test('production with APP_DEBUG=true refuses to start with a clear message', function () {

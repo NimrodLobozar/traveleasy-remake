@@ -29,6 +29,7 @@ check() { local d="$1"; shift; if "$@" >/dev/null 2>&1; then pass "$d"; else fai
 
 cleanup() {
     dc down -v --remove-orphans >/dev/null 2>&1 || true
+    docker rm -f "${RUN}-proxy" >/dev/null 2>&1 || true
     docker network rm "$NET" >/dev/null 2>&1 || true
     rm -rf "$WORK"
 }
@@ -36,9 +37,12 @@ trap cleanup EXIT
 
 sed -e "s#ghcr.io/nimrodlobozar/traveleasy#${REPO}#" -e "s#name: npm_shared#name: ${NET}#" compose.yaml > "$WORK/compose.yaml"
 docker network create "$NET" >/dev/null || { echo "cannot create the throwaway network"; exit 1; }
-CIDR="$(docker network inspect "$NET" --format '{{(index .IPAM.Config 0).Subnet}}')"
+# Stand-in for Nginx Proxy Manager: a container on the network; TRUSTED_PROXIES is its single IP (never the range).
+PROXY="${RUN}-proxy"
+docker run -d --name "$PROXY" --network "$NET" --read-only --tmpfs /tmp:mode=1777 --cap-drop ALL "$IMAGE" sleep 900 >/dev/null || { echo "cannot start the proxy stand-in"; exit 1; }
+PROXY_IP="$(docker inspect "$PROXY" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')"
 
-export APP_IMAGE_TAG="$TAG" APP_URL="https://te024.test" TRUSTED_PROXIES="$CIDR"
+export APP_IMAGE_TAG="$TAG" APP_URL="https://te024.test" TRUSTED_PROXIES="$PROXY_IP"
 export DB_SUPERUSER_PASSWORD="su-$(openssl rand -hex 12)" DB_PASSWORD="ap-$(openssl rand -hex 12)"
 export APP_KEY="base64:$(openssl rand -base64 32)"
 
@@ -54,7 +58,9 @@ for s in "$APP" "$SSR" "$DB"; do
         "docker inspect $s --format '{{.HostConfig.ReadonlyRootfs}} {{.HostConfig.CapDrop}} {{.HostConfig.SecurityOpt}} {{.HostConfig.Memory}} {{.HostConfig.MemorySwap}}' | grep -Eq '^true \[ALL\] \[no-new-privileges:true\] ([0-9]+) \1$'"
 done
 check "no container publishes a host port" bash -c "! docker ps --filter name=$RUN --format '{{.Ports}}' | grep -q -- '->'"
-check "only app is on the npm network" bash -c "[ \"\$(docker network inspect $NET --format '{{len .Containers}}')\" = 1 ] && docker network inspect $NET --format '{{range .Containers}}{{.Name}}{{end}}' | grep -q '^$APP\$'"
+check "only app (plus the proxy stand-in) is on the npm network" bash -c "docker network inspect $NET --format '{{range .Containers}}{{.Name}} {{end}}' | tr ' ' '
+' | grep -v '^$' | sort | tr '
+' ' ' | grep -qx '$APP $PROXY '"
 check "app has the alias traveleasy-app" bash -c "docker inspect $APP --format '{{json .NetworkSettings.Networks}}' | grep -q traveleasy-app"
 
 echo "== database roles"
@@ -85,7 +91,8 @@ $body = (string) @file_get_contents('http://traveleasy-app:8080'.$argv[1], false
 echo implode("\n", $http_response_header ?? ['no response']), "\n";
 echo str_contains($body, 'data-server-rendered') ? "SSR=yes\n" : "SSR=no\n";
 PHP
-probe() { docker run --rm --network "$NET" -v "$NATIVE/probe.php:/probe.php:ro" "$IMAGE" php /probe.php "$1" 2>&1; }
+docker exec -i "$PROXY" sh -c 'cat > /tmp/probe.php' < "$WORK/probe.php"
+probe() { docker exec "$PROXY" php /tmp/probe.php "$1" 2>&1; }
 probe / > "$WORK/home.txt"
 check "home page: 200 and server-rendered" bash -c "grep -q '^HTTP/1.1 200' '$WORK/home.txt' && grep -q 'SSR=yes' '$WORK/home.txt'"
 check "session cookie is Secure and HttpOnly" bash -c "grep -i '^Set-Cookie: .*session' '$WORK/home.txt' | grep -qi 'secure' && grep -i '^Set-Cookie: .*session' '$WORK/home.txt' | grep -qi 'httponly'"
