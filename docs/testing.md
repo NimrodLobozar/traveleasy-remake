@@ -245,15 +245,16 @@ tests and Playwright target-size checks.
 
 ```ts
 import { expectNoA11yViolations } from './axe';
-import { placeholderAllowList } from './a11y-allow-list';
 
-await page.goto('/login');
-await expectNoA11yViolations(page, { allow: placeholderAllowList });
+await page.goto('/');
+await expectNoA11yViolations(page); // WCAG 2.0/2.1/2.2 A + AA
+await expectNoA11yViolations(page, { bestPractice: true }); // structure rules + label-content-name-mismatch
 ```
 
-`tests/e2e/axe.ts` runs @axe-core/playwright with the shared tags and throws on any violation not on the allow-list,
-on an invalid or duplicate allow entry, and on an allow entry for this page that no longer matches a violation.
-`axe-helper.spec.ts` proves the helper against static fixtures (`tests/e2e/fixtures/`), so a broken axe setup can't
+`tests/e2e/axe.ts` runs @axe-core/playwright and throws on any violation. The `bestPractice` pass (TE-016 AC9) runs axe's
+best-practice rules (landmarks, heading order, skip link, region, ...) and the experimental `label-content-name-mismatch`,
+in two runs (axe lets `withTags` and `withRules` replace each other); no rule is disabled. Use both passes on shell
+pages. `axe-helper.spec.ts` proves the helper against static fixtures (`tests/e2e/fixtures/`), so a broken axe setup can't
 pass silently.
 
 **Needs-review attachment.** Incomplete results don't fail the test. They are attached to it as
@@ -262,23 +263,15 @@ pass silently.
 
 Wait for React before scanning: the Inertia root `#app` is empty in the server HTML (see `smoke.spec.ts`).
 
-### 5.4 The allow-list (starter-kit placeholders only)
+### 5.4 No allow-list (ended in TE-016)
 
-- **One central list.** `tests/e2e/a11y-allow-list.ts` (`placeholderAllowList`) is the **only** way to allow a
-  violation. `tests/e2e/allow-usage.test.ts` (Vitest, `e2e-rules` project) fails if any file under `tests/e2e/`
-  passes `allow:` with anything else (inline arrays, other lists, `{ allow }` shorthand, non-literal options). The
-  single exception is `axe-helper.spec.ts`, which proves the mechanism.
-- **One entry per rule id and page**, only for starter-kit placeholder pages.
-- **The reason names an epic** from `REMOVAL_EPICS` (`'App shell' | 'Design system'`, in `tests/e2e/a11y-allow.ts`):
-  `'starter-kit placeholder, remove in App shell'`. The union type rejects anything else at compile time;
-  `assertValidAllowEntries()` rejects an empty or unknown epic, a blank rule or page at runtime.
-- **No stale entries.** `tests/e2e/a11y-allow-list.spec.ts` visits every page on the list and fails if the page is
-  gone (not 200) or no longer has the allowed violation. The helper also fails on such an entry in any spec.
-- **It must end empty in the App shell epic** (`expect(placeholderAllowList).toHaveLength(0)`, after which the
-  `allow` option is removed from the helper). No entry may outlive that epic, whichever epic it names.
-- **Today:** one entry, `/` `color-contrast` (kit welcome page, grey text below 4.5:1), "remove in App shell".
-- Known gap (board, "Follow-ups for the frontend harness"): the usage scan misses computed keys (`['allow']`) and
-  `.js`/`.mjs` files. An entry also hides every node of that rule on that page (board, App shell notes).
+- The axe allow-list for starter-kit placeholders is gone. The `allow` option, `REMOVAL_EPICS`, `a11y-allow.ts` and the
+  allow-list spec were removed when the starter welcome page became the shell home page. A violation is fixed, never allowed.
+- `tests/e2e/a11y-allow-list.ts` keeps an empty `placeholderAllowList`. `tests/e2e/allow-usage.test.ts` (Vitest,
+  `e2e-rules` project) asserts `toHaveLength(0)` and scans every `.ts/.tsx/.js/.mjs/.cjs` file under `tests/e2e/` with the
+  TypeScript AST. Any property named `allow` (plain, quoted, `['allow']`, template or built computed key, shorthand),
+  `x.allow`, `x['allow']`, or helper options that aren't an object literal with only `bestPractice`, fails the run. Each
+  form is proven with a fixture.
 
 ## 6. Browser test runs (Playwright)
 
@@ -429,7 +422,7 @@ Vitest, next to the code in `resources/js/lib/i18n/`:
 - `resources/js/design/tokens.test.ts` (Vitest): WCAG contrast of every allowed text/background pair in light and dark (4.5:1 text; 3:1 for
   `--border`, including on surface-2, and the focus ring; `on-brand` on `--brand` for a highlighted option), the no-JS dark block equals the dark
   block, one reduced-motion block, rem type scale, self-hosted woff2 under 120 KB, and no raw hex colour outside `resources/css/tokens.css`
-  (allow-list in the test: starter-kit `welcome.tsx` until TE-016, the low-contrast fixture in `harness.test.tsx`). To allow a new pair, add it
+  (allow-list in the test: the low-contrast fixture in `harness.test.tsx`). To allow a new pair, add it
   to `allowedPairs`.
 - `tests/e2e/tokens.spec.ts` (Playwright): body 16 px / 24 px in Figtree with fonts served same-origin, dark tokens under `data-theme`, reduced
   motion durations, and the WCAG 1.4.12 text-spacing overrides (applied as a constructed stylesheet, which the strict CSP allows) at 320 and 1280 px.
@@ -465,25 +458,44 @@ security advisories** (TE-003 AC13). On every dependency update:
 3. Plan: move to vite-plus 1.x with a plain `vite` dependency when the Laravel React starter kit does, then drop this
    check (the note also sits in `package.json` under `"//"`).
 
-## 8. Planned CI gates
+## 8. CI gates (TE-013)
 
-**Not wired yet** (CI/CD epic). From `docs/plan.md` § 2, milestone DoD row 2, CI on `main` must be green on:
+`.github/workflows/ci.yml` runs on every push and on pull requests to `main`. It uses the same Docker flow as local
+work: it builds the dev image, writes a `.env` with a random masked database password and starts `db`, `app` and `vite`.
+The token is read-only (`contents: read`), no secrets are used (fork PRs behave the same) and every action is pinned by
+commit SHA. Nothing is published: building, scanning and pushing the image is TE-014.
 
-- [ ] Pint (`composer lint`)
-- [ ] Larastan (`composer analyse`)
-- [ ] ESLint → in our stack oxlint (`npm run lint`)
-- [ ] Prettier → in our stack oxfmt (`npm run format:check`)
-- [ ] `tsc --noEmit` (`npm run types`)
-- [ ] Pest (`composer test`)
-- [ ] Vitest (`npm run test`)
-- [ ] Playwright + axe, **against the SSR build**
-- [ ] `composer audit`
-- [ ] `npm audit` (plus the manual Vite advisory check above)
-- [ ] Trivy image scan (no unaccepted High/Critical)
+| Job | Step (name in the run summary) | Command |
+|---|---|---|
+| `workflows` | actionlint (pinned container) | `docker run rhysd/actionlint:<version>@sha256:<digest>` |
+| `compose` | production file validates; a missing secret fails naming it; production guards; dev files validate | `docker compose -f compose.yaml --env-file deploy/portainer.env.example config`, `scripts/ci/compose-guard.mjs` |
+| `quality` | Pint | `composer lint` |
+| | Larastan (max, no baseline) | `composer analyse` |
+| | Pest on PostgreSQL | `composer test` |
+| | oxlint, oxfmt check, `tsc`, i18n check | `npm run check` |
+| | Vitest (includes the `ci-scripts` project) | `npm run test` |
+| | client + SSR build | `npm run build` |
+| | `php artisan optimize` | then `optimize:clear` |
+| | SSR smoke (up and down) | `bash scripts/dev-ssr.sh smoke` (calls `node scripts/ssr-smoke.mjs --mode on|down`) |
+| | Playwright + axe against the SSR build | `docker compose --profile ssr run --rm -e CI=true -e E2E_REQUIRE_SSR=1 e2e` |
+| | `composer audit`, `npm audit` | `scripts/ci/audit-gate.mjs`; production dependencies must have 0 advisories |
 
-Also in the M0 CI scope (`docs/plan.md` § 4): client + SSR build, `php artisan optimize` (proves `route:cache`
-works), an SSR smoke test, the `linux/amd64` image build and push to GHCR. CI blocks the image publish when any gate
-fails. Notes for that epic are on the board ("Notes for the CI/CD epic").
+- **Compose guards** (`scripts/ci/compose-guard.mjs`, tests in `scripts/ci/compose-guard.test.mjs`) read the rendered production
+  model and fail on: an `adminer` service, any `ports:`, an initdb mount, bind mounts, `build:`, `env_file`, a `latest` or
+  untagged image, any service but `app` on `npm_shared`, a `default` network that is not internal, missing `cap_drop: [ALL]`,
+  `no-new-privileges`, read-only root, limits or log caps, secrets in `ssr`, and the superuser password outside `db`/`db-init`.
+- **Audit triage** (`.github/audit-ignore.json`): high and critical advisories fail the run unless listed with a reason, a
+  review date and an expiry date (expired entries fail again). Medium and low are printed only. Today the entries cover the
+  dev-only `undici` (via jsdom) and `launch-editor` advisories. The `vite` alias hides Vite advisories from `npm audit`:
+  that check stays manual (see § 7).
+- **Artifacts:** the Playwright report and traces are uploaded only when the job fails, kept 2 days, as workflow artifacts
+  (never release assets).
+- **No external origins in browser tests:** Chromium runs with `--host-resolver-rules` that resolve only `localhost` and
+  `127.0.0.1`, so any request to another origin fails (console error, failed request).
+- **Image pin:** the Playwright image in `compose.dev.yaml` is pinned by tag and digest (`PlaywrightImageVersionSyncTest`).
+  Dependabot (`.github/dependabot.yml`) proposes weekly grouped updates for Actions, Composer, npm and Docker; Playwright
+  itself is excluded and bumped by hand together with its image.
+- Not in CI yet: Trivy and the image build (TE-014), a CI job that starts the production stack (needs the published image).
 
 ## 9. Known limits of the arch scans
 

@@ -14,7 +14,8 @@ use InvalidArgumentException;
  * or the pass-through for one-off commands (ADR-0002 D3), so the secrets helper of TE-025 can run without a key.
  *
  * In production: APP_DEBUG must be off and APP_KEY must be a valid key for the configured cipher.
- * In every environment: TRUSTED_PROXIES must be specific addresses (never `*`).
+ * In every environment: TRUSTED_PROXIES must be specific addresses (never `*`). In production it must be single
+ * IPs (NPM's fixed IP on npm_shared), not network ranges.
  * Messages name the variable, never its value.
  */
 final readonly class ProductionBootCheck
@@ -60,7 +61,17 @@ final readonly class ProductionBootCheck
         }
 
         try {
-            TrustedProxies::parse($this->trustedProxies);
+            $proxies = TrustedProxies::parse($this->trustedProxies);
+
+            if ($this->production) {
+                foreach ($proxies->addresses as $address) {
+                    if (preg_match('#/(\d+)\z#', $address, $match) === 1 && (int) $match[1] < (str_contains($address, ':') ? 128 : 32)) {
+                        $violations[] = 'TRUSTED_PROXIES contains a network range. In production set the single fixed IP of '
+                            .'Nginx Proxy Manager on npm_shared (a plain IP or /32), not the whole network (ADR-0002 D6).';
+                        break;
+                    }
+                }
+            }
         } catch (InvalidArgumentException $e) {
             $violations[] = $e->getMessage();
         }

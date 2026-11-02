@@ -37,8 +37,8 @@ hardened like production and removes everything it made, also on failure. It nev
 
 **Boot check** (`php artisan traveleasy:boot-check`, TE-012 AC8): the `app`, `worker` and `scheduler` roles exit 1 before
 the DB wait, with a `Refusing to start: …` line per problem, when `APP_ENV=production` and `APP_DEBUG=true`, when `APP_KEY`
-is empty or not a valid key for the cipher, or when `TRUSTED_PROXIES` is not a list of specific IPs/CIDRs (`*`, `**`,
-`REMOTE_ADDR`, `/0`). Messages name the variable, never its value. The `ssr` role and the pass-through never run it.
+is empty or not a valid key for the cipher, or when `TRUSTED_PROXIES` is not a list of specific IPs (`*`, `**`,
+`REMOTE_ADDR` and `/0` are refused everywhere; in production any network range is refused too). Messages name the variable, never its value. The `ssr` role and the pass-through never run it.
 
 **Failed migration** (AC7): `migrate --force` failing stops the `app` role with exit 1 and the migration error before
 FrankenPHP starts, so a half-migrated app never serves. `verify.sh` proves it against a database with a conflicting table.
@@ -53,8 +53,8 @@ config contains secrets. The build only proves that `optimize` works and discard
 
 ## Behind Nginx Proxy Manager (AC12, ADR-0002 D6)
 
-`TRUSTED_PROXIES` is a comma-separated list of IPs or CIDR ranges: the CIDR of `npm_shared`
-(`docker network inspect npm_shared`) or NPM's single IP. Empty means no proxy is trusted. Only `X-Forwarded-For`,
+In production `TRUSTED_PROXIES` is NPM's single fixed IP on `npm_shared` (set `ipv4_address` in NPM's stack, read it with
+`docker inspect`; see `casaos-portainer.md`), never the network CIDR. Dev and tests may still use ranges. Empty means no proxy is trusted. Only `X-Forwarded-For`,
 `-Proto` and `-Port` are honoured, and only from those addresses (`App\Http\Middleware\TrustProxies`); `X-Forwarded-Host`,
 `-Prefix` and `Forwarded` never are. With `X-Forwarded-Proto: https` from NPM, generated URLs (routes, `asset()`, Vite) are
 https. A wildcard value makes the boot check refuse to start and the middleware refuse to serve.

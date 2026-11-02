@@ -41,6 +41,14 @@ export default defineConfig({
         timezoneId: 'Europe/Amsterdam',
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
+        // No runtime CDNs (TE-013 AC8): Chromium resolves nothing but localhost, so a request to any other
+        // origin fails with ERR_NAME_NOT_RESOLVED (a console error and a failed request) instead of leaving
+        // the machine. The allow-list is empty on purpose.
+        launchOptions: {
+            args: [
+                '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1',
+            ],
+        },
     },
     projects: [
         {

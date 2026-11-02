@@ -1,0 +1,152 @@
+import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expectNoA11yViolations } from './axe';
+
+// QA additions for TE-016: English shell (AC1, AC2, AC5, AC9), 400% zoom (AC6), live region
+// announcing once (AC3) and scroll restore on back navigation (AC4).
+
+async function openHome(page: Page): Promise<void> {
+    await page.goto('/');
+    await expect(page.locator('h1')).toBeVisible();
+    await page.waitForLoadState('networkidle');
+}
+
+test.describe('English shell', () => {
+    test.use({ locale: 'en-GB' });
+
+    test('has English landmarks, skip link and passes both axe passes', async ({
+        page,
+    }) => {
+        await openHome(page);
+        await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+        await expect(
+            page.getByRole('navigation', { name: 'Main menu' }),
+        ).toHaveCount(1);
+        await expectNoA11yViolations(page);
+        await expectNoA11yViolations(page, { bestPractice: true });
+        await page.setViewportSize({ width: 320, height: 700 });
+        await expectNoA11yViolations(page, { bestPractice: true });
+        await page.keyboard.press('Tab');
+        await expect(
+            page.getByRole('link', { name: 'Skip to main content' }),
+        ).toBeFocused();
+    });
+});
+
+test('400% zoom (320 CSS px wide) has no horizontal scrolling with the menu open', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 320, height: 256 });
+    await openHome(page);
+    await page.getByRole('button', { name: 'Menu' }).click();
+    const overflow = await page.evaluate(
+        () =>
+            document.documentElement.scrollWidth -
+            document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test('announces the new title exactly once and restores scroll on back', async ({
+    page,
+}) => {
+    await openHome(page);
+    await page.evaluate(() => {
+        const w = window as unknown as { __texts: string[] };
+        w.__texts = [];
+        const out = document.querySelector('[data-testid="route-announcer"]');
+        new MutationObserver(() => {
+            if (out?.textContent) w.__texts.push(out.textContent);
+        }).observe(out as Node, {
+            childList: true,
+            characterData: true,
+            subtree: true,
+        });
+        window.scrollTo(0, 250);
+    });
+    const before = await page.evaluate(() => window.scrollY);
+    expect(before).toBeGreaterThan(0);
+    // dispatchEvent, not click(): click() first scrolls the (non-sticky) header back into view,
+    // which would reset scrollY to 0 before the page is left.
+    await page
+        .getByRole('link', { name: 'Inloggen' })
+        .first()
+        .dispatchEvent('click');
+    await expect(page).toHaveURL(/\/login$/);
+    await page.waitForTimeout(400);
+    // Rework 1: after a forward visit only the focus move announces; the live region stays empty.
+    expect(
+        await page.evaluate(
+            () => (window as unknown as { __texts: string[] }).__texts,
+        ),
+    ).toHaveLength(0);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.locator('main#main')).toBeFocused();
+    // After history navigation the title is announced exactly once.
+    await expect(page.getByTestId('route-announcer')).toHaveText(/TravelEasy/);
+    await page.waitForTimeout(400);
+    expect(
+        await page.evaluate(
+            () => (window as unknown as { __texts: string[] }).__texts,
+        ),
+    ).toHaveLength(1);
+    await expect
+        .poll(() => page.evaluate(() => window.scrollY))
+        .toBeGreaterThan(0);
+});
+
+test('user-like path: scroll a little, click a visible link, go back', async ({
+    page,
+}) => {
+    await openHome(page);
+    await page.mouse.wheel(0, 20);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(20);
+    await page.waitForTimeout(300);
+    const link = page.getByRole('link', { name: 'Inloggen' }).first();
+    const box = await link.boundingBox();
+    expect(box).not.toBeNull();
+    // Real mouse click at the link's on-screen position (no scrolling into view).
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await expect(page).toHaveURL(/\/login$/);
+    await page.goBack();
+    await expect(page.locator('main#main')).toBeFocused();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(20);
+});
+
+test('error summary, required fields, current-page cue, consistent Help text', async ({
+    page,
+}) => {
+    await openHome(page);
+    const summaryTag = await page.evaluate(() => {
+        const el = document.querySelector('[aria-labelledby]:not(nav)');
+        return el?.tagName;
+    });
+    expect(summaryTag).toBeDefined();
+    await page.getByRole('button', { name: 'Zoek reizen' }).click();
+    const summary = page.locator('section[aria-labelledby][tabindex="-1"]');
+    await expect(summary).toBeFocused();
+    const required = await page
+        .locator('main form input')
+        .evaluateAll((els) => els.map((e) => (e as HTMLInputElement).required));
+    expect(required.filter(Boolean).length).toBeGreaterThanOrEqual(4);
+    const invalid = page.getByLabel('Van');
+    await invalid.fill('Amsterdam');
+    await expect(invalid).not.toHaveAttribute('aria-invalid', 'true');
+
+    const helps = await page
+        .locator('a[href="/help"]')
+        .evaluateAll((els) => els.map((e) => (e.textContent || '').trim()));
+    expect(new Set(helps).size).toBe(1);
+
+    await page.goto('/login');
+    const current = page.locator('header [aria-current="page"]');
+    if ((await current.count()) > 0) {
+        const s = await current.first().evaluate((e) => {
+            const c = getComputedStyle(e);
+            return { w: c.fontWeight, u: c.textDecorationLine };
+        });
+        expect(Number(s.w) >= 600 || s.u.includes('underline')).toBe(true);
+    }
+});

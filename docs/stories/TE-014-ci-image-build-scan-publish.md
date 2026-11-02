@@ -42,6 +42,13 @@ version.
 - [ ] AC9: Given the repository, when the package is first published, then the story notes in its handoff whether the GHCR
       package is public (repo is public) or private; the pull command for Portainer is documented.
 - [ ] AC10: Given a PR from a fork, when the workflow runs, then the image is built but not pushed.
+- [ ] AC11 (carried over from TE-013 AC9): Given the first real GitHub runs of `ci.yml`, when one runs cold and one warm on an
+      unchanged dependency set, then both timings are recorded in the handoff and the warm run finishes in under 15 minutes.
+- [ ] AC12 (carried over from TE-013 quality criteria): Given a deliberately failing branch, when `ci.yml` runs on it, then the run
+      is red, the failing step name shows in the summary, no later job runs, and the evidence (run link, step name) is noted in the
+      handoff.
+- [ ] AC13 (carried over from TE-013 AC7): Given a PR from a fork, when `ci.yml` runs, then no secrets are available, the token is
+      read-only, and nothing is published; the run link is noted in the handoff.
 
 ## Quality criteria
 - [ ] Tests: workflow linted with `actionlint`; the verify script is exercised; one real tagged release `v0.0.1` is run

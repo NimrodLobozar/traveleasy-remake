@@ -1,25 +1,14 @@
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { expectNoA11yViolations, NEEDS_REVIEW_ATTACHMENT } from './axe';
-import type { A11yAllowEntry } from './axe';
 
 // Proves the axe helper (TE-005 AC5, AC8, AC9), so a broken axe setup can't pass silently.
-// Fixtures are served through route interception on made-up paths, so no server is needed and
-// the allow-list sees a normal page path. This is the only spec that may pass its own `allow`
-// entries (allow-usage.test.ts).
+// Fixtures are served through route interception on made-up paths, so no server is needed.
 const violationsPath = '/__e2e-fixture/a11y-violations';
 const needsReviewPath = '/__e2e-fixture/a11y-needs-review';
 
 function fixture(name: string): string {
     return fileURLToPath(new URL(`fixtures/${name}.html`, import.meta.url));
-}
-
-function allowOn(page: A11yAllowEntry['page'], rule: string): A11yAllowEntry {
-    return {
-        page,
-        rule,
-        reason: 'starter-kit placeholder, remove in App shell',
-    };
 }
 
 /** The helper's error message, or null when it passed. */
@@ -71,76 +60,27 @@ test.describe('on a page with known violations', () => {
         expect(message).toContain('html: <img id="no-alt"');
         expect(message).toContain('html: <input id="no-label"');
     });
+});
 
-    test('skips an allowed rule only on its own page', async ({ page }) => {
-        // image-alt allowed here: the label violation still fails the check.
-        const partly = await failureOf(
-            expectNoA11yViolations(page, {
-                allow: [allowOn(violationsPath, 'image-alt')],
-            }),
-        );
-        expect(partly).toContain('1 accessibility violation(s)');
-        expect(partly).toContain('label: ');
-        expect(partly).not.toContain('image-alt');
+test('the best-practice pass reports structure rules the WCAG pass ignores', async ({
+    page,
+}) => {
+    const path = '/__e2e-fixture/no-structure';
+    await page.route(`**${path}`, (route) =>
+        route.fulfill({
+            contentType: 'text/html',
+            body: '<!doctype html><html lang="nl"><head><title>x</title></head><body><div><h3>Skipped</h3><p>No landmarks.</p></div></body></html>',
+        }),
+    );
+    await page.goto(path);
 
-        // Entries for another page don't apply here.
-        const elsewhere = await failureOf(
-            expectNoA11yViolations(page, {
-                allow: [
-                    allowOn('/elsewhere', 'image-alt'),
-                    allowOn('/elsewhere', 'label'),
-                ],
-            }),
-        );
-        expect(elsewhere).toContain('2 accessibility violation(s)');
-
-        // Both allowed on this page: passes.
-        const none = await failureOf(
-            expectNoA11yViolations(page, {
-                allow: [
-                    allowOn(violationsPath, 'image-alt'),
-                    allowOn(violationsPath, 'label'),
-                ],
-            }),
-        );
-        expect(none).toBeNull();
-    });
-
-    test('fails on stale, duplicate and invalid allow entries', async ({
-        page,
-    }) => {
-        const stale = await failureOf(
-            expectNoA11yViolations(page, {
-                allow: [
-                    allowOn(violationsPath, 'image-alt'),
-                    allowOn(violationsPath, 'label'),
-                    allowOn(violationsPath, 'color-contrast'),
-                ],
-            }),
-        );
-        expect(stale).toContain(
-            'no longer match a violation (remove them): color-contrast',
-        );
-
-        const duplicate = await failureOf(
-            expectNoA11yViolations(page, {
-                allow: [
-                    allowOn(violationsPath, 'label'),
-                    allowOn(violationsPath, 'label'),
-                ],
-            }),
-        );
-        expect(duplicate).toContain('Duplicate a11y allow entries');
-
-        const blankEpic = {
-            ...allowOn(violationsPath, 'image-alt'),
-            reason: 'starter-kit placeholder, remove in  ',
-        } as unknown as A11yAllowEntry;
-        const invalid = await failureOf(
-            expectNoA11yViolations(page, { allow: [blankEpic] }),
-        );
-        expect(invalid).toContain('Invalid a11y allow entry');
-    });
+    expect(await failureOf(expectNoA11yViolations(page))).toBeNull();
+    const message = await failureOf(
+        expectNoA11yViolations(page, { bestPractice: true }),
+    );
+    expect(message).toContain('page-has-heading-one');
+    expect(message).toContain('landmark-one-main');
+    expect(message).toContain('region');
 });
 
 test('attaches incomplete results for review without failing', async ({

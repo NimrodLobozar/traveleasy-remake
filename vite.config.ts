@@ -97,6 +97,15 @@ export default defineConfig({
                 },
             },
             {
+                // CI helper scripts (TE-013): audit gate and production compose guard.
+                extends: true,
+                test: {
+                    name: 'ci-scripts',
+                    environment: 'node',
+                    include: ['scripts/ci/**/*.test.mjs'],
+                },
+            },
+            {
                 // Fixture tests for custom lint rules (TE-007 AC5).
                 extends: true,
                 test: {

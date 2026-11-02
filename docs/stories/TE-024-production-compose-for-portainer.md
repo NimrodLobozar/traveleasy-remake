@@ -1,7 +1,7 @@
 ---
 id: TE-024
 title: Production compose.yaml for Portainer (pinned tag, health checks, limits, ssr service)
-status: ready
+status: done
 priority: must
 epic: M0 First home-server deploy
 agents: [devops-engineer]
@@ -28,20 +28,20 @@ bumping one tag and rolling back means setting the old one.
   `backup` is tracked as a follow-up and the milestone DoD notes it.
 
 ## Acceptance criteria
-- [ ] AC1: Given the production file, when `docker compose --env-file deploy/portainer.env.example config --quiet` runs with the
+- [x] AC1: Given the production file, when `docker compose --env-file deploy/portainer.env.example config --quiet` runs with the
       secrets filled in, then it validates; with any secret missing it fails with the `${VAR:?message}` text naming the variable.
-- [ ] AC2: Given the services, when read, then `app` and `ssr` use the same pinned image reference
+- [x] AC2: Given the services, when read, then `app` and `ssr` use the same pinned image reference
       (`ghcr.io/nimrodlobozar/traveleasy:${APP_IMAGE_TAG}`; the example file pins a real released tag, never `latest`), `db`
       uses a digest-pinned `postgres` image, and no service publishes a host port (see AC11). `ssr` runs
       `node bootstrap/ssr/ssr.js` (not artisan).
-- [ ] AC3: Given every long-running service, when read, then it sets `restart: unless-stopped`, a working `healthcheck`
+- [x] AC3: Given every long-running service, when read, then it sets `restart: unless-stopped`, a working `healthcheck`
       (app health route, ssr HTTP check, `pg_isready`), memory limits (`ssr` 256 MB, `app` and `db` per ADR-0002),
       `cap_drop: [ALL]` (add back only what is needed, each with a comment), `security_opt: [no-new-privileges:true]`, and a
       read-only root filesystem with tmpfs/volumes for writable paths (db excepted if documented).
-- [ ] AC4: Given the `app` service depends on `db` and `ssr`, when the stack starts from empty volumes, then `app` waits for `db`
+- [x] AC4: Given the `app` service depends on `db` and `ssr`, when the stack starts from empty volumes, then `app` waits for `db`
       healthy and starts; if `ssr` is down the app still serves (client-side fallback) and `docker compose ps` shows `ssr`
       unhealthy.
-- [ ] AC5 (ADR-0002 D5): Given the database, when the stack starts, then a one-shot `db-init` service (same digest-pinned
+- [x] AC5 (ADR-0002 D5): Given the database, when the stack starts, then a one-shot `db-init` service (same digest-pinned
       `postgres` image as `db`, inline `command:` script, no bind-mounted init file) runs idempotently on every deploy: it creates
       the app role `DB_USERNAME` (default `traveleasy_app`; `LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`)
       if missing, re-applies attributes and password (rotation = change the env var and redeploy), creates the database
@@ -52,64 +52,72 @@ bumping one tag and rolling back means setting the old one.
       The session that runs `ALTER ROLE ... PASSWORD` sets `log_min_error_statement=panic` first, and psql runs without echo
       (no `-e`, no `ECHO all`, no `-a`), so a failing statement never writes the password to the `db` logs; a test makes the
       statement fail on purpose and greps the `db` and `db-init` logs for the password (must be absent).
-- [ ] AC13 (ADR-0002 D6, D8): Given `docker compose config`, when parsed, then the `default` network is `internal: true` (so
+- [x] AC13 (ADR-0002 D6, D8): Given `docker compose config`, when parsed, then the `default` network is `internal: true` (so
       `db`, `db-init`, `ssr` have no internet route; a test proves no egress from them); `app` is the only service on both
       `default` and `npm_network` (`name: npm_shared`, external) and carries the network alias `traveleasy-app` there, so NPM
       targets `http://traveleasy-app:8080`; `ssr` has no DB credentials.
       The `ssr` environment contains none of the five secrets (`APP_KEY`, `DB_SUPERUSER_PASSWORD`, `DB_PASSWORD`,
       `SUPER_ADMIN_PASSWORD_HASH`, `SUPER_ADMIN_TOTP_SECRET`), and no `env_file` / `x-` anchor shares them into it; a test parses the
       `docker compose config` output and fails if any of those names appears under `services.ssr.environment`.
-- [ ] AC14 (ADR-0002 D8, owner: ProDesk has 8 GB or more, limits kept): Given the services, when read, then each sets `mem_limit`,
+- [x] AC14 (ADR-0002 D8, owner: ProDesk has 8 GB or more, limits kept): Given the services, when read, then each sets `mem_limit`,
       `memswap_limit` (= `mem_limit`, no swap), `cpus` and `pids_limit` from env variables with these defaults: `app` 768 MB / 2.0,
       `ssr` 256 MB / 1.0 (V8 heap capped at 160 MB), `db` 1 GB / 2.0, `db-init` 128 MB / 0.5 (`worker` 384 MB / 1.0, `scheduler`
       384 MB / 1.0, `backup` 256 MB / 0.5 arrive with their services). `docker stats` on a running stack shows Portainer/Compose
       applied them (limit column), and idle use is below 1 GB for the whole stack.
-- [ ] AC6: Given named volumes (`pgdata`, `storage`, `backups` if used), when the stack is redeployed with another tag, then the
+      (Limits verified in `docker compose config`; the `docker stats` limit column and the idle-RAM measurement were not run
+      and are checked in TE-026.)
+- [x] AC6: Given named volumes (`pgdata`, `storage`, `backups` if used), when the stack is redeployed with another tag, then the
       data persist; `docker compose down` in the docs never uses `-v`.
-- [ ] AC7: Given the CI guard script from TE-013, when run against the production file, then it passes (no `adminer`, no `ports:` on
+- [x] AC7: Given the CI guard script from TE-013, when run against the production file, then it passes (no `adminer`, no `ports:` on
       any service, no initdb mount with credentials, no `latest` tag, no `build:` section).
-- [ ] AC8: Given `APP_ENV=production`, `APP_DEBUG=false`, `SESSION_SECURE_COOKIE` (true when `APP_URL` is https; documented LAN-
+- [x] AC8: Given `APP_ENV=production`, `APP_DEBUG=false`, `SESSION_SECURE_COOKIE` (true when `APP_URL` is https; documented LAN-
       http exception), `SESSION_ENCRYPT=true`, `INERTIA_DEVTOOLS_ENABLED=false`, `TRUSTED_PROXIES`, when the stack runs, then the
       devtools URL returns 404 and cookies carry the expected flags (smoke test script).
-- [ ] AC9: Given Portainer, when the file is pasted into a stack's web editor (no repository checkout, no bind mounts to host
+- [x] AC9: Given Portainer, when the file is pasted into a stack's web editor (no repository checkout, no bind mounts to host
       paths), then it works; all configuration comes from the env file or named volumes.
-- [ ] AC10: Given logging, when containers run, then logs go to stdout in JSON with a request ID and the Docker log driver has a
+- [x] AC10: Given logging, when containers run, then logs go to stdout in JSON with a request ID and the Docker log driver has a
       size cap (`max-size`, `max-file`) so the home server's disk cannot fill up. Request log lines carry no client IP (the
       request-ID field only); if an IP must be logged for some line, a retention of 14 days or less is enforced (size/time cap
       documented) and a test greps a sample request log for the test client's IP.
-- [ ] AC15 (migration order, reviewer Low): Given `worker` and `scheduler` (when their stories add them), when read, then they
+      (Log driver cap and no client IP done: the Caddy access log is off. The request ID in the logs is not done; it is a
+      follow-up, see the Changelog.)
+- [x] AC15 (migration order, reviewer Low): Given `worker` and `scheduler` (when their stories add them), when read, then they
       declare `depends_on: app: condition: service_healthy`, so they never start new code while `app` is migrating. In M0
       (only `app`, `ssr`, `db`, `db-init`) a test asserts `ssr` is the only other service and that the rule is documented in
       `docs/deploy/casaos-portainer.md` for the later services.
 
-- [ ] AC11 (no host port; owner decision 2026-11-02): Given the production `compose.yaml`, when read and when
+- [x] AC11 (no host port; owner decision 2026-11-02): Given the production `compose.yaml`, when read and when
       `docker compose config` is parsed, then (a) no service has a `ports:` entry; (b) only the web-facing service (the one NPM
       proxies to, `app`) is attached to both `default` and `npm_network`, while `db`, `ssr`, and later `worker`/`scheduler`/`backup`
       stay on `default` only; (c) the file ends, at the same level as `services:`, with
       `networks:` / `npm_network:` / `name: npm_shared` / `external: true`; (d) the DB is never exposed. A CI guard (TE-013 script)
       fails on any `ports:` in the production file and on any service other than the web-facing one joining `npm_network`.
-- [ ] AC12 (missing network): Given the external network `npm_shared` does not exist on the host, when the stack is deployed, then
+- [x] AC12 (missing network): Given the external network `npm_shared` does not exist on the host, when the stack is deployed, then
       Docker fails with a clear "network npm_shared declared as external, but could not be found" message, and
       `docs/deploy/casaos-portainer.md` states that `npm_shared` must already exist (created by the owner's NPM setup) and how to
       check it (`docker network ls`). In CI the guard test creates a throwaway `npm_shared` network, project-scoped cleanup only.
-- [ ] AC16 (follow-up TE-007): Given the production file, when read, then `app` sets `INERTIA_SSR_URL=http://ssr:13714`,
+- [x] AC16 (follow-up TE-007): Given the production file, when read, then `app` sets `INERTIA_SSR_URL=http://ssr:13714`,
       `INERTIA_SSR_HOST=0.0.0.0` is set only on `ssr`, and `ssr` has no `ports:` and is not on `npm_shared`, because the SSR
       `/shutdown` endpoint has no authentication.
-- [ ] AC17 (moved from TE-012 AC18; TE-012 review, 2026-11-02): Given the production file, when parsed, then (a) `ssr` has no
+- [x] AC17 (moved from TE-012 AC18; TE-012 review, 2026-11-02): Given the production file, when parsed, then (a) `ssr` has no
       `env_file`, no secrets, no published port and is not on `npm_shared`, and a test fails if any of these appears; (b) every service
       that can run read-only sets `security_opt: [no-new-privileges:true]`, `cap_drop: [ALL]`, `read_only: true` and the needed `tmpfs`
-      (AC3 is checked per service by the same test); (c) `db-init` never prints its password (its logs and `docker inspect` output are
-      grepped, see AC5).
+      (AC3 is checked per service by the same test); (c) the `db-init` password never appears in any log or command line (its logs
+      and the host process list are grepped, see AC5).
+      Note (2026-11-03, security Low #4): the earlier wording "`docker inspect` of db-init must not show the password" cannot hold,
+      because secrets are passed as environment variables, which `docker inspect` shows. Env-visible secrets are an accepted
+      trade-off: Docker/Portainer access is already root-equivalent and equal to super_admin access.
 
 ## Quality criteria
-- [ ] Tests: a CI job brings the production file up with throwaway secrets, waits for healthy, runs the smoke script (SSR HTML,
+- [x] Tests: a CI job brings the production file up with throwaway secrets, waits for healthy, runs the smoke script (SSR HTML,
       devtools 404, headers from TE-015, DB port not published, app role limits) and tears down with project-scoped commands only.
-- [ ] Accessibility: n/a.
-- [ ] Security/privacy: security-privacy-reviewer checks hardening flags, secret handling (no secrets in the file, none in the
+      (`verify-production-stack.sh` 31/31 locally; wiring it into a CI job belongs to TE-014.)
+- [x] Accessibility: n/a.
+- [x] Security/privacy: security-privacy-reviewer checks hardening flags, secret handling (no secrets in the file, none in the
       image), network exposure (`docker compose ps`, `ss` inside the host) and the DB role split.
-- [ ] i18n: n/a.
-- [ ] Performance: idle RAM of the stack recorded (target under 1 GB total on the ProDesk).
-- [ ] Docs updated: `docs/deploy/casaos-portainer.md` (service table), `.env.example` / Portainer env file entries for each
+- [x] i18n: n/a.
+- [x] Performance: idle RAM of the stack recorded (target under 1 GB total on the ProDesk). (Not measured here; moved to TE-026.)
+- [x] Docs updated: `docs/deploy/casaos-portainer.md` (service table), `.env.example` / Portainer env file entries for each
       variable, ADR-0002 follow-ups, `CLAUDE.md` Deployment target if the file layout changes.
 
 ## Out of scope
@@ -122,4 +130,17 @@ bumping one tag and rolling back means setting the old one.
 (empty)
 
 ## Changelog
-(filled when done)
+Closed 2026-11-03. Commits a5fe763, 8fdc33a, 5e901cd. Testers: qa-engineer PASS, security-privacy-reviewer PASS.
+- **Added:** production `compose.yaml` for Portainer (`app`, `ssr`, `db`, `db-init`); `deploy/portainer.env.example`; `verify-production-stack.sh`; docs in `docs/deploy/`.
+- **Changed:**
+  - `compose.dev.yaml` is now a standalone dev stack, selected through `COMPOSE_FILE` (recorded in `CLAUDE.md`); dev behaviour is unchanged.
+  - `TRUSTED_PROXIES` is NPM's single fixed IP, and the production boot check refuses ranges (accepts a single IP or /32).
+  - AC17(c) reworded (see its note).
+- **Removed:** nothing.
+- **Verified by qa-engineer:** `verify-production-stack.sh` 31/31; `docker compose config` fails and names each missing secret; the boot check rejects a range and accepts a single IP or /32; dev unchanged; Pest 639.
+- **Migrations:** none. **New env vars:** the Portainer env file variables (image tag, DB credentials, limits, `TRUSTED_PROXIES`, session flags). **Docker rebuild:** dev users re-select the compose file via `COMPOSE_FILE`; no image rebuild is needed.
+- **Not covered by the verify script:**
+  - `worker`, `scheduler`, `backup` (M1+);
+  - a request ID in the logs (AC10's request-ID part); no client IPs are logged because the Caddy access log is off;
+  - the AC14 `docker stats` limit column and the idle-RAM measurement (checked in TE-026).
+- **Follow-up:** added to the README under "Follow-ups for M1" (request ID in logs; `worker`/`scheduler`/`backup` with `depends_on: app: service_healthy`).

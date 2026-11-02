@@ -1,0 +1,43 @@
+# Weekly, grouped update PRs (TE-013 AC6). Digest-pinned base images in the Dockerfile and the compose files
+# are covered by the "docker" and "docker-compose" ecosystems.
+version: 2
+updates:
+    - package-ecosystem: github-actions
+      directory: /
+      schedule:
+          interval: weekly
+      groups:
+          actions:
+              patterns: ['*']
+    - package-ecosystem: composer
+      directory: /
+      schedule:
+          interval: weekly
+      groups:
+          composer:
+              patterns: ['*']
+    - package-ecosystem: npm
+      directory: /
+      schedule:
+          interval: weekly
+      groups:
+          npm:
+              patterns: ['*']
+          # Playwright must move together with its image (compose.dev.yaml, PlaywrightImageVersionSyncTest).
+      ignore:
+          - dependency-name: '@playwright/test'
+          - dependency-name: 'playwright'
+    - package-ecosystem: docker
+      directory: /
+      schedule:
+          interval: weekly
+      groups:
+          docker:
+              patterns: ['*']
+    - package-ecosystem: docker-compose
+      directory: /
+      schedule:
+          interval: weekly
+      groups:
+          docker-compose:
+              patterns: ['*']

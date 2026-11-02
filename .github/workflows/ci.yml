@@ -1,0 +1,170 @@
+# CI part 1: quality gates (TE-013). It runs the same Docker flow as local development (docs/testing.md), so
+# a green run here means the local commands are green too. Building and publishing the production image
+# (GHCR, Trivy) is TE-014 and needs the owner's go-ahead; nothing here publishes anything.
+#
+# Security posture:
+# - read-only GITHUB_TOKEN (contents: read), no secrets used anywhere, no pull_request_target: a run from a fork
+#   PR behaves exactly like a run on this repository.
+# - every third-party action is pinned by commit SHA (the tag is in the comment); Dependabot bumps them.
+# - the database password is generated per run and masked; the stack is thrown away with the runner.
+name: CI
+
+on:
+    push:
+    pull_request:
+        branches: [main]
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    COMPOSE_PROJECT_NAME: traveleasy-remake
+    # Fake values for the production-file checks. They are not secrets and are never used by a running service.
+    CI_FAKE_SECRET: ci-fake-value-0123456789abcdef0123456789abcdef
+
+jobs:
+    workflows:
+        name: Workflow lint (actionlint)
+        runs-on: ubuntu-24.04
+        timeout-minutes: 5
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: actionlint
+              # Pinned by digest; includes shellcheck for the run: blocks.
+              run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -color
+
+    compose:
+        name: Compose checks and production guards
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Production file validates with the secrets filled in
+              env:
+                  DB_SUPERUSER_PASSWORD: ${{ env.CI_FAKE_SECRET }}
+                  DB_PASSWORD: ${{ env.CI_FAKE_SECRET }}
+                  APP_KEY: base64:Y2ktZmFrZS1rZXktMDEyMzQ1Njc4OWFiY2RlZjAxMjM=
+                  TRUSTED_PROXIES: 172.30.0.0/16
+              run: docker compose -f compose.yaml --env-file deploy/portainer.env.example config --quiet
+            - name: Production file fails loudly when a secret is missing
+              run: |
+                  set -u
+                  for var in DB_SUPERUSER_PASSWORD DB_PASSWORD APP_KEY TRUSTED_PROXIES; do
+                      env -i PATH="$PATH" HOME="$HOME" \
+                          DB_SUPERUSER_PASSWORD=x DB_PASSWORD=x APP_KEY=x TRUSTED_PROXIES=172.30.0.0/16 \
+                          "$var=" \
+                          docker compose -f compose.yaml --env-file deploy/portainer.env.example config --quiet 2> err.txt \
+                          && { echo "::error::compose accepted an empty $var"; exit 1; }
+                      grep -q "$var" err.txt || { echo "::error::the error for an empty $var does not name it"; cat err.txt; exit 1; }
+                  done
+            - name: Production guards (no ports, no adminer, no initdb mount, one network, hardening)
+              env:
+                  DB_SUPERUSER_PASSWORD: ${{ env.CI_FAKE_SECRET }}
+                  DB_PASSWORD: ${{ env.CI_FAKE_SECRET }}
+                  APP_KEY: base64:Y2ktZmFrZS1rZXktMDEyMzQ1Njc4OWFiY2RlZjAxMjM=
+                  TRUSTED_PROXIES: 172.30.0.0/16
+              run: |
+                  docker compose -f compose.yaml --env-file deploy/portainer.env.example config --format json > prod-config.json
+                  node scripts/ci/compose-guard.mjs prod-config.json
+            - name: Development files validate together
+              run: |
+                  cp .env.example .env
+                  sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=$CI_FAKE_SECRET/" .env
+                  docker compose config --quiet
+
+    quality:
+        name: Quality gates (dev stack in Docker)
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Create .env (random database password, masked)
+              run: |
+                  cp .env.example .env
+                  password="$(openssl rand -hex 24)"
+                  echo "::add-mask::$password"
+                  sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=$password/" .env
+                  # The containers run as uid 1000, the runner as 1001: let both write the bind mount.
+                  mkdir -p playwright-report test-results
+                  chmod -R a+rwX .
+
+            - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+            - name: Build the dev image (layer cache keyed by the lockfile layers)
+              uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+              with:
+                  context: .
+                  target: dev
+                  load: true
+                  push: false
+                  tags: traveleasy-remake-dev:local
+                  cache-from: type=gha,scope=dev-image
+                  cache-to: type=gha,scope=dev-image,mode=max
+
+            - name: Start db, app and vite (waits for healthy)
+              run: docker compose up -d --wait --wait-timeout 300
+
+            - name: Pint (composer lint)
+              run: docker compose exec -T app composer lint
+            - name: Larastan (max, no baseline)
+              run: docker compose exec -T app composer analyse
+            - name: Pest on PostgreSQL
+              run: docker compose exec -T app composer test
+            - name: Frontend checks (generate, oxlint, oxfmt, tsc, i18n)
+              run: docker compose exec -T vite npm run check
+            - name: Vitest
+              run: docker compose exec -T vite npm run test
+
+            - name: Client and SSR build
+              run: docker compose exec -T vite npm run build
+            - name: php artisan optimize (proves route:cache works)
+              run: |
+                  docker compose exec -T app php artisan optimize
+                  docker compose exec -T app php artisan optimize:clear
+
+            - name: SSR on, then the SSR smoke test (SSR up, SSR down)
+              run: bash scripts/dev-ssr.sh smoke
+
+            - name: Playwright and axe against the SSR build
+              run: docker compose --profile ssr run --rm -e CI=true -e E2E_REQUIRE_SSR=1 e2e
+
+            - name: composer audit
+              run: |
+                  docker compose exec -T app composer audit --format=json > composer-audit.json || true
+                  node scripts/ci/audit-gate.mjs --tool composer --report composer-audit.json
+            - name: npm audit (production dependencies must be clean)
+              run: docker compose exec -T vite npm audit --omit=dev
+            - name: npm audit (all dependencies, reviewed ignores only)
+              run: |
+                  docker compose exec -T vite npm audit --json > npm-audit.json || true
+                  node scripts/ci/audit-gate.mjs --tool npm --report npm-audit.json
+
+            - name: Service logs (on failure)
+              if: failure()
+              run: docker compose --profile ssr logs --no-color --tail=150
+
+            # Only on failure, never on success; short retention; workflow artifacts only (never release assets).
+            - name: Upload Playwright report and traces (failure only)
+              if: failure()
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: playwright-failure
+                  path: |
+                      playwright-report/
+                      test-results/
+                  retention-days: 2
+                  if-no-files-found: ignore
+
+            - name: Tear down (this runner only)
+              if: always()
+              run: docker compose --profile ssr down

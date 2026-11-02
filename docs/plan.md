@@ -99,7 +99,8 @@ switch, skip link, light/dark theme, error pages) on the home server from your L
   `dd`/`dump`, demo-mode checks only through the `DemoMode` service, no `Mail` facade / `Mailable` / `mail`
   notification channel), default mailer `array` in every environment (ADR-0005), Vitest + Testing Library, Playwright +
   @axe-core/playwright. *(legacy §3 Engineering, Security)*
-- Docker dev env: `compose.yaml` + `compose.dev.yaml`, bind-mounted source, Vite HMR with polling,
+- Docker dev env: a **standalone** `compose.dev.yaml` (selected via `COMPOSE_FILE` in `.env`; not merged with the
+  production-only `compose.yaml`, TE-024), bind-mounted source, Vite HMR with polling,
   `vendor`/`node_modules` in anonymous volumes, PostgreSQL in a named volume. No mail catcher: the app sends no
   e-mail (ADR-0005). *(CLAUDE.md § Docker dev workflow)*
 - **Inertia SSR (Q15).** The SSR entry point and build (`vite build --ssr`). An `ssr` service running

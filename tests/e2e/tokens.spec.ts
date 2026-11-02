@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import { placeholderAllowList } from './a11y-allow-list';
 import { expectNoA11yViolations } from './axe';
 
 // TE-020: the design tokens as the browser sees them (AC5 text spacing, AC6 self-hosted fonts,
@@ -77,10 +76,11 @@ test('reduced motion resolves the motion durations to ~0 (AC7)', async ({
 
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto('/');
-    expect(await base()).toBe('200ms');
+    // The production build (SSR runs) minifies 200ms to .2s.
+    expect(await base()).toMatch(/^(200ms|0?.2s)$/);
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    expect(await base()).toBe('0.01ms');
+    expect(await base()).toMatch(/^(0?.01ms|1e-05s)$/);
 
     const transition = await page.evaluate(
         () => getComputedStyle(document.body).transitionDuration,
@@ -237,5 +237,5 @@ test('the shell passes axe in the dark theme (AC14)', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect(page.getByRole('link', { name: 'Inloggen' })).toBeVisible();
-    await expectNoA11yViolations(page, { allow: placeholderAllowList });
+    await expectNoA11yViolations(page);
 });
