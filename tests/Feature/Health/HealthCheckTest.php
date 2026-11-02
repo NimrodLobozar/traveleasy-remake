@@ -17,6 +17,8 @@ use Tests\TestCase;
 /*
 | TE-012 AC5: `/up` is the container health check (docker/prod/healthcheck.php). It answers 200 only when the
 | database answers, and its failure response leaks no connection details, SQL or stack trace.
+| TE-028 AC3: the body is plain text without any external reference (the framework's page linked fonts.bunny.net and
+| jsdelivr, whose preconnects reveal the visitor's IP).
 */
 
 /**
@@ -25,10 +27,10 @@ use Tests\TestCase;
  *
  * @return TestResponse<Response>
  */
-function healthWithUnreachableDatabase(TestCase $case, bool $json = false): TestResponse
+function healthWithUnreachableDatabase(TestCase $case, bool $json = false, bool $debug = false): TestResponse
 {
     config([
-        'app.debug' => false,
+        'app.debug' => $debug,
         'database.connections.unreachable' => array_merge(config()->array('database.connections.pgsql'), [
             'host' => '127.0.0.1',
             'port' => 1,
@@ -46,18 +48,37 @@ function healthWithUnreachableDatabase(TestCase $case, bool $json = false): Test
     }
 }
 
-test('/up answers 200 when the database is reachable', function () {
-    $this->get('/up')->assertOk();
-    $this->getJson('/up')->assertOk()->assertExactJson(['status' => 'up']);
+test('/up answers 200 with a plain-text OK when the database is reachable', function () {
+    $response = $this->get('/up')->assertOk()->assertHeader('Content-Type', 'text/plain; charset=UTF-8');
+
+    expect($response->getContent())->toBe('OK');
 });
 
-test('/up answers 500 when the database is unreachable', function () {
-    healthWithUnreachableDatabase($this)->assertStatus(500)->assertSee('experiencing problems');
+test('/up answers a generic plain-text 500 when the database is unreachable', function (bool $json) {
+    $response = healthWithUnreachableDatabase($this, $json)
+        ->assertStatus(500)
+        ->assertHeader('Content-Type', 'text/plain; charset=UTF-8');
+
+    expect($response->getContent())->toBe('Unavailable');
+})->with(['html client' => [false], 'json client' => [true]]);
+
+test('/up is not cached and sets no cookies', function () {
+    $response = $this->get('/up');
+
+    expect((string) $response->headers->get('Cache-Control'))->toContain('no-store')
+        ->and($response->headers->getCookies())->toBe([]);
 });
 
-test('/up answers 500 with only a status as JSON when the database is unreachable', function () {
-    healthWithUnreachableDatabase($this, json: true)->assertStatus(500)->assertExactJson(['status' => 'down']);
-});
+test('the /up body references no external host, healthy or not', function (bool $healthy) {
+    $body = (string) ($healthy ? $this->get('/up') : healthWithUnreachableDatabase($this))->getContent();
+
+    expect($body)
+        ->not->toMatch('#https?://#i')
+        ->not->toMatch('#//[a-z0-9.-]+\.[a-z]{2,}#i')
+        ->not->toContain('bunny')
+        ->not->toContain('jsdelivr')
+        ->not->toContain('<');
+})->with(['healthy' => [true], 'database down' => [false]]);
 
 test('the failed health response leaks no connection details, SQL or trace', function (bool $json) {
     $body = (string) healthWithUnreachableDatabase($this, $json)->getContent();
@@ -72,6 +93,12 @@ test('the failed health response leaks no connection details, SQL or trace', fun
         ->not->toContain('Health check failed')
         ->not->toContain('.php');
 })->with(['html' => [false], 'json' => [true]]);
+
+test('debug mode does not turn a failed health check into a debug page', function () {
+    $response = healthWithUnreachableDatabase($this, debug: true)->assertStatus(500);
+
+    expect($response->getContent())->toBe('Unavailable');
+});
 
 test('a failed health check logs one line without connection details and is not reported again', function () {
     Exceptions::fake();
