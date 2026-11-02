@@ -76,42 +76,38 @@ test('a conflicting container environment variable cannot redirect the test data
 
 // --- AC1, AC5, AC12, AC23, AC25: .env.example -------------------------------------------------
 
-test('.env.example loads both compose files with an explicit path separator and no default profile', function () {
+test('.env.example loads the standalone dev compose file with an explicit path separator and no default profile', function () {
     $env = envExample();
 
     expect($env)->toHaveKeys(['COMPOSE_FILE', 'COMPOSE_PATH_SEPARATOR', 'APP_PORT', 'VITE_PORT', 'ADMINER_PORT',
         'VITE_USE_POLLING', 'VITE_POLLING_INTERVAL'])
         ->and($env['COMPOSE_PATH_SEPARATOR'] === '' ? [] : explode($env['COMPOSE_PATH_SEPARATOR'], $env['COMPOSE_FILE']))
-        ->toBe(['compose.yaml', 'compose.dev.yaml'])
+        ->toBe(['compose.dev.yaml'])
         ->and($env)->not->toHaveKey('COMPOSE_PROFILES')
         ->and($env['APP_PORT'])->toBe('8000')
         ->and($env['VITE_PORT'])->toBe('5173')
         ->and($env['ADMINER_PORT'])->toBe('8081');
 });
 
-test('every variable interpolated in the compose files is documented in .env.example', function () {
-    $used = [];
-    foreach (['compose.yaml', 'compose.dev.yaml'] as $file) {
-        preg_match_all('/(?<!\$)\$\{([A-Z0-9_]+)/', fileContents(base_path($file)), $m);
-        $used = [...$used, ...$m[1]];
-    }
+test('every variable interpolated in the dev compose file is documented in .env.example', function () {
+    preg_match_all('/(?<!\$)\$\{([A-Z0-9_]+)/', fileContents(base_path('compose.dev.yaml')), $m);
 
-    expect(array_values(array_diff(array_unique($used), array_keys(envExample()))))->toBe([]);
+    expect(array_values(array_diff(array_unique($m[1]), array_keys(envExample()))))->toBe([]);
 });
 
-// --- AC3, AC9, AC10, AC15: compose.yaml stands alone -------------------------------------------
+// --- AC3, AC9, AC10, AC15: the dev db service (production is compose.yaml, ProductionComposeContractTest) ---
 
-test('compose.yaml only has the db service, without ports, bind mounts or a default password', function () {
-    $base = composeFile('compose.yaml');
-    $services = Arr::array($base, 'services');
-    $db = Arr::array($services, 'db');
+test('the dev db service has no ports, no default password and keeps its data in a named volume', function () {
+    $dev = composeFile('compose.dev.yaml');
+    $db = Arr::array(Arr::array($dev, 'services'), 'db');
 
-    expect(array_keys($services))->toBe(['db'])
-        ->and($db)->not->toHaveKey('ports')
+    expect($db)->not->toHaveKey('ports')
         ->and($db['image'])->toMatch('/^postgres:\d+\.\d+/')
         ->and(Arr::get($db, 'environment.POSTGRES_PASSWORD'))->toStartWith('${DB_PASSWORD:?')
-        ->and($db['volumes'])->each->toStartWith('pgdata:')
-        ->and($base['volumes'])->toHaveKey('pgdata');
+        ->and($db['volumes'])->toContain('pgdata:/var/lib/postgresql')
+        ->and(Arr::get($dev, 'networks.backend.internal'))->toBeTrue()
+        ->and($dev['name'])->toBe('traveleasy-remake')
+        ->and($dev['volumes'])->toHaveKey('pgdata');
 });
 
 // --- AC10, AC12, AC14, AC23-AC25, AC27: compose.dev.yaml ---------------------------------------

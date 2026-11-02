@@ -79,8 +79,11 @@ given. Run all commands from the repo root.
    by hand: `docker compose exec app php artisan migrate`. It is harmless when there is nothing to migrate.
 8. Open http://localhost:8000. You should see the welcome page.
 
-How plain `docker compose` finds both files: `.env` sets `COMPOSE_FILE=compose.yaml:compose.dev.yaml` with
-`COMPOSE_PATH_SEPARATOR=:`, so `docker compose …` loads the dev overrides in PowerShell, cmd and Git Bash alike.
+How plain `docker compose` finds the dev stack: `.env` sets `COMPOSE_FILE=compose.dev.yaml`, so `docker compose …` works
+in PowerShell, cmd and Git Bash alike. `compose.dev.yaml` is **standalone** (TE-024): the production file `compose.yaml`
+(Portainer) is not merged with it, because Compose checks the required-variable markers of every file before merging,
+so the production secrets would break dev. If your `.env` still says `COMPOSE_FILE=compose.yaml:compose.dev.yaml`,
+change it to `COMPOSE_FILE=compose.dev.yaml`; the dev containers are not recreated by that change.
 
 **The database is not seeded automatically.** The starter kit's seeder creates the well-known account
 `test@example.com` / `password`. Run it by hand only if you want that account in your local dev DB:
@@ -333,7 +336,8 @@ running the tests.
   reads the compose files fresh, so no rebuild is needed for that.
 - **Upgrading Playwright.** The image tag must equal `@playwright/test`, which is pinned exactly (no `^`):
   1. Change the version in `package.json` and run `docker compose exec vite npm install`.
-  2. Set the same version in the `e2e` image tag in `compose.dev.yaml`.
+  2. Set the same version in the `e2e` image tag in `compose.dev.yaml`, and the new image digest after it
+     (`docker buildx imagetools inspect <image>:<tag>`, first `Digest:` line), so the tag is pinned by digest.
   3. Rebuild ([When to rebuild](#when-to-rebuild)).
 
   `tests/Unit/PlaywrightImageVersionSyncTest.php` fails while the two differ. A mismatch otherwise shows as

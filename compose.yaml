@@ -1,45 +1,248 @@
-# TravelEasy: base Compose file, shared by development and production (Portainer stack).
+# TravelEasy: PRODUCTION stack (TE-024, ADR-0002). Deployed from Portainer's web editor; no repository checkout,
+# no bind mounts, no env_file: every setting comes from the stack's environment variables (deploy/portainer.env.example).
 #
-# Development: `.env` sets COMPOSE_FILE so plain `docker compose ...` also loads compose.dev.yaml.
-# This file must stand alone (`docker compose -f compose.yaml config`): no source bind mounts, no dev
-# ports, no dev tools. The production `app`, `ssr`, `worker` and `scheduler` services, resource limits
-# and the Nginx Proxy Manager network are added by the CI/CD and home-server deploy epics.
+# Development uses this file together with compose.dev.yaml (COMPOSE_FILE in .env). The dev file resets what differs:
+# image, bind mounts, hardening, limits, networks and secrets. `docker compose up -d` in dev behaves as before.
 #
-# The project name is explicit so resource names are predictable. It is NOT `traveleasy`, because the
-# original school project already uses that name (volumes traveleasy_db-data etc.) on the dev machine.
+# Update = change APP_IMAGE_TAG and redeploy. Rollback = set the previous tag (migrations are expand/contract,
+# ADR-0002 D4). Never use `docker compose down -v`: it deletes the database volume.
+#
+# Networks (ADR-0002 D6): `default` is internal (no route to the internet) and holds every service. Only `app` also
+# joins the external network `npm_shared` of Nginx Proxy Manager, as `traveleasy-app`; NPM proxies to
+# http://traveleasy-app:8080. No service publishes a host port. `npm_shared` must already exist (docs/deploy/casaos-portainer.md);
+# otherwise Docker stops with: network npm_shared declared as external, but could not be found.
+#
+# Services: db-init (one-shot, creates the restricted app role), db, ssr, app (the only one that migrates). `worker`,
+# `scheduler` and `backup` arrive with their features (M1+). When they do, they MUST declare
+# `depends_on: app: condition: service_healthy`, so they never run new code while `app` is still migrating.
 name: traveleasy-remake
 
+x-logging: &logging
+    driver: json-file
+    options:
+        # Caps the disk use of container logs on the small home server.
+        max-size: '10m'
+        max-file: '3'
+
+# Pin by tag AND digest (multi-arch index). Bump together with Dependabot's pull request.
+x-postgres-image: &postgres-image postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+
 services:
+    # One-shot, idempotent on every deploy (ADR-0002 D5): creates the app role if missing, re-applies its attributes and
+    # password (rotation = change DB_PASSWORD and redeploy), creates the database if missing, grants CONNECT/TEMP and makes
+    # the role owner of schema public. The database stays owned by the superuser, so the app role cannot DROP DATABASE or
+    # CREATE ROLE. Identifiers and the password go through psql variables (format %I / %L), never string concatenation.
+    # The password never reaches a log: the session sets log_min_error_statement=panic (the server logs no failing
+    # statement), psql runs without echo (-e, -a, ECHO) and with terse errors (no "LINE 1:" context).
+    db-init:
+        image: *postgres-image
+        restart: 'no'
+        user: '70:70' # postgres in the alpine image
+        entrypoint: ['sh', '-ec']
+        command:
+            - |
+                until pg_isready -q -h db -U postgres; do sleep 1; done
+                psql -X -q -v ON_ERROR_STOP=1 -h db -U postgres -d postgres <<'SQL'
+                \set VERBOSITY terse
+                \set SHOW_CONTEXT never
+                \getenv app_role DB_USERNAME
+                \getenv app_pass DB_PASSWORD
+                \getenv app_db DB_DATABASE
+                SELECT format('CREATE ROLE %I', :'app_role') WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'app_role') \gexec
+                SELECT format('ALTER ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', :'app_role', :'app_pass') \gexec
+                SELECT format('CREATE DATABASE %I', :'app_db') WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'app_db') \gexec
+                SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'app_db') \gexec
+                SELECT format('GRANT CONNECT, TEMPORARY ON DATABASE %I TO %I', :'app_db', :'app_role') \gexec
+                \connect :"app_db"
+                SELECT format('ALTER SCHEMA public OWNER TO %I', :'app_role') \gexec
+                SQL
+        environment:
+            PGPASSWORD: ${DB_SUPERUSER_PASSWORD:?DB_SUPERUSER_PASSWORD is required (generate it with the secrets helper, see docs/deploy/casaos-portainer.md)}
+            # Session setting for every connection of this container: the server never logs a failing statement.
+            PGOPTIONS: -c log_min_error_statement=panic
+            PGCONNECT_TIMEOUT: '10'
+            DB_USERNAME: ${DB_USERNAME:-traveleasy_app}
+            DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required (generate it with the secrets helper, see docs/deploy/casaos-portainer.md)}
+            DB_DATABASE: ${DB_DATABASE:-traveleasy}
+        depends_on:
+            db:
+                condition: service_healthy
+        networks: [default]
+        read_only: true
+        cap_drop: [ALL]
+        security_opt: ['no-new-privileges:true']
+        tmpfs:
+            - /tmp:uid=70,gid=70,mode=1777,size=16m
+        mem_limit: ${DBINIT_MEM_LIMIT:-128m}
+        memswap_limit: ${DBINIT_MEM_LIMIT:-128m}
+        cpus: ${DBINIT_CPUS:-0.5}
+        pids_limit: ${DBINIT_PIDS_LIMIT:-64}
+        logging: *logging
+
     db:
-        image: postgres:18.6-alpine
+        image: *postgres-image
         restart: unless-stopped
+        # Runs as the postgres user from the start (no root entrypoint, so no capabilities are needed). The named volume
+        # takes its ownership from the image directory on the first mount.
+        user: '70:70'
         environment:
             POSTGRES_DB: ${DB_DATABASE:-traveleasy}
-            POSTGRES_USER: ${DB_USERNAME:-traveleasy}
-            POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required. Set a strong password in .env (see .env.example).}
+            # The superuser. Only `db` and `db-init` ever receive this password; the app uses its own restricted role.
+            POSTGRES_PASSWORD: ${DB_SUPERUSER_PASSWORD:?DB_SUPERUSER_PASSWORD is required (generate it with the secrets helper, see docs/deploy/casaos-portainer.md)}
+            POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
         volumes:
             # PostgreSQL 18+ images keep data under /var/lib/postgresql/<major>/docker; mount the parent.
             - pgdata:/var/lib/postgresql
-        networks:
-            - backend
-        # No `ports:` on purpose: the database is reachable only inside the internal network as host `db`.
+        networks: [default]
+        # No `ports:`: the database is reachable only on the internal network, as host `db`.
+        read_only: true
+        cap_drop: [ALL]
+        security_opt: ['no-new-privileges:true']
+        tmpfs:
+            - /tmp:uid=70,gid=70,mode=1777,size=64m
+            - /run/postgresql:uid=70,gid=70,mode=0755,size=1m
         healthcheck:
-            # pg_isready only checks that the server accepts connections; it never prints the password.
+            # pg_isready only checks that the server accepts connections; it never prints a password.
             test:
                 [
                     'CMD-SHELL',
                     'pg_isready -q -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"',
                 ]
-            interval: 5s
+            interval: 10s
             timeout: 5s
-            retries: 20
+            retries: 12
             start_period: 20s
+        stop_grace_period: 30s
+        mem_limit: ${POSTGRES_MEM_LIMIT:-1g}
+        memswap_limit: ${POSTGRES_MEM_LIMIT:-1g}
+        cpus: ${POSTGRES_CPUS:-2.0}
+        pids_limit: ${POSTGRES_PIDS_LIMIT:-200}
+        logging: *logging
 
-networks:
-    # Internal: no route to the outside world. Only services that need the DB join it.
-    backend:
-        internal: true
+    # Inertia SSR server: the same image as `app`, role `ssr` (node bootstrap/ssr/ssr.js). It needs no PHP, no database and
+    # no secrets, so it gets NO env_file and none of the secret variables. Its /shutdown endpoint has no authentication:
+    # it never publishes a port and never joins npm_shared.
+    ssr:
+        image: ghcr.io/nimrodlobozar/traveleasy:${APP_IMAGE_TAG:?APP_IMAGE_TAG is required (a released tag such as v0.1.0, never latest)}
+        restart: unless-stopped
+        init: true
+        command: ['ssr']
+        environment:
+            NODE_ENV: production
+            NODE_OPTIONS: --max-old-space-size=160
+            INERTIA_SSR_HOST: 0.0.0.0
+            INERTIA_SSR_PORT: '13714'
+        networks: [default]
+        read_only: true
+        cap_drop: [ALL]
+        security_opt: ['no-new-privileges:true']
+        tmpfs:
+            - /tmp:uid=10001,gid=10001,mode=1777,size=16m
+        healthcheck:
+            test:
+                - CMD
+                - node
+                - -e
+                - "fetch('http://127.0.0.1:13714/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 20s
+        stop_grace_period: 30s
+        mem_limit: ${SSR_MEM_LIMIT:-256m}
+        memswap_limit: ${SSR_MEM_LIMIT:-256m}
+        cpus: ${SSR_CPUS:-1.0}
+        pids_limit: ${SSR_PIDS_LIMIT:-100}
+        logging: *logging
+
+    # The web service: FrankenPHP on :8080 (classic mode). The only service that migrates, so exactly ONE replica.
+    app:
+        image: ghcr.io/nimrodlobozar/traveleasy:${APP_IMAGE_TAG:?APP_IMAGE_TAG is required (a released tag such as v0.1.0, never latest)}
+        restart: unless-stopped
+        command: ['app']
+        environment:
+            APP_NAME: ${APP_NAME:-TravelEasy}
+            APP_ENV: production
+            APP_DEBUG: 'false'
+            APP_KEY: ${APP_KEY:?APP_KEY is required (generate it with the secrets helper, see docs/deploy/casaos-portainer.md)}
+            APP_URL: ${APP_URL:?APP_URL is required (the public https URL, e.g. https://traveleasy.example.com)}
+            APP_LOCALE: ${APP_LOCALE:-nl}
+            APP_FALLBACK_LOCALE: en
+            INERTIA_DEVTOOLS_ENABLED: 'false'
+            # Logs go to stderr as one JSON object per line. The Caddy access log is off, so request lines (and client
+            # IPs) are not logged at all.
+            LOG_CHANNEL: stderr
+            LOG_STDERR_FORMATTER: Monolog\Formatter\JsonFormatter
+            LOG_LEVEL: ${LOG_LEVEL:-warning}
+            DB_CONNECTION: pgsql
+            DB_HOST: db
+            DB_PORT: '5432'
+            DB_DATABASE: ${DB_DATABASE:-traveleasy}
+            DB_USERNAME: ${DB_USERNAME:-traveleasy_app}
+            DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required (generate it with the secrets helper, see docs/deploy/casaos-portainer.md)}
+            DB_WAIT_TIMEOUT: ${DB_WAIT_TIMEOUT:-60}
+            SESSION_DRIVER: database
+            SESSION_ENCRYPT: 'true'
+            # true behind NPM with an https APP_URL. A LAN-only http check needs false (docs/deploy/casaos-portainer.md).
+            SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+            CACHE_STORE: database
+            QUEUE_CONNECTION: database
+            # The CIDR of npm_shared (or NPM's IP): only these peers may set X-Forwarded-*. Never * and never empty-means-all.
+            TRUSTED_PROXIES: ${TRUSTED_PROXIES:?TRUSTED_PROXIES is required (the CIDR or IP of npm_shared, see docs/deploy/casaos-portainer.md)}
+            INERTIA_SSR_ENABLED: ${INERTIA_SSR_ENABLED:-true}
+            INERTIA_SSR_URL: ${INERTIA_SSR_URL:-http://ssr:13714}
+            INERTIA_SSR_TIMEOUT: ${INERTIA_SSR_TIMEOUT:-2}
+            FRANKENPHP_NUM_THREADS: ${FRANKENPHP_NUM_THREADS:-4}
+            HSTS_MAX_AGE: ${HSTS_MAX_AGE:-15552000}
+            HSTS_INCLUDE_SUBDOMAINS: ${HSTS_INCLUDE_SUBDOMAINS:-false}
+            HSTS_PRELOAD: ${HSTS_PRELOAD:-false}
+            CSP_REPORT_PATH: ${CSP_REPORT_PATH:-}
+        volumes:
+            # Private files (exports, PDFs). The image pre-creates it with the app uid, so the volume inherits it.
+            - storage:/var/www/html/storage/app
+        networks:
+            default: {}
+            npm_network:
+                aliases: [traveleasy-app]
+        read_only: true
+        cap_drop: [ALL]
+        security_opt: ['no-new-privileges:true']
+        tmpfs:
+            - /tmp:uid=10001,gid=10001,mode=1777,size=64m
+            - /var/www/html/storage/framework:uid=10001,gid=10001,mode=0700,size=64m
+            - /data:uid=10001,gid=10001,mode=0700,size=8m
+            - /config:uid=10001,gid=10001,mode=0700,size=8m
+        depends_on:
+            db:
+                condition: service_healthy
+            db-init:
+                condition: service_completed_successfully
+            # Started first so the first requests are server-rendered. If ssr is down, app still serves (client-side rendering).
+            ssr:
+                condition: service_started
+        healthcheck:
+            test: ['CMD', 'php', '/usr/local/lib/traveleasy/healthcheck.php']
+            interval: 15s
+            timeout: 5s
+            retries: 3
+            start_period: 90s
+        stop_grace_period: 30s
+        mem_limit: ${APP_MEM_LIMIT:-768m}
+        memswap_limit: ${APP_MEM_LIMIT:-768m}
+        cpus: ${APP_CPUS:-2.0}
+        pids_limit: ${APP_PIDS_LIMIT:-256}
+        logging: *logging
 
 volumes:
-    # Named volume: survives `docker compose down` and `up --build -V`. Only `down -v` deletes it.
+    # Named volumes: survive redeploys and tag changes. Only `down -v` deletes them.
     pgdata:
+    storage:
+
+networks:
+    # Internal: no route to the internet for db, db-init and ssr (ADR-0002 D6, D7).
+    default:
+        internal: true
+    # Nginx Proxy Manager's network. It must exist already; only `app` joins it.
+    npm_network:
+        name: npm_shared
+        external: true

@@ -1,8 +1,15 @@
-# TravelEasy: development overrides. Never used in production.
+# TravelEasy: DEVELOPMENT stack. Never used in production (production is compose.yaml, TE-024).
 #
-# Loaded together with compose.yaml through COMPOSE_FILE in .env, or explicitly:
-#   docker compose -f compose.yaml -f compose.dev.yaml up -d --build
+# Standalone: COMPOSE_FILE=compose.dev.yaml in .env makes plain `docker compose ...` use it, or explicitly:
+#   docker compose -f compose.dev.yaml up -d --build
+# It is deliberately NOT merged with compose.yaml: Compose checks the required-variable markers of every file before it merges,
+# so the production file's required secrets would break dev (and an override can't switch them off). Keeping
+# the two apart also means a change to the production file can never alter the dev environment.
 #
+# The project name is explicit so resource names are predictable. It is NOT `traveleasy`, because the original school
+# project already uses that name (volumes traveleasy_db-data etc.) on the dev machine.
+name: traveleasy-remake
+
 # - Source is bind-mounted; `app` serves PHP (changes visible on refresh), `vite` serves assets with HMR.
 # - vendor/ and node_modules/ come from the image as ANONYMOUS volumes over the bind mount, so they
 #   never land on Windows. `docker compose up -d --build -V` renews them; the named DB volume stays.
@@ -24,9 +31,31 @@ x-dev-image: &dev-image
 
 services:
     db:
+        image: postgres:18.6-alpine
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: ${DB_DATABASE:-traveleasy}
+            POSTGRES_USER: ${DB_USERNAME:-traveleasy}
+            POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required. Set a strong password in .env (see .env.example).}
         volumes:
+            # PostgreSQL 18+ images keep data under /var/lib/postgresql/<major>/docker; mount the parent.
+            - pgdata:/var/lib/postgresql
             # Creates the `traveleasy_test` database on first initialisation of the volume (dev/test only).
             - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+        networks:
+            - backend
+        # No `ports:` on purpose: the database is reachable only inside the internal network as host `db`.
+        healthcheck:
+            # pg_isready only checks that the server accepts connections; it never prints the password.
+            test:
+                [
+                    'CMD-SHELL',
+                    'pg_isready -q -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"',
+                ]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+            start_period: 20s
 
     app:
         <<: *dev-image
@@ -271,3 +300,12 @@ services:
             timeout: 5s
             retries: 3
             start_period: 10s
+
+networks:
+    # Internal: no route to the outside world. Only services that need the DB join it.
+    backend:
+        internal: true
+
+volumes:
+    # Named volume: survives `docker compose down` and `up --build -V`. Only `down -v` deletes it.
+    pgdata:
