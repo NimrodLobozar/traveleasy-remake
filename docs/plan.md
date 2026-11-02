@@ -52,7 +52,7 @@ How we get there:
 | # | Criterion |
 |---|---|
 | 1 | All of the milestone's `must` stories are `done`. Any `should`/`could` stories that are left over are moved, with the move written down, to a later milestone or to `docs/backlog/ideas.md`. |
-| 2 | CI is green on `main`: Pint, Larastan, ESLint, Prettier, `tsc --noEmit`, Pest, Vitest, Playwright + axe (against the SSR build), `composer audit`, `npm audit`, Trivy image scan (no unaccepted High/Critical). |
+| 2 | CI is green on `main`: Pint, Larastan, oxlint, oxfmt, `tsc --noEmit`, Pest, Vitest, Playwright + axe (against the SSR build), `composer audit`, `npm audit`, Trivy image scan (no unaccepted High/Critical). |
 | 3 | The image is published to GHCR as `ghcr.io/nimrodlobozar/traveleasy:vX.Y.0` (milestone N gives `v0.N.0`; M11 gives `v1.0.0`) and is **deployed to the home server** (from M0 onwards) with every health check green. Deploying needs the owner's OK each time. |
 | 4 | **A11y:** a milestone audit by the `accessibility-auditor` with no Blocker or Serious findings in the pages the milestone touched. The report goes in `docs/a11y/`. |
 | 5 | **Security/privacy:** the `security-privacy-reviewer` gives a milestone PASS whenever the milestone touched auth, personal data, pricing, payments, config, demo mode, dependencies or deployment. Once the site is public (from M6), this applies to **every** milestone. |
@@ -93,7 +93,8 @@ switch, skip link, light/dark theme, error pages) on the home server from your L
 **Scope**
 - Scaffold from the official Laravel React starter kit. TypeScript strict, Tailwind, React Aria Components,
   spatie/laravel-data + typescript-transformer, Wayfinder. `minimum-stability: stable`. *(legacy §3 Engineering)*
-- Quality tooling and test harness: Pint, Larastan (max level that's practical), ESLint, Prettier, `tsc`, Pest
+- Quality tooling and test harness: Pint, Larastan (level max, no baseline), oxlint (type-aware) and oxfmt from vite-plus (TE-003; they replace ESLint
+  and Prettier), `tsc`, Pest
   (including **Pest arch tests**: no `withoutVerifying()`, no CSRF exceptions, no `env()` outside config, no
   `dd`/`dump`, demo-mode checks only through the `DemoMode` service, no `Mail` facade / `Mailable` / `mail`
   notification channel), default mailer `array` in every environment (ADR-0005), Vitest + Testing Library, Playwright +
@@ -102,12 +103,14 @@ switch, skip link, light/dark theme, error pages) on the home server from your L
   `vendor`/`node_modules` in anonymous volumes, PostgreSQL in a named volume. No mail catcher: the app sends no
   e-mail (ADR-0005). *(CLAUDE.md § Docker dev workflow)*
 - **Inertia SSR (Q15).** The SSR entry point and build (`vite build --ssr`). An `ssr` service running
-  `php artisan inertia:start-ssr` in the production compose. In dev, Vite HMR stays client-side; an optional
+  `node bootstrap/ssr/ssr.js` from the app image in the production compose (no PHP, no secrets; ADR-0002 D2). In dev, Vite HMR stays client-side; an optional
   `ssr` profile in `compose.dev.yaml` runs SSR against a build for checking. See "SSR impact" below.
-- **ADR-0002: production runtime**: web server (FrankenPHP or Nginx + PHP-FPM) and how the SSR Node process is
-  packaged (Node in the app image vs a separate SSR image). Owned by devops-engineer. Multi-stage, non-root
-  production image(s) with health checks; the entrypoint waits for the DB, migrates, and seeds `reference` on an
-  empty DB only. *(legacy §4 "worth keeping")*
+- **ADR-0002: production runtime (Accepted 2026-11-02):** FrankenPHP in classic mode on port 8080 (Nginx + PHP-FPM is
+  the documented fallback), with the Node binary inside the same image, so **one image** serves `app`, `ssr`,
+  `worker` and `scheduler`. Multi-stage, non-root (uid 10001), read-only production image with health checks. Only the
+  `app` role's entrypoint waits for the DB, migrates (expand/contract, so rollback by tag works) and seeds
+  `reference` into empty tables only; `worker`/`scheduler` never migrate. The app uses a non-superuser DB role,
+  created by a one-shot `db-init` service. *(legacy §4 "worth keeping")*
 - CI on GitHub Actions: lint, typecheck, tests, client + SSR build, `php artisan optimize` (proves `route:cache`
   works), an SSR smoke test (the HTML response contains server-rendered content), build `linux/amd64`, Trivy, push
   `vX.Y.Z` + `sha-…` to GHCR. *(legacy §3 Engineering: no CI; Domain: duplicate routes)*
@@ -120,21 +123,24 @@ switch, skip link, light/dark theme, error pages) on the home server from your L
 - Design system by `ux-ui-designer`: Claude Design system artifact, `docs/design/system.md`, token file → CSS
   variables → Tailwind, base components (button, link, field, select, combobox, date picker, number field,
   table, dialog, alert/toast, banner, pagination) checked for contrast in both themes. *(legacy §3 Design: inconsistent style)*
-- **First deploy to CasaOS/Portainer**, reachable on the LAN only (an NPM proxy host with a LAN access list, or
-  a LAN port). Secrets come from env with `${VAR:?}` and there are no default passwords. `docs/deploy/dev.md`
+- **First deploy to CasaOS/Portainer**, reachable on the LAN only. Production publishes **no host ports**. NPM reaches
+  `app` (the only web-facing service, port 8080) over the external Docker network `npm_shared`. The other services stay
+  on the internal `default` network. The NPM proxy host has a LAN-only access list (ADR-0002 D6; the owner does the
+  Portainer and NPM steps). Secrets come from env with `${VAR:?}` and there are no default passwords. `docs/deploy/dev.md`
   and `docs/deploy/casaos-portainer.md` v1. *(legacy §3 Security: default passwords; Engineering: image built on server)*
 - **One-file Portainer deploy (owner requirement).** The owner deploys by loading **one env file** into Portainer
   and changing only the secrets. This stays true for every later milestone.
   - A committed `deploy/portainer.env.example` (the name is devops' choice) holds **every** variable the
     production `compose.yaml` needs, with working production defaults: `APP_ENV=production`, `APP_DEBUG=false`,
-    the pinned image tag, the app URL, ports, resource-related settings, and (from M1) `DEMO_MODE=true` for the
+    the pinned image tag, the app URL, `TRUSTED_PROXIES`, resource limits, and (from M1) `DEMO_MODE=true` for the
     live demo. Each variable has a one-line comment. The format is plain `KEY=value` lines with `#` comments, which
     Portainer's "Load variables from .env file" accepts (no quotes-dependent or multi-line values, no `export`).
   - The **only** values the owner fills in are clearly marked secrets (e.g. a `# SECRET: generate with …` comment and
-    an empty value): the DB password, `APP_KEY`, and (from M1) `SUPER_ADMIN_PASSWORD_HASH` and `SUPER_ADMIN_TOTP_SECRET`.
+    an empty value): the DB superuser password (`DB_SUPERUSER_PASSWORD`, used only by `db` and `db-init`), the app's
+    DB password (`DB_PASSWORD`), `APP_KEY`, and (from M1) `SUPER_ADMIN_PASSWORD_HASH` and `SUPER_ADMIN_TOTP_SECRET`.
   - **One documented helper command** generates them, run with Docker from the published image (no PHP on the host),
     e.g. `docker run --rm -it ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan traveleasy:generate-secrets`. It
-    prints a random DB password and an `APP_KEY`, asks for the super_admin password (hidden input) and prints its
+    prints two random DB passwords (superuser and app role) and an `APP_KEY`, asks for the super_admin password (hidden input) and prints its
     hash, and generates the TOTP secret with a terminal QR code for the authenticator app. The output is ready-to-paste
     `KEY=value` lines. Nothing is written to disk or logged.
   - `compose.yaml` uses `${VAR:?…}` for every one of those secrets, so a forgotten secret makes the deploy fail
@@ -143,12 +149,12 @@ switch, skip link, light/dark theme, error pages) on the home server from your L
     env file → paste the secrets → deploy.
 
 **SSR impact (Q15)**
-- **One more long-running process** in production (`ssr`, Node), roughly 100–200 MB RAM. Resource limits are set
-  in the compose file; ADR-0002 decides whether Node lives in the app image (one image, bigger) or in a separate SSR
-  image (two images to build and pin).
+- **One more long-running process** in production (`ssr`, Node), with a 256 MB memory limit in the compose file.
+  ADR-0002 puts Node in the app image: one image (about 121 MB bigger), one tag/digest, and no version skew between
+  the SSR bundle and the client.
 - **Code rules:** components must be SSR-safe. No `window`/`document`/`localStorage` at module level or during
   render; browser-only code goes in effects. Theme and locale are resolved server-side (cookie/user preference) so
-  the first paint is correct and there's no flash. An ESLint rule and the SSR smoke test enforce this.
+  the first paint is correct and there's no flash. An oxlint rule and the SSR smoke test enforce this.
 - **CI:** builds both bundles, and the Playwright suite runs against the SSR build.
 - **Failure mode:** if the SSR process is down, Inertia falls back to client-side rendering. The health check
   reports it, but the site stays usable.
@@ -167,7 +173,7 @@ version of the file.
 **Candidate epics / stories**
 - Epic: Project scaffold and tooling
   - Scaffold Laravel React starter kit with strict TypeScript
-  - Configure Pint, Larastan, ESLint, Prettier and type generation
+  - Configure Pint, Larastan, oxlint, oxfmt and type generation
   - Add Pest arch tests that forbid the legacy anti-patterns
   - Set up Vitest and Playwright with an axe check
   - Write `docs/testing.md` (strategy, commands, CI gates)
@@ -178,7 +184,7 @@ version of the file.
   - Inertia SSR entry point, SSR-safe i18n and theme
   - SSR service in compose and an SSR smoke test in CI
 - Epic: CI/CD to GHCR
-  - ADR-0002: production runtime (web server + SSR packaging)
+  - ADR-0002: production runtime (web server + SSR packaging); Accepted
   - Production multi-stage image with entrypoint and health check
   - GitHub Actions pipeline: quality gates → amd64 build → Trivy → GHCR
 - Epic: App shell
@@ -195,7 +201,7 @@ version of the file.
 - Epic: First home-server deploy
   - Production `compose.yaml` for Portainer (pinned tag, health checks, limits, `ssr` service)
   - Portainer env file with every production variable, working defaults and comments
-  - Secrets helper command run from the image (DB password, APP_KEY, super_admin hash and TOTP secret)
+  - Secrets helper command run from the image (DB superuser + app passwords, APP_KEY, super_admin hash and TOTP secret)
   - First LAN-only deploy from a fresh stack with only the env file and `docs/deploy/casaos-portainer.md`
 
 **Risks**
@@ -619,8 +625,8 @@ Everything after M6 ships to the public site.
   across every module that exists so far (account, bookings, payments, invoices). Only functional cookies, so no
   cookie banner (the reviewer confirms this).
 - **Go-live infrastructure:** an NPM public proxy host on the owner's subdomain with TLS; trusted-proxy config; HSTS
-  on; https URLs. Devops checks whether the home IP is static or dynamic and sets up DDNS if needed (Q12). The SSR
-  and web services are the only ones on the NPM network.
+  on; https URLs. Devops checks whether the home IP is static or dynamic and sets up DDNS if needed (Q12). `app` is the
+  only service on the NPM network (`npm_shared`); `ssr` is not (ADR-0002 D6).
 - Local scheduled DB dump with rotation (Q13). In demo mode the dump runs right after the nightly reset (chained,
   not on a separate clock), so it contains seeded data only (plus the env-provisioned super_admin) and never keeps
   visitor data beyond 24 hours. It's part of the 10-minute budget above.
@@ -1142,13 +1148,13 @@ These are the default constraints stories refer to. Items marked *ADR* get their
 - **File storage:** a private local disk on a named volume (`storage`): invoice PDFs (if stored) and data exports.
   Downloads go through policy-checked routes or signed, expiring URLs. Public assets (incl. demo hotel images) are
   built into the image; no user uploads in v1 (accepted).
-- **Services in production:** `app` (web), `ssr`, `worker`, `scheduler`, `db`, `backup`. Only `app` and `ssr` (if
-  ADR-0002 needs it) are on the NPM network.
+- **Services in production:** `app` (web), `ssr`, `worker`, `scheduler`, `db`, `backup`. Only `app` is on the NPM network
+  (`npm_shared`), and only `app` has outbound access; the others are on the internal `default` network (ADR-0002).
 - **In-app notifications:** unread badges updated by polling (support chat); there are no e-mail or push
   notifications.
 - **ADRs:** numbered in the order they're written, with 0002–0004 reserved for the decisions planned below.
   Written: 0001 tech stack, **0005 no outgoing e-mail** (Accepted; it took the number reserved for the mail
-  provider), **0006 demo mode** (Accepted). Expected: 0002 production runtime + SSR packaging (M0), 0003
+  provider), **0006 demo mode** (Accepted), **0002 production runtime + SSR packaging** (Accepted 2026-11-02). Expected: 0003
   payment-provider interface (M4), 0004 PDF library (M5), 0007 bot protection (M6), 0008 package domain model (M9),
   then the chatbot provider (M12).
 

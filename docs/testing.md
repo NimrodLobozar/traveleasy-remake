@@ -375,6 +375,18 @@ deprecated ESLint 9):
   The formatter also skips `docs/`, `.claude/` and root `*.md`.
 - Story titles and `docs/plan.md` still say "ESLint, Prettier"; read that as oxlint and oxfmt.
 
+### SSR-safe code rule
+
+The app is server-rendered (TE-007), where `window`, `document`, `localStorage`, `sessionStorage` and `navigator`
+do not exist. The custom oxlint rule `ssr-safe/no-browser-globals-in-render` (`lint-plugins/ssr-safe.js`, enabled for
+`resources/js` in `lint.rules.ts`, off in tests) fails `npm run check` when one is used at **module level** or in the
+**body of a component or hook** (a function named `Capitalised` or `useX`, including `useState`/`useMemo`/`useReducer`
+callbacks). It allows them inside effects, event handlers, plain helper functions (checked where they are called) and
+`typeof` checks. Fix a violation by moving the code into `useEffect` or an event handler, or by creating the value
+lazily on first use in the browser; do not suppress it. Fixture test: `lint-plugins/ssr-safe.test.ts` (Vitest project
+`lint-rules`). Server rendering itself is covered by `resources/js/ssr.test.tsx` (`renderToString` in a Node
+environment) and the console-error check `tests/e2e/console.spec.ts`.
+
 ### Manual check: Vite advisories
 
 `vite` in `package.json` is an npm alias for `@voidzero-dev/vite-plus-core@0.3.3`, so **`npm audit` can't see Vite

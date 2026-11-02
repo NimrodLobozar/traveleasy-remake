@@ -103,6 +103,7 @@ All commands work as-is in PowerShell and Git Bash.
 | Migrate | `docker compose exec app php artisan migrate` |
 | Composer | `docker compose exec app composer <command>` |
 | npm | `docker compose exec vite npm <command>` |
+| Production build (client bundle, then SSR bundle; fails if either fails) | `docker compose exec vite npm run build` (output: `public/build`, `bootstrap/ssr`, both git-ignored) |
 | Regenerate Wayfinder routes + TS types | `docker compose exec vite npm run generate` |
 | PHP tests (Pest, on `traveleasy_test`) | `docker compose exec app composer test` (same as `php artisan test`) |
 | PHP tests in parallel | `docker compose exec app composer test:parallel` (see [Test database](#test-database)) |
@@ -238,6 +239,23 @@ done
 Check the list, then remove those volumes **by ID**: `docker volume rm <id> <id> …`. Docker refuses to remove a
 volume that a container still uses, so this can't hit the running stack. Never remove `traveleasy-remake_pgdata` or
 anything named `traveleasy_*`.
+
+## Server-side rendering (Inertia SSR, TE-007)
+
+Pages are rendered to HTML by a separate Node process; the browser then hydrates them. The server entry is
+`resources/js/ssr.tsx` (built by `npm run build` = `vp build && vp build --ssr` into `bootstrap/ssr/ssr.js`).
+
+- **Dev stays client-side.** While the Vite dev server runs (`public/hot` exists), Laravel skips SSR, so HMR works as
+  before. SSR is checked against a build; the `ssr` compose service and the CI smoke test come with TE-008.
+- **Fallback.** If the SSR process is down or slow, the page is served for client-side rendering (HTTP 200, no error text).
+- **Env vars** (documented in `.env.example`): `INERTIA_SSR_ENABLED`, `INERTIA_SSR_URL` (how Laravel reaches it),
+  `INERTIA_SSR_TIMEOUT` (seconds), `INERTIA_SSR_HOST` and `INERTIA_SSR_PORT` (where the Node server listens; default
+  `127.0.0.1:13714`). The SSR server has no authentication: never publish its port on the host.
+- **Try it by hand:** `npm run build`, then start the server with `node bootstrap/ssr/ssr.js` (or
+  `php artisan inertia:start-ssr`) in a container, and point `INERTIA_SSR_URL` at it. Laravel needs `public/hot` to be
+  absent for this. Measured on the dev PC (TE-007): median response of `/` 263 ms with SSR vs 257 ms without (+6 ms).
+- **Browser-only code** (`window`, `document`, `localStorage`, `sessionStorage`, `navigator`) must not run at module level
+  or during render; `npm run check` fails on it (see [testing.md](../testing.md#ssr-safe-code-rule)).
 
 ## Browser tests (Playwright + axe)
 Test-writing rules, the axe helper and the allow-list are in the [testing guide](../testing.md). This section covers

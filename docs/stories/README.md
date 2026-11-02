@@ -12,66 +12,51 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-004](TE-004-pest-arch-tests.md) | Pest on PostgreSQL with arch tests that forbid the legacy anti-patterns | must | done | 3 | not-needed |
 | [TE-005](TE-005-vitest-playwright-axe-harness.md) | Frontend test harness (Vitest + Testing Library, Playwright + axe) | must | done | 1 | not-needed |
 | [TE-006](TE-006-dev-and-testing-docs.md) | Developer docs (dev.md, testing.md) and exact stack versions in CLAUDE.md | must | done | 1 | not-needed |
+| [TE-007](TE-007-inertia-ssr-entry-point.md) | Inertia SSR entry point, SSR build and SSR-safe code rules | must | done | 0 | not-needed |
+| [TE-008](TE-008-ssr-service-and-smoke-test.md) | SSR service in compose (dev profile) and an SSR smoke test | must | ready | 0 | not-needed |
+| [TE-009](TE-009-i18n-infrastructure.md) | i18n infrastructure (nl/en JSON lang files, SSR-safe t(), Intl formatting) | must | ready | 0 | not-needed |
+| [TE-010](TE-010-i18n-key-completeness-check.md) | i18n key-completeness check | must | ready | 0 | not-needed |
+| [TE-011](TE-011-adr-0002-production-runtime.md) | ADR-0002 production runtime (web server, SSR packaging, migrate-on-start) | must | done | 0 | not-needed |
+| [TE-012](TE-012-production-image.md) | Production multi-stage image with entrypoint, health check and hardening | must | ready | 0 | not-needed |
+| [TE-013](TE-013-ci-quality-gates.md) | GitHub Actions pipeline, part 1: quality gates | must | ready | 0 | not-needed |
+| [TE-014](TE-014-ci-image-build-scan-publish.md) | GitHub Actions pipeline, part 2: amd64 build, Trivy, publish to GHCR | must | ready | 0 | not-needed |
+| [TE-015](TE-015-security-headers-and-csp-baseline.md) | Security headers and CSP baseline (nonces) | must | ready | 0 | not-needed |
+| [TE-016](TE-016-accessible-base-layout.md) | Accessible base layout (landmarks, skip link, route-change focus, empty axe allow-list) | must | ready | 0 | required |
+| [TE-017](TE-017-language-switch.md) | Language switch nl/en with persisted preference | must | ready | 0 | required (TE-016 artifact) |
+| [TE-018](TE-018-theme-light-dark-no-flash.md) | Light/dark theme with a manual override and no flash under SSR | must | ready | 0 | required (TE-016 artifact) |
+| [TE-019](TE-019-localised-error-pages.md) | Localised error pages (403, 404, 419, 429, 500, 503) with a request ID | must | ready | 0 | required (TE-016 artifact) |
+| [TE-020](TE-020-design-tokens-and-type-scale.md) | Design tokens and type scale (artifact, token file, contrast tests) | must | ready | 0 | required |
+| [TE-021](TE-021-base-component-specs.md) | Base component specs (states, keyboard, ARIA) | must | ready | 0 | required |
+| [TE-022](TE-022-base-components-forms-and-feedback.md) | Base components I: button, link, field, select, number field, alert, banner | must | ready | 0 | required (TE-021 approval) |
+| [TE-023](TE-023-base-components-complex-widgets.md) | Base components II: combobox, date picker, table, dialog, toast, pagination | must | ready | 0 | required (TE-021 approval) |
+| [TE-024](TE-024-production-compose-for-portainer.md) | Production compose.yaml for Portainer (pinned tag, health checks, limits, ssr) | must | ready | 0 | not-needed |
+| [TE-025](TE-025-portainer-env-file-and-secrets-helper.md) | One-file Portainer env file and the secrets helper command | must | ready | 0 | not-needed |
+| [TE-026](TE-026-first-lan-only-deploy.md) | First LAN-only deploy to the home server (**owner-gated**) | must | ready | 0 | not-needed |
+| [TE-027](TE-027-bump-php-8-5-12-dev-image.md) | Bump PHP to 8.5.12 in the dev image (chore) | must | ready | 0 | not-needed |
 
 ### Epics
 - **M0 Project scaffold and tooling:** TE-001, TE-003, TE-004, TE-005 (docs part in TE-006).
 - **M0 Docker dev environment:** TE-002, TE-006.
-- Not yet written (later M0 epics): Server-side rendering, CI/CD to GHCR (incl. ADR-0002), App shell, Design system,
-  i18n infrastructure, First home-server deploy.
+- **M0 Server-side rendering:** TE-007, TE-008.
+- **M0 i18n infrastructure:** TE-009, TE-010.
+- **M0 CI/CD to GHCR:** TE-011 (ADR-0002), TE-012, TE-013, TE-014.
+- **M0 App shell:** TE-015, TE-016, TE-017, TE-018, TE-019.
+- **M0 Design system:** TE-020, TE-021, TE-022, TE-023.
+- **M0 First home-server deploy:** TE-024, TE-025, TE-026.
 
-### Notes for the production / deploy epics
-Filed from the TE-002 security review (round 1, Low findings, 2026-10-11). Turn them into criteria when the CI/CD
-and First home-server deploy stories are written.
-
-- **Database role:** the app connects with a non-superuser DB role. The superuser is only used for initialisation.
-- **Production image stage** (separate from dev):
-  - no dev ini, `display_errors=Off`, `opcache.validate_timestamps=0`;
-  - `/var/www/html` 0755, owned by the app user;
-  - `cap_drop: [ALL]`, `no-new-privileges`, read-only root filesystem;
-  - images pinned by digest;
-  - a `HEALTHCHECK`.
-- **Production config:** `APP_DEBUG=false`, `INERTIA_DEVTOOLS_ENABLED=false`, `SESSION_SECURE_COOKIE=true`,
-  TrustProxies limited to NPM.
-- **Devtools smoke check** (TE-003 security F3): the production stack sets `APP_ENV=production`, and a smoke check
-  asserts that `/_inertia/devtools/entries` returns 404.
-- **CI guards:**
-  - `compose.yaml` has no `adminer` service, no `ports:` on `db` and no initdb mount;
-  - image scan;
-  - `composer audit` / `npm audit`;
-  - `docker compose config --quiet`.
-- **Production build:** install with `composer install --no-dev` (plus `--optimize-autoloader`), and keep `tests/` out
-  of the build context and the image (`.dockerignore` or the build stage).
-- **Migrate-on-start:** make a deliberate decision (ADR-0002 or the deploy story), including rollback compatibility.
-- **Outbound egress:** allow it for the HIBP range API, or confirm the M1 flag fails open.
-- **Env documentation:** `.env.example` and the Portainer env list include `SESSION_SECURE_COOKIE`,
-  `PASSKEYS_USER_HANDLE_SECRET` and `INERTIA_DEVTOOLS_ENABLED`.
-
-### Notes for the CI/CD epic
-From the TE-005 security review (L3, 2026-10-12):
-- **Image pinning:** pin the Playwright image by digest in CI, kept current with Renovate or Dependabot.
-- **Scanning:** image scan (Trivy or Docker Scout) on the dev and Playwright images, plus `npm audit`.
-- **Artifacts:** upload Playwright artifacts only on failure, with 1–3 days retention, and never publicly. Traces can
-  contain cookies and typed passwords.
-- **Optional:** a Playwright guard that fails any request to a non-localhost origin.
-
-### Notes for the App shell epic
-From the TE-005 accessibility review (2026-10-12):
-- **Empty allow-list:** an AC that the axe allow-list ends empty (`expect(placeholderAllowList).toHaveLength(0)`),
-  after which the `allow` option is removed from the public helper.
-- **Scan coverage:**
-  - run axe in light **and** dark theme, and at 320 px width;
-  - scan after state changes: open menus, dialogs, validation errors, mobile navigation, and after Inertia
-    navigation.
-- **Best-practice pass:** a second axe pass with `region`, `landmark-one-main`, `landmark-unique`,
-  `page-has-heading-one`, `heading-order`, `skip-link` and `empty-heading`. Consider `label-content-name-mismatch`.
-- **Allow entries hide every node (optional, low priority; frontend-developer):** today one allow entry hides every
-  node of that rule on that page. Optionally record the expected node count or selectors per entry, so a new
-  violation of the same rule on the same page still fails. Moot once the list is empty.
-
-### Follow-ups for the frontend harness
-From the TE-005 close (2026-10-12). Pick up in the next story that touches the e2e helpers (frontend-developer, small):
-- The AST scan against inline `allow` lists misses computed keys (`['allow']`) and `.js`/`.mjs` files under
-  `tests/e2e/`. Extend it to both, and prove each with a fixture.
+### Moved into the M0 stories (2026-11-02)
+The notes that used to sit here are now acceptance or quality criteria:
+- "Notes for the production / deploy epics" (TE-002 security review): TE-011 (migrate-on-start, DB roles, egress, proxy trust),
+  TE-012 (production image stage, production build, config, devtools check, env documentation), TE-013 (CI guards, audits),
+  TE-014 (image scan), TE-024 (compose hardening, DB role, digest pins).
+- "Notes for the CI/CD epic" (TE-005 security L3): TE-013 (Playwright image digest, Dependabot, artifacts on failure only,
+  non-localhost request guard) and TE-014 (scans of the dev and Playwright images).
+- "Notes for the App shell epic" (TE-005 a11y review): TE-016 (empty allow-list, scan coverage, best-practice pass); the optional
+  "allow entries hide every node" item is moot once the list is empty. The `REMOVAL_EPICS` alignment from "Follow-ups from
+  TE-006" is also in TE-016.
+- "Follow-ups for the frontend harness" (AST scan for computed `allow` keys and `.js`/`.mjs`): TE-016 AC10.
+- "Notes for the design-system epic": TE-020 (contrast token pairs), TE-022 and TE-023 (target size, focus, reduced motion, zoom and
+  text spacing, live regions in real Chromium).
 
 ### Devops items
 Not tied to a story yet. Pick up at the next devops touch, or as a small `chore` story if it keeps hurting.
@@ -85,6 +70,9 @@ Not tied to a story yet. Pick up at the next devops touch, or as a small `chore`
     - the workaround is documented in the `dev.md` troubleshooting section.
 
     Reopen only if an upstream restart fix becomes available.
+- **Dependency audit triage (2026-11-02, from TE-007):** re-check at TE-027 and in TE-013's audit gate.
+  - `composer audit`: symfony/mime CVE-2026-45070 (not exploitable, the app sends no mail); phpunit (dev only).
+  - `npm audit`: vitest/mocker and undici (dev only; `npm audit --omit=dev` finds 0).
 
 ### Follow-ups from TE-006
 From the TE-006 close (2026-10-12).
@@ -99,9 +87,7 @@ From the TE-006 close (2026-10-12).
 - fix the line about `npx vp --version`, which also prints the Vite version;
 - align the test timings between `dev.md` and `testing.md`.
 
-**Frontend, App shell epic:**
-- `REMOVAL_EPICS` allows "Design system", but the allow-list must be empty after the App shell epic. Align the two
-  (frontend-developer).
+**Frontend, App shell epic:** moved to TE-016 AC7.
 
 **Backend, next arch-rule hardening pass:**
 - the TE-006 AC13e spawned-process recommendation needs an exemption for `TestDatabaseIsolationTest`'s
@@ -119,32 +105,30 @@ From the TE-006 close (2026-10-12).
 - 5 dangling `traveleasy-remake-dev` images (about 6.9 GB) can be removed with the project-filtered prune in
   `docs/deploy/dev.md`. It needs the owner's OK.
 
-### Notes for the design-system epic
-From the TE-005 accessibility review (2026-10-12). The Vitest/jsdom axe matcher can't check layout (see TE-005 AC3),
-so:
-- check contrast as token pairs in both themes (a unit test over the token file);
-- check target size in Playwright (real Chromium);
-- write separate tests for:
-  - keyboard and focus order;
-  - visible and unobscured focus;
-  - reduced motion;
-  - 400 % zoom and text spacing;
-  - live-region announcements.
-
 ## Follow-ups for M1
 Found while TE-001 was tested (2026-10-11; security-privacy-reviewer and qa-engineer). There are no M1 story files
 yet. When M1 stories are written, put each item below into the matching story as a criterion, then remove it here.
 
-- **Breached-password check:** keep HIBP `Password::uncompromised()`, behind a config flag in
-  `config/traveleasy.php` with a short HTTP timeout. If the API is unreachable, registration must not hang.
+- **Breached-password check (ADR-0002 D7, accepted 2026-11-02):** keep HIBP `Password::uncompromised()`, behind a config flag in
+  `config/traveleasy.php`. Bind the verifier with an HTTP timeout of about 3 s (not Laravel's 30 s default) and **fail open**:
+  if the API is unreachable, registration succeeds quickly. A test proves it. Egress: `app` only, via `npm_shared`
+  (`api.pwnedpasswords.com`, 5-char SHA-1 prefix with `Add-Padding`); `worker`, `scheduler`, `ssr`, `db` stay on the internal network.
   (This is an external call, so the reviewer checks it against the "no personal data to external services" rule:
   only the k-anonymity hash prefix is sent.)
 - **Sessions:** `SESSION_ENCRYPT=true` everywhere; `SESSION_SECURE_COOKIE=true` in production.
-- **Appearance cookie and CSP:**
-  - validate the `appearance` cookie against an allowlist (`light`, `dark`, `system`);
-  - give the inline theme script and style a CSP nonce via `Vite::useCspNonce` (ties in with the App shell CSP story).
-- **Trusted proxies:** limited to Nginx Proxy Manager (its address or network), never `*`.
-- **Trusted hosts** (from the TE-002 security review): `$middleware->trustHosts()` derived from the `APP_URL` host.
+- **Appearance cookie and CSP:** moved to M0 (cookie allow-list in TE-018, nonce for the inline theme script in TE-015/TE-018).
+- **Trusted proxies:** moved to M0 (TE-011 decision, TE-012 AC12, TE-025 AC3, TE-026 AC11).
+- **Rate limits never rely on IP alone** (reviewer, 2026-11-02; client IPs can be spoofed through `X-Forwarded-For` until TE-026
+  AC11 is proven): every limiter in the rate-limit story also keys per account (or per session/username), not just per IP.
+- **Worker/scheduler start order:** the `worker` and `scheduler` service stories add `depends_on: app: condition: service_healthy`,
+  so they never run new code while `app` is still migrating (TE-024 AC15 does this for the services that exist in M0).
+- **ADR-0002 requirements for M1 stories:**
+  - `worker`/`scheduler` health checks via `php artisan traveleasy:healthcheck worker|scheduler` (heartbeat job every minute
+    processed within 3 min; scheduled closure heartbeat under 3 min old; interval 60 s, timeout 10 s, retries 3);
+  - `SUPER_ADMIN_PASSWORD_HASH` and `SUPER_ADMIN_TOTP_SECRET` join the Portainer env file as secrets 4 and 5 (helper from TE-025);
+  - the `app` role does DDL and DML (one role); migrations follow expand/contract (no drops or renames in the same release);
+  - `worker` memory 256M PHP `memory_limit`, container limit 384 MB; no endpoint may hold a request open for more than a few seconds.
+- **Trusted hosts** (from the TE-002 security review; ADR-0002 D6 completes the proxy contract with it): `$middleware->trustHosts()` derived from the `APP_URL` host. Health checks send that Host header.
   Today DNS rebinding can reach `/_inertia/devtools/*` on `127.0.0.1:8000` while `APP_ENV=local`.
 - **Rate limits:**
   - per-account login throttling across IPs, plus limits on register, confirm-password and delete-account;

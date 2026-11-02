@@ -21,8 +21,13 @@ import type { OxlintConfig } from 'vite-plus/lint';
  * Formatting rules are never enabled here: formatting belongs to `vp fmt` (oxfmt), so the
  * linter and the formatter can't fight (the role eslint-config-prettier plays for ESLint).
  *
- * Room for later: the SSR-safety rule (no window/document/localStorage at module level or in
- * render) is added by the SSR epic, e.g. as an `overrides` entry for resources/js.
+ * SSR safety (TE-007 AC5): the app is rendered on the server (Inertia SSR), where `window`,
+ * `document`, `localStorage`, `sessionStorage` and `navigator` don't exist. The custom rule
+ * `ssr-safe/no-browser-globals-in-render` (lint-plugins/ssr-safe.js, a JS plugin; fixture test in
+ * lint-plugins/ssr-safe.test.ts) fails on those globals at module level and in the body of a
+ * component or hook, and allows them in effects, event handlers and `typeof` checks. oxlint's
+ * built-in `no-restricted-globals` can't tell render from effect code, hence the plugin. It only
+ * applies to resources/js (see `overrides`).
  */
 
 /** typescript-eslint `eslint-recommended` + `@eslint/js` recommended, minus what tsc checks. */
@@ -334,6 +339,7 @@ const jsxA11yRules = {
 
 export const lintConfig: OxlintConfig = {
     plugins: ['eslint', 'typescript', 'react', 'jsx-a11y', 'oxc', 'unicorn'],
+    jsPlugins: ['./lint-plugins/ssr-safe.js'],
     categories: {
         correctness: 'error',
     },
@@ -348,6 +354,17 @@ export const lintConfig: OxlintConfig = {
         ...reactHooksRules,
         ...jsxA11yRules,
     },
+    overrides: [
+        {
+            // Server-rendered code only. Tests run in jsdom and may use the browser freely.
+            files: ['resources/js/**/*.{ts,tsx}'],
+            rules: { 'ssr-safe/no-browser-globals-in-render': 'error' },
+        },
+        {
+            files: ['resources/js/**/*.test.{ts,tsx}', 'resources/js/test/**'],
+            rules: { 'ssr-safe/no-browser-globals-in-render': 'off' },
+        },
+    ],
     // Generated code (Wayfinder, typescript-transformer) and build output; nothing hand-written.
     ignorePatterns: [
         'vendor/**',
@@ -359,6 +376,8 @@ export const lintConfig: OxlintConfig = {
         'resources/js/routes/**',
         'resources/js/wayfinder/**',
         'resources/js/types/generated/**',
+        // Plain-JS oxlint plugin; not app code.
+        'lint-plugins/**/*.js',
     ],
     options: {
         // Warnings fail the run too, so nothing can be left as "just a warning".

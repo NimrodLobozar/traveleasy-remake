@@ -1,6 +1,6 @@
 # Data inventory
 
-Owner: security-privacy-reviewer. Status: **draft**. It covers the scaffold (TE-001, Laravel React starter kit) and the Docker dev environment (TE-002) only.
+Owner: security-privacy-reviewer. Status: **draft**. It covers the scaffold (TE-001, Laravel React starter kit), the Docker dev environment (TE-002) and the production runtime targets (ADR-0002, TE-011).
 Every story that adds a personal-data field, table, log line, export or external call updates this file in the same PR.
 The retention rules become `retention.md` (implemented as jobs by the database-engineer). The public
 `privacy-statement.md` (nl + en) is written in M1, when the account features it describes exist.
@@ -41,11 +41,24 @@ access control than production.
 | Vite dev server (`127.0.0.1:5173`) | Serves project files from the bind mount | Local processes on the dev PC | n/a | Vite's CORS allow-list and host check block other origins and DNS rebinding; `.env*` files are denied |
 | `.env` on the developer's disk | `APP_KEY`, `DB_PASSWORD` | The developer | n/a | Git-ignored and excluded from the Docker build context (`.dockerignore`) |
 
+## Production runtime (ADR-0002, reviewed in TE-011)
+
+Targets for TE-012/TE-024/TE-026; verified when those stories are tested.
+
+| Where | What | Who can access | Retention (target) | Notes |
+|---|---|---|---|---|
+| Named volume `pgdata` (prod) | All application tables above | `db`; app role `traveleasy_app` (`app`, `worker`, `scheduler`, `backup`); superuser only in `db`/`db-init` | Per table (this file, `retention.md`) | No published port; `default` network is `internal: true` |
+| Named volume `storage` (`storage/app`) | Private files: exports, invoice PDFs (later) | uid 10001 in `app`/`worker` | Per feature (M5, M6) | Never served directly; only via policy-checked routes |
+| Container logs (Docker `json-file`, stderr JSON) | App log lines; any request log line with IP/URL is personal data | Whoever has Docker/Portainer access on the host | Size cap (`max-size`/`max-file`) only, so **no time bound** on a low-traffic site. Target: no client IP in request log lines (or truncated), or a time bound of ≤ 14 days | Caddy access log is off (ADR-0002 D1). Replaces `storage/logs/laravel.log` in production |
+| Nginx Proxy Manager access log (owner's NPM, outside the stack) | Client IP, URL, user agent | The owner | NPM's own rotation; document in TE-026 | Not under this stack's control; listed for completeness |
+| `ssr` process memory | Page props of each rendered page (may include the logged-in user's data) | Nothing persisted | Per request | Internal network only; no secrets, no DB credentials; no props in logs |
+| tmpfs config cache (`php artisan optimize`) | Secrets (`APP_KEY`, `DB_PASSWORD`), no personal data | uid 10001 | Container lifetime | Never in an image layer or a volume (ADR-0002 D3) |
+
 ## External processors and outgoing requests
 
 | Service | When | Data it receives | Personal data? | Status |
 |---|---|---|---|---|
-| Have I Been Pwned Pwned Passwords API (`api.pwnedpasswords.com`) | Production only: registration and password change, through `Password::defaults()->uncompromised()` | The first 5 hex characters of the password's SHA-1 hash (k-anonymity) and the server's IP | No: no e-mail, name or user IP is sent | Server-side, not from the browser. To be confirmed in M1 (opt-out env flag, or an offline list) |
+| Have I Been Pwned Pwned Passwords API (`api.pwnedpasswords.com`) | Production only: registration and password change, through `Password::defaults()->uncompromised()` | The first 5 hex characters of the password's SHA-1 hash (k-anonymity) and the server's IP | No: no e-mail, name or user IP is sent | Server-side, not from the browser, from `app` only via `npm_shared` (ADR-0002 D7); ≈ 3 s timeout, fails open. To be confirmed in M1 (opt-out env flag, or an offline list) |
 | E-mail | Never (ADR-0005) | none | none | `mail.default` is pinned to `array` |
 | Fonts, CDNs, analytics | Never | none | none | Verified in the TE-001 build output: no runtime third-party hosts. The external links on the placeholder welcome page are only followed when a user clicks them |
 

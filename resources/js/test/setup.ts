@@ -7,7 +7,9 @@ import './axe';
 // jsdom has no canvas and logs "Not implemented: HTMLCanvasElement's getContext()" whenever
 // something (axe-core does) probes it. Return null, which is what a browser returns for an
 // unsupported context, so the probe falls back quietly.
-HTMLCanvasElement.prototype.getContext = () => null;
+if (typeof HTMLCanvasElement !== 'undefined') {
+    HTMLCanvasElement.prototype.getContext = () => null;
+}
 
 // Testing Library only unmounts automatically when Vitest globals are on; they are off here
 // (explicit imports from 'vite-plus/test'), so unmount after each test ourselves.
