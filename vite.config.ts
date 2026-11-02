@@ -24,6 +24,8 @@ export default defineConfig({
     plugins: lazyPlugins(() => [
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
+            // `vp build --ssr` bundles this entry into bootstrap/ssr (TE-007).
+            ssr: 'resources/js/ssr.tsx',
             refresh: true,
         }),
         !isVitest && inertia(),
@@ -62,6 +64,15 @@ export default defineConfig({
                     name: 'e2e-rules',
                     environment: 'node',
                     include: ['tests/e2e/**/*.test.ts'],
+                },
+            },
+            {
+                // Fixture tests for custom lint rules (TE-007 AC5).
+                extends: true,
+                test: {
+                    name: 'lint-rules',
+                    environment: 'node',
+                    include: ['lint-plugins/**/*.test.ts'],
                 },
             },
         ],

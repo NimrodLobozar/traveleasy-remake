@@ -5,8 +5,7 @@
     "license": "MIT",
     "type": "module",
     "scripts": {
-        "build": "vp build",
-        "build:ssr": "vp build && vp build --ssr",
+        "build": "vp build && vp build --ssr",
         "dev": "vp dev",
         "generate": "php artisan wayfinder:generate --with-form && php artisan typescript:transform",
         "lint": "vp lint",
