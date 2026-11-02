@@ -33,6 +33,18 @@ that SSR regressions are caught before an image is published.
       fails with a readable message (proves the test catches what AC5 of TE-007 intends).
 - [ ] AC6: Given the Playwright suite, when run with the SSR profile up, then the existing smoke and axe specs pass
       against the SSR-rendered pages.
+- [ ] AC7 (follow-up TE-007): Given the production-style build and the `ssr` service up (`INERTIA_SSR_URL=http://ssr:13714` on
+      `app`, `INERTIA_SSR_HOST=0.0.0.0` only on `ssr`, no published port, `ssr` never on `npm_shared`), when
+      `tests/e2e/console.spec.ts` runs, then the hydration test runs (is not skipped) and passes with zero `console.error`.
+- [ ] AC8 (follow-up TE-007): Given CI, when the smoke test runs, then it covers both SSR on (rendered content in the HTML) and
+      SSR down (`/` returns 200 via client-side fallback).
+- [ ] AC9 (security Low, TE-007): Given the Node SSR server hits a render error, when its stdout is read, then it contains no
+      request URL, message or stack from `@inertiajs/core` `createServer`; the output is filtered in `resources/js/ssr.tsx`
+      without `formatErrors: false` (that crashes on unhandled rejections). A test proves both the scrubbing and that an
+      unhandled rejection does not crash the server.
+- [ ] AC10 (security Low, TE-007): Given `tsconfig` `"types": ["node"]` makes `process.env` typecheck everywhere, when
+      `npm run check` runs, then `process` in `resources/js/**` (except `ssr.tsx`) fails via a lint rule with a fixture, or the
+      Node types are limited to `ssr.tsx`; either way a component cannot render `APP_KEY` into HTML.
 
 ## Quality criteria
 - [ ] Tests: the SSR smoke test itself plus the fallback check; documented in `docs/testing.md`.

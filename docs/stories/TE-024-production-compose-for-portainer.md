@@ -92,6 +92,9 @@ bumping one tag and rolling back means setting the old one.
       Docker fails with a clear "network npm_shared declared as external, but could not be found" message, and
       `docs/deploy/casaos-portainer.md` states that `npm_shared` must already exist (created by the owner's NPM setup) and how to
       check it (`docker network ls`). In CI the guard test creates a throwaway `npm_shared` network, project-scoped cleanup only.
+- [ ] AC16 (follow-up TE-007): Given the production file, when read, then `app` sets `INERTIA_SSR_URL=http://ssr:13714`,
+      `INERTIA_SSR_HOST=0.0.0.0` is set only on `ssr`, and `ssr` has no `ports:` and is not on `npm_shared`, because the SSR
+      `/shutdown` endpoint has no authentication.
 
 ## Quality criteria
 - [ ] Tests: a CI job brings the production file up with throwaway secrets, waits for healthy, runs the smoke script (SSR HTML,

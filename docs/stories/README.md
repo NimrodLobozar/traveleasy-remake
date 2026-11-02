@@ -12,7 +12,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-004](TE-004-pest-arch-tests.md) | Pest on PostgreSQL with arch tests that forbid the legacy anti-patterns | must | done | 3 | not-needed |
 | [TE-005](TE-005-vitest-playwright-axe-harness.md) | Frontend test harness (Vitest + Testing Library, Playwright + axe) | must | done | 1 | not-needed |
 | [TE-006](TE-006-dev-and-testing-docs.md) | Developer docs (dev.md, testing.md) and exact stack versions in CLAUDE.md | must | done | 1 | not-needed |
-| [TE-007](TE-007-inertia-ssr-entry-point.md) | Inertia SSR entry point, SSR build and SSR-safe code rules | must | in-test | 0 | not-needed |
+| [TE-007](TE-007-inertia-ssr-entry-point.md) | Inertia SSR entry point, SSR build and SSR-safe code rules | must | done | 0 | not-needed |
 | [TE-008](TE-008-ssr-service-and-smoke-test.md) | SSR service in compose (dev profile) and an SSR smoke test | must | ready | 0 | not-needed |
 | [TE-009](TE-009-i18n-infrastructure.md) | i18n infrastructure (nl/en JSON lang files, SSR-safe t(), Intl formatting) | must | ready | 0 | not-needed |
 | [TE-010](TE-010-i18n-key-completeness-check.md) | i18n key-completeness check | must | ready | 0 | not-needed |
@@ -70,6 +70,9 @@ Not tied to a story yet. Pick up at the next devops touch, or as a small `chore`
     - the workaround is documented in the `dev.md` troubleshooting section.
 
     Reopen only if an upstream restart fix becomes available.
+- **Dependency audit triage (2026-11-02, from TE-007):** re-check at TE-027 and in TE-013's audit gate.
+  - `composer audit`: symfony/mime CVE-2026-45070 (not exploitable, the app sends no mail); phpunit (dev only).
+  - `npm audit`: vitest/mocker and undici (dev only; `npm audit --omit=dev` finds 0).
 
 ### Follow-ups from TE-006
 From the TE-006 close (2026-10-12).

@@ -61,6 +61,8 @@ deploy is repeatable and safe.
       trusted and an untrusted source and shows the client IP, scheme and port change only for the trusted one.
 - [ ] AC13: Given `.env.example`, when read, then it documents `SESSION_SECURE_COOKIE`, `SESSION_ENCRYPT`,
       `INERTIA_DEVTOOLS_ENABLED`, `TRUSTED_PROXIES` and `PASSKEYS_USER_HANDLE_SECRET` (the last as "unused until M1 decides").
+- [ ] AC15 (follow-up TE-007, ADR-0002 D2): Given `vite.config.ts` sets `ssr.noExternal: true`, when the SSR bundle runs in the
+      production image (no `node_modules`), then it starts and renders `/` server-side; record the proof in the story.
 
 ## Quality criteria
 - [ ] Tests: a Pest/shell test for the boot check (AC8); a script `docker/prod/verify.sh` that asserts AC1 to AC5, AC9
