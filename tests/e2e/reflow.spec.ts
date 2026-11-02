@@ -14,7 +14,7 @@ async function findOverflow(page: Page): Promise<string[]> {
 
         if (root.scrollWidth > root.clientWidth) {
             problems.push(
-                `page scrolls horizontally (${root.scrollWidth} > ${root.clientWidth})`,
+                `page scrolls horizontally (${String(root.scrollWidth)} > ${String(root.clientWidth)})`,
             );
         }
 
@@ -25,7 +25,7 @@ async function findOverflow(page: Page): Promise<string[]> {
                 continue;
             }
 
-            if (!(el.textContent ?? '').trim()) {
+            if (!el.textContent.trim()) {
                 continue;
             }
 
@@ -38,7 +38,7 @@ async function findOverflow(page: Page): Promise<string[]> {
 
             if ((clips || ellipsis) && el.scrollWidth > el.clientWidth + 1) {
                 problems.push(
-                    `${el.tagName.toLowerCase()} clips text: "${(el.textContent ?? '').trim().slice(0, 40)}"`,
+                    `${el.tagName.toLowerCase()} clips text: "${el.textContent.trim().slice(0, 40)}"`,
                 );
             }
 
@@ -50,7 +50,7 @@ async function findOverflow(page: Page): Promise<string[]> {
                 style.position !== 'absolute'
             ) {
                 problems.push(
-                    `${el.tagName.toLowerCase()} extends past the viewport: "${(el.textContent ?? '').trim().slice(0, 40)}"`,
+                    `${el.tagName.toLowerCase()} extends past the viewport: "${el.textContent.trim().slice(0, 40)}"`,
                 );
             }
         }
