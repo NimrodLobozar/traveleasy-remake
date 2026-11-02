@@ -96,3 +96,57 @@ test('announces the new title exactly once and restores scroll on back', async (
         .poll(() => page.evaluate(() => window.scrollY))
         .toBeGreaterThan(0);
 });
+
+test('user-like path: scroll a little, click a visible link, go back', async ({
+    page,
+}) => {
+    await openHome(page);
+    await page.mouse.wheel(0, 20);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(20);
+    await page.waitForTimeout(300);
+    const link = page.getByRole('link', { name: 'Inloggen' }).first();
+    const box = await link.boundingBox();
+    expect(box).not.toBeNull();
+    // Real mouse click at the link's on-screen position (no scrolling into view).
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await expect(page).toHaveURL(/\/login$/);
+    await page.goBack();
+    await expect(page.locator('main#main')).toBeFocused();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(20);
+});
+
+test('error summary, required fields, current-page cue, consistent Help text', async ({
+    page,
+}) => {
+    await openHome(page);
+    const summaryTag = await page.evaluate(() => {
+        const el = document.querySelector('[aria-labelledby]:not(nav)');
+        return el?.tagName;
+    });
+    expect(summaryTag).toBeDefined();
+    await page.getByRole('button', { name: 'Zoek reizen' }).click();
+    const summary = page.locator('section[aria-labelledby][tabindex="-1"]');
+    await expect(summary).toBeFocused();
+    const required = await page
+        .locator('main form input')
+        .evaluateAll((els) => els.map((e) => (e as HTMLInputElement).required));
+    expect(required.filter(Boolean).length).toBeGreaterThanOrEqual(4);
+    const invalid = page.getByLabel('Van');
+    await invalid.fill('Amsterdam');
+    await expect(invalid).not.toHaveAttribute('aria-invalid', 'true');
+
+    const helps = await page
+        .locator('a[href="/help"]')
+        .evaluateAll((els) => els.map((e) => (e.textContent || '').trim()));
+    expect(new Set(helps).size).toBe(1);
+
+    await page.goto('/login');
+    const current = page.locator('header [aria-current="page"]');
+    if ((await current.count()) > 0) {
+        const s = await current.first().evaluate((e) => {
+            const c = getComputedStyle(e);
+            return { w: c.fontWeight, u: c.textDecorationLine };
+        });
+        expect(Number(s.w) >= 600 || s.u.includes('underline')).toBe(true);
+    }
+});
