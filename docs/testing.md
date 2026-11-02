@@ -409,6 +409,21 @@ allow-list (bad cookie values are ignored, never echoed, never an error), the sh
 - Don't assert on real UI strings: merge fixture lines from `tests/Fixtures/lang/*.json` with
   `app('translation.loader')->addJsonPath(...)`. Details: [i18n](design/i18n.md).
 
+### i18n tests, client side (TE-009)
+
+Vitest, next to the code in `resources/js/lib/i18n/`:
+- `format.test.ts`: `formatMoney` (nl `€ 1.234,50`, en `€1,234.50`, JPY, fractional cents rejected), `formatDate` and
+  `formatDateTime` with an explicit time zone (day boundary, DST switch on 2026-03-29, zone label).
+- `translate.test.ts`: `:name`, `:Name`, `:NAME` placeholders, a missing key returns the key (and throws under test),
+  values are never re-scanned, markup stays plain text.
+- `use-translation.test.tsx`: `renderToString` in a node environment for `nl` and `en` (SSR), escaping of interpolated
+  markup.
+- `lang-files.test.ts`: both lang files have the same sorted keys and placeholders, no `<` or `>`, and every
+  `t('key')` in `resources/js` exists in both, so a missing key fails the suite.
+- `resources/js/ssr.test.tsx`: the welcome page renders in `nl` and `en`, with identical markup on a second render.
+- A component that calls `useTranslation()` needs a page: mock `usePage` as in `use-translation.test.tsx`, or render
+  through `createInertiaApp`. Developer note: [i18n](design/i18n.md).
+
 ### Security headers and CSP tests (TE-015)
 
 - `tests/Unit/SecurityHeadersTest.php`: the header builder (directives, nonce format, HSTS switches, Vite dev origins,
