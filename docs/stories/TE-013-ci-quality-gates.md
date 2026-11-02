@@ -1,7 +1,7 @@
 ---
 id: TE-013
 title: GitHub Actions pipeline, part 1: quality gates
-status: ready
+status: in-progress
 priority: must
 epic: M0 CI/CD to GHCR
 agents: [devops-engineer, qa-engineer]

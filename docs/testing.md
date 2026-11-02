@@ -465,25 +465,44 @@ security advisories** (TE-003 AC13). On every dependency update:
 3. Plan: move to vite-plus 1.x with a plain `vite` dependency when the Laravel React starter kit does, then drop this
    check (the note also sits in `package.json` under `"//"`).
 
-## 8. Planned CI gates
+## 8. CI gates (TE-013)
 
-**Not wired yet** (CI/CD epic). From `docs/plan.md` § 2, milestone DoD row 2, CI on `main` must be green on:
+`.github/workflows/ci.yml` runs on every push and on pull requests to `main`. It uses the same Docker flow as local
+work: it builds the dev image, writes a `.env` with a random masked database password and starts `db`, `app` and `vite`.
+The token is read-only (`contents: read`), no secrets are used (fork PRs behave the same) and every action is pinned by
+commit SHA. Nothing is published: building, scanning and pushing the image is TE-014.
 
-- [ ] Pint (`composer lint`)
-- [ ] Larastan (`composer analyse`)
-- [ ] ESLint → in our stack oxlint (`npm run lint`)
-- [ ] Prettier → in our stack oxfmt (`npm run format:check`)
-- [ ] `tsc --noEmit` (`npm run types`)
-- [ ] Pest (`composer test`)
-- [ ] Vitest (`npm run test`)
-- [ ] Playwright + axe, **against the SSR build**
-- [ ] `composer audit`
-- [ ] `npm audit` (plus the manual Vite advisory check above)
-- [ ] Trivy image scan (no unaccepted High/Critical)
+| Job | Step (name in the run summary) | Command |
+|---|---|---|
+| `workflows` | actionlint (pinned container) | `docker run rhysd/actionlint:<version>@sha256:<digest>` |
+| `compose` | production file validates; a missing secret fails naming it; production guards; dev files validate | `docker compose -f compose.yaml --env-file deploy/portainer.env.example config`, `scripts/ci/compose-guard.mjs` |
+| `quality` | Pint | `composer lint` |
+| | Larastan (max, no baseline) | `composer analyse` |
+| | Pest on PostgreSQL | `composer test` |
+| | oxlint, oxfmt check, `tsc`, i18n check | `npm run check` |
+| | Vitest (includes the `ci-scripts` project) | `npm run test` |
+| | client + SSR build | `npm run build` |
+| | `php artisan optimize` | then `optimize:clear` |
+| | SSR smoke (up and down) | `bash scripts/dev-ssr.sh smoke` (calls `node scripts/ssr-smoke.mjs --mode on|down`) |
+| | Playwright + axe against the SSR build | `docker compose --profile ssr run --rm -e CI=true -e E2E_REQUIRE_SSR=1 e2e` |
+| | `composer audit`, `npm audit` | `scripts/ci/audit-gate.mjs`; production dependencies must have 0 advisories |
 
-Also in the M0 CI scope (`docs/plan.md` § 4): client + SSR build, `php artisan optimize` (proves `route:cache`
-works), an SSR smoke test, the `linux/amd64` image build and push to GHCR. CI blocks the image publish when any gate
-fails. Notes for that epic are on the board ("Notes for the CI/CD epic").
+- **Compose guards** (`scripts/ci/compose-guard.mjs`, tests in `scripts/ci/compose-guard.test.mjs`) read the rendered production
+  model and fail on: an `adminer` service, any `ports:`, an initdb mount, bind mounts, `build:`, `env_file`, a `latest` or
+  untagged image, any service but `app` on `npm_shared`, a `default` network that is not internal, missing `cap_drop: [ALL]`,
+  `no-new-privileges`, read-only root, limits or log caps, secrets in `ssr`, and the superuser password outside `db`/`db-init`.
+- **Audit triage** (`.github/audit-ignore.json`): high and critical advisories fail the run unless listed with a reason, a
+  review date and an expiry date (expired entries fail again). Medium and low are printed only. Today the entries cover the
+  dev-only `undici` (via jsdom) and `launch-editor` advisories. The `vite` alias hides Vite advisories from `npm audit`:
+  that check stays manual (see § 7).
+- **Artifacts:** the Playwright report and traces are uploaded only when the job fails, kept 2 days, as workflow artifacts
+  (never release assets).
+- **No external origins in browser tests:** Chromium runs with `--host-resolver-rules` that resolve only `localhost` and
+  `127.0.0.1`, so any request to another origin fails (console error, failed request).
+- **Image pin:** the Playwright image in `compose.dev.yaml` is pinned by tag and digest (`PlaywrightImageVersionSyncTest`).
+  Dependabot (`.github/dependabot.yml`) proposes weekly grouped updates for Actions, Composer, npm and Docker; Playwright
+  itself is excluded and bumped by hand together with its image.
+- Not in CI yet: Trivy and the image build (TE-014), a CI job that starts the production stack (needs the published image).
 
 ## 9. Known limits of the arch scans
 

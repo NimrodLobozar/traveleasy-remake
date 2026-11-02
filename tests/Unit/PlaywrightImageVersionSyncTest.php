@@ -24,8 +24,8 @@ function playwrightSyncImageVersion(): string
     $image = asString(asArray(asArray(asArray($compose['services'] ?? null)['e2e'] ?? null))['image'] ?? null);
 
     expect($image)->toMatch(
-        '#^mcr\.microsoft\.com/playwright:v\d+\.\d+\.\d+-[a-z]+$#',
-        "The e2e image [{$image}] must be the official Playwright image with an exact version tag.",
+        '#^mcr\.microsoft\.com/playwright:v\d+\.\d+\.\d+-[a-z]+@sha256:[0-9a-f]{64}$#',
+        "The e2e image [{$image}] must be the official Playwright image with an exact version tag and a sha256 digest.",
     );
 
     preg_match('#:v(\d+\.\d+\.\d+)-#', $image, $match);
