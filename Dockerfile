@@ -194,8 +194,8 @@ COPY database ./database
 COPY --chmod=a+rX,go-w lang ./lang
 COPY --chmod=a+rX,go-w routes ./routes
 COPY --chmod=a+rX,go-w resources/views ./resources/views
-COPY --from=build --chmod=a+rX,go-w /var/www/html/public ./public
-COPY --from=build --chmod=a+rX,go-w /var/www/html/bootstrap/ssr ./bootstrap/ssr
+COPY --from=build --chown=0:0 --chmod=a+rX,go-w /var/www/html/public ./public
+COPY --from=build --chown=0:0 --chmod=a+rX,go-w /var/www/html/bootstrap/ssr ./bootstrap/ssr
 
 ENV APP_ENV=production \
     APP_DEBUG=false \
@@ -215,7 +215,7 @@ ENV APP_ENV=production \
 # thrown away: the real caches depend on the runtime environment and are written by the entrypoint.
 RUN set -eux; \
     sed -i 's/\r$//' /usr/local/bin/traveleasy-entrypoint; \
-    rm -rf public/hot public/storage; \
+    rm -rf public/hot public/storage public/.htaccess; \
     mkdir -p storage/app storage/framework/views storage/logs bootstrap/cache /data /config /tmp/proof; \
     php artisan package:discover --ansi; \
     APP_KEY="base64:$(head -c 32 /dev/zero | base64)" \

@@ -19,10 +19,10 @@ leftovers, no exposed hidden files and no third-party references before the firs
 - **Depends on:** TE-012. **Should land before:** TE-014 (the verify script runs in CI) and TE-024.
 
 ## Acceptance criteria
-- [ ] AC1 (file ownership): Given the production `Dockerfile`, when read, then `COPY --from=build` of `public/` and
+- [x] AC1 (file ownership): Given the production `Dockerfile`, when read, then `COPY --from=build` of `public/` and
       `bootstrap/ssr/ssr.js` uses `--chown=0:0`; and `docker/prod/verify.sh` fails when any file outside the writable storage paths
       (`storage/app` volume and the tmpfs paths) is not owned by root (proven by a deliberate failing fixture or `docker run` check).
-- [ ] AC2 (hidden files): Given the running production image, when `GET /.htaccess`, `GET /.env` and `GET /.git/config` are requested,
+- [x] AC2 (hidden files): Given the running production image, when `GET /.htaccess`, `GET /.env` and `GET /.git/config` are requested,
       then each returns 404, including the kit's `public/.htaccess` (removed in the production stage, or denied by the Caddyfile for
       `/.*`); and `GET /.well-known/` paths keep working (a request for an existing file under `public/.well-known/` returns 200,
       a missing one 404). `verify.sh` checks both.

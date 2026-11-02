@@ -22,7 +22,7 @@ DB_PASS="$(openssl rand -hex 16)"
 FAILED=0
 
 cleanup() {
-    docker rm -f "$APP" "$SSR" "$DB" "${RUN}-fail" "${RUN}-boot" "${RUN}-ssr8" "${RUN}-migfail" >/dev/null 2>&1
+    docker rm -f "$APP" "$SSR" "$DB" "${RUN}-fail" "${RUN}-boot" "${RUN}-ssr8" "${RUN}-migfail" "${RUN}-static" >/dev/null 2>&1
     docker network rm "$NET" >/dev/null 2>&1
 }
 trap cleanup EXIT
@@ -43,6 +43,7 @@ echo "== static content of $IMAGE"
 check "AC2 runs as uid/gid 10001" test "$(docker run --rm --entrypoint id "$IMAGE" -u):$(docker run --rm --entrypoint id "$IMAGE" -g)" = "10001:10001"
 check "AC2 code is owned by root, 0755" test "$(docker run --rm --entrypoint stat "$IMAGE" -c '%U:%a' /var/www/html)" = "root:755"
 check "AC2 code is not writable by the app user" docker run --rm --entrypoint sh "$IMAGE" -c '! touch /var/www/html/x 2>/dev/null && ! touch /var/www/html/app/x 2>/dev/null'
+check "TE-028 AC1 everything outside storage/app is owned by root" docker run --rm --entrypoint sh "$IMAGE" -c '[ -z "$(find /var/www/html -path /var/www/html/storage/app -prune -o ! -user root -print)" ]'
 check "AC2 storage/app is writable by the app user" docker run --rm --entrypoint sh "$IMAGE" -c 'touch /var/www/html/storage/app/x'
 for p in tests node_modules .git .env docs vendor/phpunit vendor/pestphp vendor/larastan resources/js; do
     check "AC1 no $p in the image" docker run --rm --entrypoint sh "$IMAGE" -c "! test -e /var/www/html/$p"
@@ -172,6 +173,16 @@ check "AC16 static file has a CSP with frame-ancestors 'none'" grep -Eqi "^conte
 check "AC16 static file has X-Frame-Options: DENY" grep -qi '^x-frame-options: DENY' <<<"$FAV"
 check "AC16 PHP responses keep the app's nonce CSP (not overridden)" grep -Eqi "^content-security-policy: .*nonce-" <<<"$HOME_RESP"
 
+# TE-028 AC2: hidden files are 404 (also the kit's .htaccess), /.well-known/ keeps working. A throwaway root container
+# (not hardened) gets a probe file under public/.well-known; only static serving is exercised, so no DB is needed.
+docker run -d --name "${RUN}-static" --user 0 --entrypoint sh "$IMAGE" -c 'mkdir -p public/.well-known && echo ok > public/.well-known/probe.txt && echo secret > public/.env && exec frankenphp run --config /etc/frankenphp/Caddyfile --adapter caddyfile' >/dev/null
+sleep 5
+status() { docker exec "${RUN}-static" php -r '$c=stream_context_create(["http"=>["ignore_errors"=>true]]); @file_get_contents("http://127.0.0.1:8080".$argv[1],false,$c); echo preg_match("#\s(\d{3})\s#", $http_response_header[0] ?? "", $m) ? $m[1] : "none";' "$1"; }
+for hp in /.htaccess /.env /.git/config /.well-known/missing.txt; do
+    check "TE-028 AC2 GET $hp answers 404" test "$(status "$hp")" = 404
+done
+check "TE-028 AC2 GET /.well-known/probe.txt (existing file) answers 200" test "$(status /.well-known/probe.txt)" = 200
+check "TE-028 AC2 public/.htaccess is not in the image" docker run --rm --entrypoint sh "$IMAGE" -c '! test -e /var/www/html/public/.htaccess'
 check "AC3 the root filesystem is read-only" bash -c "! docker exec $APP sh -c 'touch /var/www/html/x 2>/dev/null || touch /usr/x 2>/dev/null'"
 check "AC1 history has no secrets" bash -c "! docker history --no-trunc $IMAGE | grep -Eqi '(password|secret)=[^ ]+'"
 

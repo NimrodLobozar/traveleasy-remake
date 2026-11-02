@@ -70,3 +70,9 @@ Largest layers: FrankenPHP base 631 MB, `node` 127 MB, PHP extensions 99 MB, `ve
 ## Rollback rule
 
 Roll back by deploying the previous tag. Migrations are expand/contract (ADR-0002 D4), so `previous tag + new schema` works.
+
+## Hidden files (TE-028)
+
+The Caddyfile answers 404 for every path starting with a dot (`/.env`, `/.git/...`, `/.htaccess`), except `/.well-known/`.
+The kit's `public/.htaccess` is also removed from the image. Everything under `/var/www/html` is owned by root except the
+`storage/app` volume; `verify.sh` checks both.
