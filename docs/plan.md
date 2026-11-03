@@ -165,7 +165,7 @@ switch, skip link, light/dark theme, error pages) on the home server from your L
 secrets).
 
 **Exit criteria:** milestone DoD (§ 2), plus: a code change shows up in the browser without a rebuild (checked on
-Windows); the page source of the shell contains server-rendered HTML; `v0.0.x` runs on the home server with
+Windows); the page source of the shell contains server-rendered HTML; `v0.1.0` runs on the home server with
 healthy services and no host-exposed DB port; **a deploy from a fresh Portainer stack works with only the env file
 plus the generated secrets**, following `docs/deploy/casaos-portainer.md` step by step, and leaving out one secret
 makes the deploy fail with a clear message. Every later milestone's redeploy re-checks this with that milestone's
@@ -1206,7 +1206,7 @@ super_admin through the UI.
 
 | When | What runs on the home server | Reachable from |
 |---|---|---|
-| End of M0 | `v0.0.x` walking skeleton (SSR shell, error pages, health check) | **LAN only** (first deploy) |
+| End of M0 | `v0.1.0` walking skeleton (SSR shell, error pages, health check) | **LAN only** (first deploy) |
 | End of M1–M5 | `v0.N.0` per milestone; `v0.5.0` = full search → book → invoice slice | LAN only |
 | End of M6 | `v0.6.0` public demo with demo mode, masking and nightly reset | **Public** on the owner's subdomain through NPM over HTTPS |
 | End of M7–M10 | `v0.N.0` per milestone | Public |

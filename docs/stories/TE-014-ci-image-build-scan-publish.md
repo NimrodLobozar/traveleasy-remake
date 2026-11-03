@@ -1,7 +1,7 @@
 ---
 id: TE-014
 title: GitHub Actions pipeline, part 2: amd64 build, Trivy scan, publish to GHCR
-status: ready
+status: in-test
 priority: must
 epic: M0 CI/CD to GHCR
 agents: [devops-engineer]
@@ -15,7 +15,7 @@ As the owner, I want a green `main` to publish a scanned, tagged image to GHCR, 
 version.
 
 ## Context
-- `docs/plan.md` § 2 DoD row 3 (`ghcr.io/nimrodlobozar/traveleasy:vX.Y.0`; milestone N gives `v0.N.0`; first is `v0.0.x`),
+- `docs/plan.md` § 2 DoD row 3 (`ghcr.io/nimrodlobozar/traveleasy:vX.Y.0`; milestone N gives `v0.N.0`; first release is `v0.1.0`, owner decision 2026-11-03),
   § 4 M0 CI bullet (build `linux/amd64`, Trivy, push `vX.Y.Z` + `sha-…`).
 - Board note: image scan, `composer audit`/`npm audit` (the audits are in TE-013).
 - **Depends on:** TE-012, TE-013. **Blocks:** TE-025 (secrets helper runs from this image), TE-026.
@@ -54,7 +54,7 @@ version.
       handoff; also asserted in TE-026 AC15).
 
 ## Quality criteria
-- [ ] Tests: workflow linted with `actionlint`; the verify script is exercised; one real tagged release `v0.0.1` is run
+- [ ] Tests: workflow linted with `actionlint`; the verify script is exercised; one real tagged release `v0.1.0` is run
       end to end and the image pulled on a clean machine (evidence in handoff).
 - [ ] Accessibility: n/a.
 - [ ] Security/privacy: no secrets in the image or logs; cosign or GitHub attestation optional but provenance on; Trivy

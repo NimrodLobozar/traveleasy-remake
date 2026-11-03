@@ -5,7 +5,7 @@ Production runs as one Portainer stack made from [`compose.yaml`](../../compose.
 Public access goes through the existing Nginx Proxy Manager (NPM); the stack publishes **no host port**.
 
 Status: the stack, the env file and the secrets helper are finished and tested (TE-024, TE-025); the first real deploy is
-TE-026 (owner-gated); the image build and publish is TE-014. Until a release exists the tag in the env file is a placeholder.
+TE-026 (owner-gated); CI builds and publishes the image (TE-014, see "Releases" below). Until `v0.1.0` exists the tag in the env file is a placeholder.
 
 ## What runs
 
@@ -172,3 +172,27 @@ To take the site offline briefly, run `docker exec <stack>-app-1 php artisan dow
 `down` **without** `--render`: the app renders its own localised 503 page through the error handler. A static page
 (`--render`) would bypass the security headers and the translations. If PHP itself is unreachable (502/504), the web server
 answers with a small static Dutch/English page that carries the same security headers.
+
+## Releases and tags (TE-014)
+
+CI (`.github/workflows/ci.yml`, job `release`) builds the `production` target for `linux/amd64`, runs the verify scripts and a
+Trivy scan, and only then pushes to `ghcr.io/nimrodlobozar/traveleasy`. The package is public (the repository is public), so
+Portainer needs no registry login. There is never a `latest` tag.
+
+| Event | Tags pushed |
+|---|---|
+| Push to `main` (all quality gates green) | `sha-<7 chars>` |
+| Push of a git tag `vX.Y.Z` | `sha-<7 chars>` and `vX.Y.Z` |
+| Pull request (also from a fork) | nothing (build, verify and scan only) |
+
+Cut a release (after `main` is green): `git tag v0.1.0 && git push origin v0.1.0`. Milestone N gives `v0.N.0`; the first
+release is `v0.1.0`. A tag that is not `vX.Y.Z` makes the run red and publishes nothing.
+
+Pull and inspect: `docker pull ghcr.io/nimrodlobozar/traveleasy:v0.1.0` and
+`docker buildx imagetools inspect ghcr.io/nimrodlobozar/traveleasy:v0.1.0` (one `linux/amd64` manifest, OCI labels
+revision and source, SBOM and provenance attestations). In Portainer you only set `APP_IMAGE_TAG`. Roll back by setting it
+to the previous tag (see "Roll back").
+
+Trivy fails the release on any High or Critical finding (OS, libraries, secrets, misconfiguration) unless it is listed in
+[`.trivyignore`](../../.trivyignore) with an expiry date and a reviewed reason. The report is a workflow artifact for 3 days.
+A weekly run (`.github/workflows/scan-weekly.yml`, Mondays) scans the dev and Playwright images; a red run means new findings.
