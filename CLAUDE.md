@@ -19,7 +19,7 @@ had (all of them must come back, in better form) and every mistake that must not
 | Product plan / roadmap | Done: `docs/plan.md` (Accepted); ADR-0005 and ADR-0006 Accepted; no open owner questions |
 | Design system | In progress: tokens implemented (TE-020 done, Direction A "Fjord", Figtree self-hosted); app shell design (TE-016) approved; component specs (TE-021) passed a11y audit, awaiting owner approval (`docs/design/system.md`, links in `docs/design/previews.md`) |
 | Scaffolding + Docker dev env | Done: TE-001 to TE-006 |
-| M0 build (remaining epics) | In progress: TE-007 to TE-030 written. Done: TE-007 to TE-013, TE-015 to TE-020, TE-024, TE-025, TE-027 to TE-029; CI green on `main`. Open: TE-030 (polish), TE-014 (GHCR publish, owner go-ahead), TE-022/TE-023 (after TE-021 owner approval), TE-026 (first LAN deploy, owner-gated) |
+| M0 build (remaining epics) | In progress: TE-007 to TE-030 written. Done: TE-007 to TE-013, TE-015 to TE-020, TE-024, TE-025, TE-027 to TE-030; CI green on `main`. Open: TE-014 (GHCR publish, owner go-ahead), TE-022/TE-023 (after TE-021 owner approval), TE-026 (first LAN deploy, owner-gated) |
 
 Update this table when a phase changes.
 
