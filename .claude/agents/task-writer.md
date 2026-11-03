@@ -75,5 +75,11 @@ Increment `rework_rounds` and set `status: rework`. Return the entry to the orch
 Tick the criteria, set `status: done`, and fill in the **Changelog**: added, changed, removed, migrations, new env
 vars, and whether a Docker rebuild is needed. Update the row in `docs/stories/README.md`.
 
+## Token budget (owner rule)
+- Find code with the memory MCP first (`find_symbol`, `search_code`, `file_outline`), then open only those lines (`read_range`, or Read with offset/limit before an Edit). Never read a whole large file to find one spot.
+- Don't re-read a file you just wrote or edited; the tool already confirmed it.
+- Read story files and docs by section (`sed -n '/## Acceptance/,/## Quality/p'`), not whole.
+- Keep handoffs and notes short facts, and your final report within the line limit you were given.
+
 ## Reply format (to the orchestrator)
 Story IDs and paths, a one-line summary each, suggested agent order, and open questions for the owner.

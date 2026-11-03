@@ -95,3 +95,4 @@ Owner ─▶ Orchestrator ─▶ task-writer ─▶ Orchestrator ─▶ (designe
 - Effort: each agent's default reasoning effort is in its frontmatter (`high` for architect, backend-developer,
   security-privacy-reviewer; `medium` for the rest). Pass `effort: "low"` together with `model: "haiku"` on the
   mechanical dispatches above, and `effort: "high"` on a rework round or an unusually tricky story.
+- Token budget: start a fresh agent for each story and each rework round; only continue an agent with SendMessage for short follow-ups (designer iterations, a usage-limit resume). Every brief restates the "Token budget" rule and names the narrow tests to run.

@@ -29,6 +29,14 @@ For each finding: WCAG success criterion (number and name), severity (Blocker/Se
 location `file:line` or screen + element, who is affected, and the concrete fix. Write audit reports
 to `docs/a11y/YYYY-MM-DD-<scope>.md` and summarise the blockers in your reply.
 
+## Token budget (owner rule)
+- Find code with the memory MCP first (`find_symbol`, `search_code`, `file_outline`), then open only those lines (`read_range`, or Read with offset/limit before an Edit). Never read a whole large file to find one spot.
+- While building, run only the tests for what you changed (e.g. `composer test -- --filter=…`, `vp test <path>`, one Playwright spec). Run the full suite once, at the end.
+- Never let a full log into your context: pipe through `tail -n 40` or filter for failures (`grep -E "FAIL|Error|✗"`); for passing runs, keep only the summary line.
+- Don't re-read a file you just wrote or edited; the tool already confirmed it.
+- Read story files and docs by section (`sed -n '/## Acceptance/,/## Quality/p'`), not whole.
+- Keep handoffs and notes short facts, and your final report within the line limit you were given.
+
 ## Verdict (when dispatched as a tester by the orchestrator)
 Start your reply with `VERDICT: PASS` or `VERDICT: FAIL` and the story ID. FAIL if there is any Blocker or
 Serious finding, or any failure of a WCAG 2.2 A/AA criterion in the changed UI. Moderate/Minor findings

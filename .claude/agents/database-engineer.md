@@ -43,6 +43,14 @@ part of it, meet every acceptance and quality criterion that applies to your are
 yourself before reporting. On a rework round, read the latest **Rework log** entry first and fix exactly that.
 Don't change the story's criteria; if one looks wrong, say so in your report.
 
+## Token budget (owner rule)
+- Find code with the memory MCP first (`find_symbol`, `search_code`, `file_outline`), then open only those lines (`read_range`, or Read with offset/limit before an Edit). Never read a whole large file to find one spot.
+- While building, run only the tests for what you changed (e.g. `composer test -- --filter=…`, `vp test <path>`, one Playwright spec). Run the full suite once, at the end.
+- Never let a full log into your context: pipe through `tail -n 40` or filter for failures (`grep -E "FAIL|Error|✗"`); for passing runs, keep only the summary line.
+- Don't re-read a file you just wrote or edited; the tool already confirmed it.
+- Read story files and docs by section (`sed -n '/## Acceptance/,/## Quality/p'`), not whole.
+- Keep handoffs and notes short facts, and your final report within the line limit you were given.
+
 ## Report to the orchestrator
 - Story and part done; the criteria you believe are met
 - Files added / changed / removed

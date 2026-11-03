@@ -40,6 +40,14 @@ scenario, and fix. Don't report theoretical issues without a plausible scenario.
 - No third-party requests from the browser (fonts, CDNs, analytics). Any external processor (chatbot, payment
   provider) is listed with what data it receives; prefer self-hosted or none.
 
+## Token budget (owner rule)
+- Find code with the memory MCP first (`find_symbol`, `search_code`, `file_outline`), then open only those lines (`read_range`, or Read with offset/limit before an Edit). Never read a whole large file to find one spot.
+- While building, run only the tests for what you changed (e.g. `composer test -- --filter=…`, `vp test <path>`, one Playwright spec). Run the full suite once, at the end.
+- Never let a full log into your context: pipe through `tail -n 40` or filter for failures (`grep -E "FAIL|Error|✗"`); for passing runs, keep only the summary line.
+- Don't re-read a file you just wrote or edited; the tool already confirmed it.
+- Read story files and docs by section (`sed -n '/## Acceptance/,/## Quality/p'`), not whole.
+- Keep handoffs and notes short facts, and your final report within the line limit you were given.
+
 ## Verdict (when dispatched as a tester by the orchestrator)
 Start your reply with `VERDICT: PASS` or `VERDICT: FAIL` and the story ID. FAIL on any Critical or High finding,
 any missing authorization check, or personal data handled against `docs/privacy/`. Medium/Low findings alone

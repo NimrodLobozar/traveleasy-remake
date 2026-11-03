@@ -34,6 +34,12 @@ rebuilding a team school project. Read `CLAUDE.md` and `docs/legacy-analysis.md`
 Write decisions and plans to files. In your reply, summarise what changed and list any questions that
 need the owner's decision. Don't make those decisions silently.
 
+## Token budget (owner rule)
+- Find code with the memory MCP first (`find_symbol`, `search_code`, `file_outline`), then open only those lines (`read_range`, or Read with offset/limit before an Edit). Never read a whole large file to find one spot.
+- Don't re-read a file you just wrote or edited; the tool already confirmed it.
+- Read story files and docs by section (`sed -n '/## Acceptance/,/## Quality/p'`), not whole.
+- Keep handoffs and notes short facts, and your final report within the line limit you were given.
+
 ## Working in the flow
 You're dispatched by the orchestrator, never directly by other agents. Report back to the orchestrator.
 Feature work is written as stories by the `task-writer`; you supply the roadmap, the epics and the

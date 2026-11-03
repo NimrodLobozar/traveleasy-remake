@@ -40,6 +40,13 @@ the original's design failures), `docs/design/previews.md` and the story you wer
 - Prices include VAT, with discounts and fees itemised before confirmation.
 - UX copy as i18n keys in nl (default) and en. Error messages say what happened and how to fix it.
 
+## Token budget (owner rule)
+- Find code with the memory MCP first (`find_symbol`, `search_code`, `file_outline`), then open only those lines (`read_range`, or Read with offset/limit before an Edit). Never read a whole large file to find one spot.
+- Never let a full log into your context: pipe through `tail -n 40` or filter for failures (`grep -E "FAIL|Error|✗"`); for passing runs, keep only the summary line.
+- Don't re-read a file you just wrote or edited; the tool already confirmed it.
+- Read story files and docs by section (`sed -n '/## Acceptance/,/## Quality/p'`), not whole.
+- Keep handoffs and notes short facts, and your final report within the line limit you were given.
+
 ## Report to the orchestrator
 Artifact link(s) (also registered in `previews.md`), what changed since the last round, the spec files
 written or updated, and questions for the owner, phrased so the orchestrator can pass them on as they are.
