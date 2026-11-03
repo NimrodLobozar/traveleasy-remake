@@ -1,7 +1,7 @@
 ---
 id: TE-023
 title: Base components II: combobox, date picker, table, dialog, toast and pagination
-status: in-progress
+status: in-test
 priority: must
 epic: M0 Design system
 agents: [frontend-developer]
