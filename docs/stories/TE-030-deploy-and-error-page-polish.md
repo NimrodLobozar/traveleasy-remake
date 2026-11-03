@@ -1,7 +1,7 @@
 ---
 id: TE-030
 title: Deploy and error-page polish (chore)
-status: ready
+status: in-test
 priority: should
 epic: M0 CI/CD to GHCR
 agents: [devops-engineer, backend-developer]
