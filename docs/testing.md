@@ -247,6 +247,18 @@ tests and Playwright target-size checks.
 - Every other incomplete rule id is listed: in the failure message when the matcher fails, otherwise as a
   `console.warn` "Needs manual review (axe incomplete in jsdom): …" note in the test output.
 
+#### Recipe: a base component test (TE-022)
+
+`resources/js/components/ui/base/base.test.tsx` is the model. Mock `@inertiajs/react` with `usePage` returning
+`{ locale, translations }` read from `lang/*.json`, so strings are the real nl/en ones. Per component: render, assert role
+and accessible name, drive it with `userEvent` (keyboard first), assert the state attributes, then
+`toHaveNoA11yViolations()`. Blur-validation errors: render `<ValidationAnnouncer />` next to the field and assert the
+`role="status"` text; call `announce('')` first because the message is module state. jsdom has no `matchMedia`
+(the Select falls back to the React Aria version); to test the native touch select, stub `window.matchMedia` to match
+`(pointer: coarse)`. SSR: `renderToString` and check there is no `window` use. Layout checks (target size, zoom, text
+spacing, forced colours) belong in `tests/e2e/base-components.spec.ts`; inject test CSS with
+`adoptedStyleSheets`, because `addStyleTag` is blocked by the CSP.
+
 ### 5.3 Browser tests (Playwright)
 
 ```ts
