@@ -185,7 +185,7 @@ test('the e2e service sees no app environment, no database and publishes nothing
     expect($e2e)->not->toHaveKeys(['env_file', 'ports', 'networks', 'build', 'privileged', 'cap_add'])
         ->and($e2e['network_mode'] ?? null)->toBe('service:vite')
         ->and(array_keys(Arr::array($e2e, 'environment')))->toEqualCanonicalizing(
-            ['E2E_BASE_URL', 'E2E_FORWARD', 'NPM_CONFIG_UPDATE_NOTIFIER', 'HOME', 'PLAYWRIGHT_HTML_OUTPUT_DIR'],
+            ['E2E_BASE_URL', 'E2E_FORWARD', 'NPM_CONFIG_UPDATE_NOTIFIER', 'HOME', 'PLAYWRIGHT_HTML_OUTPUT_DIR', 'E2E_CSP_500_PATH'],
         )
         // uid 1001: not the owner (1000) of vite's node_modules/vendor volumes, so it can only read them.
         ->and($e2e['user'] ?? null)->toBe('1001:1001')
