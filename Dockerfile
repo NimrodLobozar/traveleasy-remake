@@ -138,6 +138,8 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-pr
 COPY --chmod=a+rX,go-w app ./app
 COPY --chmod=a+rX,go-w database ./database
 RUN composer dump-autoload --no-dev --no-scripts --optimize --classmap-authoritative --ignore-platform-reqs
+# Test fixtures of the IDE stubs package (they contain Dockerfiles that Trivy flags, DS-0002); never loaded at runtime.
+RUN rm -rf vendor/jetbrains/phpstorm-stubs/tests
 
 # ---------------------------------------------------------------------------------------------------
 # production
@@ -158,11 +160,13 @@ LABEL org.opencontainers.image.title="TravelEasy" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.created="${CREATED}"
 
-# PHP extensions (the install helper removes its own build dependencies), then take the file capability off the
+# PHP extensions (the install helper removes its own build dependencies), drop the kernel headers (linux-libc-dev: no use
+# at runtime, dozens of kernel CVEs), then take the file capability off the
 # FrankenPHP binary: under `cap_drop: [ALL]` + `no-new-privileges` a binary with file capabilities cannot be
 # executed (ADR-0002 measurement). It listens on 8080, so it needs none.
 RUN set -eux; \
     install-php-extensions ${PHP_EXTENSIONS}; \
+    apt-get purge -y linux-libc-dev; \
     setcap -r /usr/local/bin/frankenphp; \
     ! getcap /usr/local/bin/frankenphp | grep -q .; \
     rm -rf /var/lib/apt/lists/* /tmp/*
