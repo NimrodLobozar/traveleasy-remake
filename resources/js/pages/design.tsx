@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
 import { Alert } from '@/components/ui/base/alert';
+import { ValidationAnnouncer } from '@/components/ui/base/announcer';
 import { Banner, BannerLiveRegion } from '@/components/ui/base/banner';
 import { Button } from '@/components/ui/base/button';
 import { FormErrorSummary } from '@/components/ui/base/form-error-summary';
@@ -16,6 +17,8 @@ import { TextField } from '@/components/ui/base/text-field';
  */
 export default function Design() {
     const [signal, setSignal] = useState(0);
+    const [city, setCity] = useState('');
+    const [cityError, setCityError] = useState<string | undefined>();
 
     return (
         <>
@@ -24,6 +27,7 @@ export default function Design() {
                 <h1 className="text-3xl font-bold">Base components</h1>
 
                 <BannerLiveRegion />
+                <ValidationAnnouncer />
                 <Banner label="Maintenance notice" dismissible>
                     Maintenance on Saturday night.
                 </Banner>
@@ -88,6 +92,21 @@ export default function Design() {
                         autoComplete="email"
                         description="We never send email."
                         error="Enter a valid email address."
+                    />
+                    <TextField
+                        label="City (blur-validated)"
+                        autoComplete="off"
+                        value={city}
+                        error={cityError}
+                        onChange={(value) => {
+                            setCity(value);
+                            setCityError(undefined);
+                        }}
+                        onBlur={() => {
+                            setCityError(
+                                city === '' ? 'Enter a city.' : undefined,
+                            );
+                        }}
                     />
                     <TextField
                         label="Password"

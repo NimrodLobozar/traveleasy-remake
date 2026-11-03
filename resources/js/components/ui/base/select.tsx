@@ -1,4 +1,5 @@
-import { CheckIcon, ChevronDownIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon, CircleAlertIcon } from 'lucide-react';
+import { useId, useSyncExternalStore } from 'react';
 import type { Key, ReactNode } from 'react';
 import {
     Button as AriaButton,
@@ -8,6 +9,7 @@ import {
     Select as AriaSelect,
     SelectValue,
 } from 'react-aria-components';
+import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import {
     CONTROL_CLASS,
@@ -15,6 +17,31 @@ import {
     FieldHelp,
     FieldLabel,
 } from './field-parts';
+import { useBlurAnnounce } from './announcer';
+
+/** True on touch devices (coarse primary pointer); false during SSR and first render, so hydration matches. */
+function useCoarsePointer(): boolean {
+    return useSyncExternalStore(
+        (notify) => {
+            if (typeof window.matchMedia !== 'function') {
+                return () => undefined;
+            }
+            const query = window.matchMedia('(pointer: coarse)');
+            query.addEventListener('change', notify);
+
+            return () => {
+                query.removeEventListener('change', notify);
+            };
+        },
+        () =>
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(pointer: coarse)').matches,
+        () => false,
+    );
+}
+
+/** Spec 4.4: on touch with 5 options or fewer use the native select. */
+const NATIVE_MAX_OPTIONS = 5;
 
 export type SelectOption = { id: string; label: string };
 
@@ -52,6 +79,83 @@ export function Select({
     onChange,
     ...props
 }: SelectProps) {
+    const { t } = useTranslation();
+    const coarse = useCoarsePointer();
+    const blurAnnounce = useBlurAnnounce(label, error);
+    const id = useId();
+    const hasError = error !== undefined && error !== '';
+
+    if (coarse && options.length <= NATIVE_MAX_OPTIONS) {
+        const current = value ?? undefined;
+
+        return (
+            <div className={cn('block w-full', className)}>
+                <label htmlFor={id} className="mb-1 block font-bold text-text">
+                    {label}
+                    {isOptional && (
+                        <span className="ml-1 font-normal text-text-muted">
+                            {t('ui.optional')}
+                        </span>
+                    )}
+                </label>
+                <select
+                    id={id}
+                    name={props.name}
+                    required={props.isRequired}
+                    disabled={props.isDisabled}
+                    value={current}
+                    defaultValue={
+                        current === undefined ? (defaultValue ?? '') : undefined
+                    }
+                    aria-invalid={hasError || undefined}
+                    aria-describedby={
+                        [
+                            description !== undefined ? `${id}-d` : null,
+                            hasError ? `${id}-e` : null,
+                        ]
+                            .filter(Boolean)
+                            .join(' ') || undefined
+                    }
+                    onChange={(event) => {
+                        onChange?.(event.currentTarget.value);
+                    }}
+                    onBlur={blurAnnounce.onBlur}
+                    onFocus={blurAnnounce.onFocus}
+                    className={cn(CONTROL_CLASS, 'bg-surface')}
+                >
+                    <option value="" disabled>
+                        {placeholder}
+                    </option>
+                    {options.map((option) => (
+                        <option key={option.id} value={option.id}>
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+                {description !== undefined && (
+                    <span
+                        id={`${id}-d`}
+                        className="mt-1 block text-sm text-text-muted"
+                    >
+                        {description}
+                    </span>
+                )}
+                {hasError && (
+                    <span
+                        id={`${id}-e`}
+                        className="mt-1 flex items-start gap-1.5 text-sm font-medium text-danger"
+                    >
+                        <CircleAlertIcon
+                            aria-hidden="true"
+                            className="mt-0.5 size-4 shrink-0"
+                        />
+                        <span>{error}</span>
+                    </span>
+                )}
+            </div>
+        );
+    }
+
     return (
         <AriaSelect
             {...props}
@@ -64,6 +168,8 @@ export function Select({
                 }
             }}
             isInvalid={error !== undefined && error !== ''}
+            onBlur={blurAnnounce.onBlur}
+            onFocus={blurAnnounce.onFocus}
             validationBehavior="aria"
             className={cn('block w-full', className)}
         >

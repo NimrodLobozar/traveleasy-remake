@@ -15,6 +15,7 @@ import {
     FieldHelp,
     FieldLabel,
 } from './field-parts';
+import { useBlurAnnounce } from './announcer';
 
 /** The autocomplete tokens the app uses (WCAG 1.3.5); extend deliberately. */
 export type AutoComplete =
@@ -77,9 +78,11 @@ export function TextField({
     inputMode,
     placeholder,
     className,
+    onBlur,
     ...props
 }: TextFieldProps) {
     const { t } = useTranslation();
+    const blurAnnounce = useBlurAnnounce(label, error);
     const [revealed, setRevealed] = useState(false);
     const isPassword = type === 'password';
     const isTextarea = type === 'textarea';
@@ -92,6 +95,11 @@ export function TextField({
     return (
         <AriaTextField
             {...props}
+            onBlur={() => {
+                blurAnnounce.onBlur();
+                onBlur?.();
+            }}
+            onFocus={blurAnnounce.onFocus}
             type={inputType}
             isInvalid={error !== undefined && error !== ''}
             validationBehavior="aria"

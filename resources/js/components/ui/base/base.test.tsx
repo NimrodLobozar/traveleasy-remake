@@ -5,6 +5,7 @@ import { renderToString } from 'react-dom/server';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { Alert } from './alert';
+import { announce, ValidationAnnouncer } from './announcer';
 import { Banner, BannerLiveRegion } from './banner';
 import { Button } from './button';
 import { FormErrorSummary } from './form-error-summary';
@@ -411,5 +412,87 @@ describe('English strings and SSR (AC12)', () => {
             </>,
         );
         expect(html).toContain('Ok');
+    });
+});
+
+describe('NumberField out-of-range message (AC5)', () => {
+    it('shows a localised error and announces it when the typed value is out of range', async () => {
+        render(
+            <>
+                <ValidationAnnouncer />
+                <NumberField
+                    label="Volwassenen"
+                    minValue={1}
+                    maxValue={9}
+                    defaultValue={2}
+                />
+            </>,
+        );
+        const input = screen.getByRole('textbox');
+        await userEvent.clear(input);
+        await userEvent.type(input, '12');
+        await userEvent.tab();
+        expect(input).toHaveAttribute('aria-invalid', 'true');
+        expect(screen.getByRole('status')).toHaveTextContent(
+            'Volwassenen: Kies een getal van 1 tot 9.',
+        );
+    });
+});
+
+describe('Blur announcements (live region)', () => {
+    it('writes a blur error into the persistent polite region', async () => {
+        function Demo() {
+            const [error, setError] = useState<string | undefined>();
+
+            return (
+                <>
+                    <ValidationAnnouncer />
+                    <TextField
+                        label="Stad"
+                        autoComplete="off"
+                        error={error}
+                        onBlur={() => {
+                            setError('Vul een stad in.');
+                        }}
+                    />
+                </>
+            );
+        }
+        announce('');
+        render(<Demo />);
+        expect(screen.getByRole('status')).toBeEmptyDOMElement();
+        await userEvent.click(screen.getByRole('textbox'));
+        await userEvent.tab();
+        await waitFor(() => {
+            expect(screen.getByRole('status')).toHaveTextContent(
+                'Stad: Vul een stad in.',
+            );
+        });
+    });
+});
+
+describe('Select on touch (spec 4.4)', () => {
+    it('renders a native select for 5 options or fewer on a coarse pointer', () => {
+        const original = window.matchMedia;
+        window.matchMedia = ((query: string) => ({
+            matches: query.includes('coarse'),
+            media: query,
+            addEventListener: () => undefined,
+            removeEventListener: () => undefined,
+        })) as unknown as typeof window.matchMedia;
+        render(
+            <Select
+                label="Reisklasse"
+                placeholder="Kies"
+                options={[
+                    { id: 'eco', label: 'Economy' },
+                    { id: 'biz', label: 'Business' },
+                ]}
+            />,
+        );
+        window.matchMedia = original;
+        expect(
+            screen.getByRole('combobox', { name: 'Reisklasse' }).tagName,
+        ).toBe('SELECT');
     });
 });

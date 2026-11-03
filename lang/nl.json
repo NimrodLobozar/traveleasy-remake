@@ -204,6 +204,7 @@
     "ui.hide": "Verberg",
     "ui.number.decrement": "Minder",
     "ui.number.increment": "Meer",
+    "ui.number.out_of_range": "Kies een getal van :min tot :max.",
     "ui.number.range": "Kies een getal van :min tot :max.",
     "ui.optional": "(optioneel)",
     "ui.password.show": "Toon wachtwoord",

@@ -70,6 +70,8 @@ looks the same.
 - [ ] Performance: tree-shakable exports; component bundle growth recorded.
 - [ ] Docs updated: `docs/design/system.md` (props and usage), `docs/testing.md` (component test recipe).
 
+Bundle growth (2026-11-03, `npm run build`): the base components with React Aria are code-split into the `/design` chunk, 231 kB (73 kB gzip); the main `app` chunk stays at 179.6 kB (57.6 kB gzip). Pages that import the components will pay roughly that RAC cost once.
+
 ## Out of scope
 - Combobox, date picker, table, dialog/toast, pagination (TE-023); auth pages restyle (M1).
 
