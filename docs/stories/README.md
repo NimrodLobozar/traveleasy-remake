@@ -19,7 +19,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-011](TE-011-adr-0002-production-runtime.md) | ADR-0002 production runtime (web server, SSR packaging, migrate-on-start) | must | done | 0 | not-needed |
 | [TE-012](TE-012-production-image.md) | Production multi-stage image with entrypoint, health check and hardening | must | done | 0 | not-needed |
 | [TE-013](TE-013-ci-quality-gates.md) | GitHub Actions pipeline, part 1: quality gates | must | done | 0 | not-needed |
-| [TE-014](TE-014-ci-image-build-scan-publish.md) | GitHub Actions pipeline, part 2: amd64 build, Trivy, publish to GHCR | must | ready | 0 | not-needed |
+| [TE-014](TE-014-ci-image-build-scan-publish.md) | GitHub Actions pipeline, part 2: amd64 build, Trivy, publish to GHCR | must | done | 0 | not-needed |
 | [TE-015](TE-015-security-headers-and-csp-baseline.md) | Security headers and CSP baseline (nonces) | must | done | 0 | not-needed |
 | [TE-016](TE-016-accessible-base-layout.md) | Accessible base layout (landmarks, skip link, route-change focus, empty axe allow-list) | must | done | 1 | required |
 | [TE-017](TE-017-language-switch.md) | Language switch nl/en with persisted preference | must | done | 0 | required (TE-016 artifact) |
@@ -36,13 +36,14 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-028](TE-028-production-image-hardening-follow-ups.md) | Production image hardening follow-ups (chore) | must | done | 0 | not-needed |
 | [TE-029](TE-029-ci-and-deploy-hardening-follow-ups.md) | CI and deploy hardening follow-ups (chore) | should | done | 0 | not-needed |
 | [TE-030](TE-030-deploy-and-error-page-polish.md) | Deploy and error-page polish (chore) | should | done | 0 | not-needed |
+| [TE-031](TE-031-release-push-the-scanned-image.md) | Release pushes the scanned image by digest, and Trivy ignores are scoped per image | should | ready | 0 | not-needed |
 
 ### Epics
 - **M0 Project scaffold and tooling:** TE-001, TE-003, TE-004, TE-005 (docs part in TE-006).
 - **M0 Docker dev environment:** TE-002, TE-006.
 - **M0 Server-side rendering:** TE-007, TE-008.
 - **M0 i18n infrastructure:** TE-009, TE-010.
-- **M0 CI/CD to GHCR:** TE-011 (ADR-0002), TE-012, TE-013, TE-014, TE-028, TE-029, TE-030.
+- **M0 CI/CD to GHCR:** TE-011 (ADR-0002), TE-012, TE-013, TE-014, TE-028, TE-029, TE-030, TE-031.
 - **M0 App shell:** TE-015, TE-016, TE-017, TE-018, TE-019.
 - **M0 Design system:** TE-020, TE-021, TE-022, TE-023.
 - **M0 First home-server deploy:** TE-024, TE-025, TE-026.
