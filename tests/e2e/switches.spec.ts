@@ -62,6 +62,19 @@ test.describe('language switch (TE-017)', () => {
         const context = await browser.newContext({ javaScriptEnabled: false });
         const page = await context.newPage();
         await page.goto('/');
+        // Without JavaScript only server-rendered HTML exists (SSR on); the dev server renders in the browser.
+        const serverRendered = await page
+            .locator('#app[data-server-rendered]')
+            .count();
+        const requireSsr = (process.env.E2E_REQUIRE_SSR ?? '') !== '';
+        expect(
+            requireSsr && serverRendered === 0,
+            'E2E_REQUIRE_SSR is set but the page is not server-rendered',
+        ).toBe(false);
+        test.skip(
+            serverRendered === 0,
+            'SSR is off in this environment; run `bash scripts/dev-ssr.sh on` first',
+        );
 
         await page.getByRole('button', { name: 'English' }).click();
 
@@ -126,15 +139,13 @@ test.describe('theme menu (TE-018)', () => {
     test('ignores a junk cookie value and follows the system theme (AC3, AC6)', async ({
         page,
     }) => {
-        await page
-            .context()
-            .addCookies([
-                {
-                    name: 'appearance',
-                    value: 'foo',
-                    url: 'http://localhost:8000',
-                },
-            ]);
+        await page.context().addCookies([
+            {
+                name: 'appearance',
+                value: 'foo',
+                url: 'http://localhost:8000',
+            },
+        ]);
         await page.emulateMedia({ colorScheme: 'light' });
         await openHome(page);
         await expect(page.locator('html')).not.toHaveClass(/dark/);
