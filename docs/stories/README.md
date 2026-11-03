@@ -37,7 +37,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-029](TE-029-ci-and-deploy-hardening-follow-ups.md) | CI and deploy hardening follow-ups (chore) | should | done | 0 | not-needed |
 | [TE-030](TE-030-deploy-and-error-page-polish.md) | Deploy and error-page polish (chore) | should | done | 0 | not-needed |
 | [TE-031](TE-031-release-push-the-scanned-image.md) | Release pushes the scanned image by digest, and Trivy ignores are scoped per image | should | ready | 0 | not-needed |
-| [TE-032](TE-032-dependency-updates-2026-11.md) | Safe dependency updates from Dependabot PRs #1-#3 (2026-11) | should | ready | 0 | not-needed |
+| [TE-032](TE-032-dependency-updates-2026-11.md) | Safe dependency updates from Dependabot PRs #1-#3 (2026-11) | should | done | 0 | not-needed |
 
 ### Epics
 - **M0 Project scaffold and tooling:** TE-001, TE-003, TE-004, TE-005 (docs part in TE-006).
@@ -53,7 +53,8 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 ### Follow-ups (2026-11 dependency updates)
 Deferred from TE-032 (major or breaking; each needs its own story before it is applied):
 - TypeScript 7 (major): needs a dedicated compatibility story (tsc, oxlint type-aware rules, SSR build).
-- vite-plus 1.x (major): exact pin stays at 0.3.3 until its own story.
+- **vite-plus 1.x (major), priority: next, due before 2026-12-15:** exact pin stays at 0.3.3 until its own story. The undici ignores in `.github/audit-ignore.json` expire then; the bundled Vite 8.3.0 dev-server advisories are fixed in 8.3.3. Re-check the copied Vite `fs.deny` defaults in `vite.config.ts`.
+- **phpunit advisory PKSA-qhjm-rpqc-qkn6 (dev-only, medium, from TE-032):** phpunit 13.4.1 stays until Pest allows phpunit ≥ 13.4.4; then move it (`composer.json`, `composer audit` must be clean).
 - lucide-react 1.x (major): icon API changes need a UI story.
 - @laravel/passkeys 0.4 (0.x minor, breaking): needs its own auth story (passkeys are not in M0).
 - @rolldown/plugin-babel 0.3 (0.x minor, breaking): needs a build-pipeline story.

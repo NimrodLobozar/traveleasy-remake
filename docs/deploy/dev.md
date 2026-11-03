@@ -42,7 +42,7 @@ given. Run all commands from the repo root.
 | `app` | `php artisan serve` (PHP 8.5.12), migrates on start | http://localhost:8000 (`APP_PORT`) | default |
 | `vite` | Vite dev server with HMR (Node 24.21.0, plus PHP for Wayfinder) | http://localhost:5173 (`VITE_PORT`) | default |
 | `db` | PostgreSQL 18.6, named volume `traveleasy-remake_pgdata` | not published; host `db` inside Docker | default |
-| `adminer` | Adminer 6.1.1, database GUI | http://localhost:8081 (`ADMINER_PORT`) | `tools` |
+| `adminer` | Adminer 6.2.0, database GUI | http://localhost:8081 (`ADMINER_PORT`) | `tools` |
 | `ssr` | Inertia SSR server (`node bootstrap/ssr/ssr.js`), same image, 256 MB | not published; `http://ssr:13714` inside Docker | `ssr` |
 | `e2e` | Playwright 1.64.0 + axe browser tests (Chromium), one-shot | none (shares `vite`'s network) | `e2e` |
 
@@ -320,7 +320,7 @@ running the tests.
 - **How it reaches the app:** the container shares `vite`'s network namespace, so `localhost:5173` is the real Vite
   server and the page's JavaScript really loads. Playwright forwards `localhost:8000` to `app:8000`.
 - **Isolation:**
-  - official image `mcr.microsoft.com/playwright:v1.64.0-noble`, uid 1001, read-only root file system, no
+  - official image `mcr.microsoft.com/playwright:v1.64.1-noble`, uid 1001, read-only root file system, no
     capabilities, `no-new-privileges`;
   - it can't reach the database;
   - the repo is mounted **read-only**, so it can't change code or `.git`. `node_modules`/`vendor` come from `vite` and

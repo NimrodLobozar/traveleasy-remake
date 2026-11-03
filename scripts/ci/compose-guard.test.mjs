@@ -101,7 +101,7 @@ describe('compose guard', () => {
         expect(
             violations([
                 'services.adminer',
-                { ...hardened, image: 'adminer:6.1.1' },
+                { ...hardened, image: 'adminer:6.2.0' },
             ]),
         ).toContain('Adminer');
     });
