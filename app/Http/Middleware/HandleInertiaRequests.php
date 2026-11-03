@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Data\SharedUserData;
+use App\Enums\Appearance;
 use App\Enums\Locale;
 use App\Models\User;
 use App\Support\I18n\Translations;
@@ -56,6 +57,8 @@ class HandleInertiaRequests extends Middleware
             'locale' => $locale->value,
             'fallbackLocale' => Locale::fallback()->value,
             'translations' => fn (): array => app(Translations::class)->for($locale),
+            // TE-018: the allow-listed theme choice, so SSR renders the theme control in the right state.
+            'appearance' => Appearance::fromRequest($request)->value,
             // TE-017: the session's CSRF token, for plain (no-JavaScript) form posts such as the language switch.
             // Inertia's own requests send the XSRF-TOKEN cookie instead. Null when there is no session.
             'csrfToken' => fn (): ?string => $request->hasSession() ? $request->session()->token() : null,

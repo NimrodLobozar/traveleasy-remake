@@ -62,6 +62,7 @@ choice). Their values are checked against an allow-list on every request, never 
 | Cookie | Set by | Value | Attributes | Lifetime | Notes |
 |---|---|---|---|---|---|
 | `locale` | Server, `POST /locale` (TE-017) | `nl` or `en` | Host-only, `Path=/`, `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS; not encrypted | 1 year | Read by `LocaleResolver`; any other value is ignored. React reads the locale from the Inertia props, not the cookie |
+| `appearance` | Browser, the theme control (TE-018, `use-appearance`) | `system`, `light` or `dark` | Host-only, `Path=/`, `SameSite=Lax`, `Secure` over HTTPS; readable by JavaScript (it is written there); not encrypted | 1 year | The server checks it against `App\Enums\Appearance` and renders only the enum value; anything else is `system` |
 
 ## External processors and outgoing requests
 

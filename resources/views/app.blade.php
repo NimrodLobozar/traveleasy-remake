@@ -1,36 +1,35 @@
+@use('App\Enums\Appearance')
+@php($theme = ($appearance ?? null) instanceof Appearance ? $appearance : Appearance::System)
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ($appearance ?? 'system') == 'dark']) @if (($appearance ?? 'system') !== 'system') data-theme="{{ $appearance === 'dark' ? 'dark' : 'light' }}" @endif>
+{{-- TE-018: an explicit theme is rendered on <html> by the server; only `system` needs the script below. --}}
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => $theme === Appearance::Dark]) @if ($theme !== Appearance::System) data-theme="{{ $theme->value }}" @endif>
     <head>
         <meta charset="utf-8">
         {{-- TE-015: the per-request CSP nonce for scripts that add <style>/<script> at runtime (Vite, Inertia). --}}
         <meta property="csp-nonce" nonce="{{ Vite::cspNonce() }}">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="{{ $theme->colorScheme() }}">
 
-        {{-- Inline script to detect system dark mode preference and apply it immediately --}}
-        <script nonce="{{ Vite::cspNonce() }}">
-            (function() {
-                const appearance = '{{ $appearance ?? "system" }}';
+        @if ($theme === Appearance::System)
+            {{-- TE-018 AC1: apply the system theme before first paint; use-appearance keeps following it afterwards. --}}
+            <script nonce="{{ Vite::cspNonce() }}">(function(){var d=document.documentElement,t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';d.classList.toggle('dark',t==='dark');d.dataset.theme=t;})();</script>
+        @endif
 
-                if (appearance === 'system') {
-                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-                    if (prefersDark) {
-                        document.documentElement.classList.add('dark');
-                    }
-
-                    document.documentElement.dataset.theme = prefersDark ? 'dark' : 'light';
-                }
-            })();
-        </script>
-
-        {{-- Inline style to set the HTML background color based on our theme in app.css --}}
+        {{-- The page background before the CSS loads (= --bg in tokens.css; light, dark, and dark without JavaScript). --}}
         <style nonce="{{ Vite::cspNonce() }}">
             html {
-                background-color: #f7f9fa; /* = --bg light (tokens.css; a test keeps them equal) */
+                background-color: #f7f9fa;
             }
 
-            html.dark {
-                background-color: #0e1a20; /* = --bg dark */
+            html.dark,
+            html[data-theme='dark'] {
+                background-color: #0e1a20;
+            }
+
+            @media (prefers-color-scheme: dark) {
+                html:not([data-theme]):not(.dark) {
+                    background-color: #0e1a20;
+                }
             }
         </style>
 
