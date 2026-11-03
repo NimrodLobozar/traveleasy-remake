@@ -126,13 +126,21 @@ visible text). Segmented control, 2 px `--border`, 40 px high (44 on touch); the
 and a check icon. Choosing a language navigates to the same page in that locale, keeps the theme, focus goes to `<main>`; the locale is also
 stored in a cookie (no personal data). Default nl.
 
+**As built (TE-017):** a `<form method="post" action="/locale">` (CSRF `_token`) with a `<fieldset>`/sr-only `<legend>` and two submit buttons
+(`name=locale`, `lang`), because switching posts to the server and must work without JavaScript; `hreflang` exists only on links, so it is not set.
+With JavaScript the post is an Inertia visit that keeps the page state, so **focus stays on the pressed button** (story AC2, which overrides
+"focus goes to main" above), `<html lang>` and the title change, and a polite live region says "Taal gewijzigd naar Nederlands".
+
 ### Theme switch (TE-018)
 Desktop: button "Thema" (sun icon in light, moon in dark, caret) with `aria-expanded` and `aria-controls`, opening a popover (`--surface`, 2 px
 `--border`, radius 12, `--shadow`, 260 px wide, right-aligned under the header) with a `role="radiogroup"` of three native radios (Systeem, Licht, Donker;
 44 px rows, selected row `--surface-2`) and the note "Systeem volgt de instelling van je apparaat." Arrow keys move and select, Escape closes
 and returns focus to the button, clicking outside closes. Mobile: the same radiogroup inline in the menu panel. Default Systeem. The choice is stored
 client-side only (cookie or localStorage) and applied before first paint by an inline script with a CSP nonce, so there is no flash; Systeem listens to
-`prefers-color-scheme`. Applied theme is set as `data-theme="light|dark"` on `<html>`; `color-scheme` follows.
+`prefers-color-scheme`.
+
+**As built (TE-018):** the choice lives in the `appearance` cookie only (no localStorage); the server renders the class and `color-scheme` meta
+from it (TE-018 AC2), so the hook reads the same cookie. The popover is closed with Escape, a click outside or Tab out of it. Applied theme is set as `data-theme="light|dark"` on `<html>`; `color-scheme` follows.
 
 ### Footer
 Two labelled `<nav>`: Service (Help en veelgestelde vragen, Annuleren en wijzigen) and Juridisch (Privacyverklaring, Toegankelijkheidsverklaring,
@@ -147,6 +155,10 @@ columns (card 440 px), mobile stacked. Below: three value points (final price in
 ### 404 (TE-019)
 Same shell, HTTP 404. Decorative route illustration (`aria-hidden`), mono eyebrow "Foutcode 404", `<h1>` "Deze pagina bestaat niet", body, primary
 "Naar de startpagina", secondary "Zoek reizen". 403/419/429/500/503 reuse the layout with `error.<code>.title|body` keys. The page is localised by the active locale.
+
+**As built (TE-019):** one Inertia page `error` (props `status`, `requestId`, `retryAfter`) for all six statuses, in the public shell. Extra keys:
+`error.code` ("Foutcode :code"), `error.search`, `error.reload` (419), `error.reference` ("Referentie: :id", selectable text, no copy button),
+`error.retry_after` (429). Titles follow this table, not the story's AC1 wording "Pagina niet gevonden"; focus moves to the `<h1>`.
 
 ### Copy keys (nl / en)
 | Key | nl | en |
