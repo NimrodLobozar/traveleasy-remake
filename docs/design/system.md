@@ -311,3 +311,7 @@ Beyond the per-component lines above, each component's tests include:
 Banner (2.2.1, 4.1.3, 2.4.1), toast and dialog (2.4.11, 2.2.1, role), field (4.1.3, 3.3.1, 3.3.2, password toggle, placeholder), date picker (cell width, input model, selected day),
 table, pagination and combobox (live regions, grid model, toggle button), and the cross-cutting rules (min-heights, dialog max-height, highlight text colour, forced colours,
 extra contrast pairs, coarse-pointer sizes, test list) are addressed in the sections above. Toast placement stays a variable until the owner answers.
+
+### 4.17 Implementation notes (TE-022)
+Components live in `resources/js/components/ui/base/` (the older shadcn files in `ui/` stay for the starter-kit pages until M1 restyles them): `Button`, `Link`, `TextField` (text, password, textarea), `FormErrorSummary`, `Select`, `NumberField`, `Alert`, `Banner` + `BannerLiveRegion`. Usage: see `/design` (local and testing only, `routes/testing.php`) and `base.test.tsx`.
+Props: `Button` variant/size/`isPending`/`onPress`; `TextField` requires a typed `autoComplete`, takes `error` (string, makes the field invalid) and `description`; `NumberField` min/max/step with `decrementLabel`/`incrementLabel`; `Alert`/`Banner` take `severity` and `dismissible` (info only). Not yet built: native `<select>` on touch, live region for blur errors, locale-aware out-of-range message (RAC clamps and the range sits in the help text).

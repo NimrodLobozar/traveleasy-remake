@@ -11,6 +11,7 @@ export function layoutFor(name: string): Layout | Layout[] | null {
     switch (true) {
         case name === 'home':
         case name === 'error':
+        case name === 'design':
             return ShellLayout;
         case name.startsWith('auth/'):
             return AuthLayout;

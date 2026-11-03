@@ -24,3 +24,6 @@ Route::get('/_test/error/{status}', function (string $status): never {
         default => abort((int) $status),
     };
 })->whereIn('status', ['403', '404', '419', '429', '500', '503'])->name('testing.error');
+
+// TE-022: the component showcase (axe and Playwright scan every component and state here).
+Route::inertia('/design', 'design')->name('testing.design');

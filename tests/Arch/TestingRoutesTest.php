@@ -33,14 +33,14 @@ function te019RoutesIn(string $environment): array
 }
 
 test('AC10 the testing error routes exist in testing and local', function (string $environment) {
-    expect(te019RoutesIn($environment))->toContain('_test/error/{status}');
+    expect(te019RoutesIn($environment))->toContain('_test/error/{status}')->toContain('design');
 })->with(['testing', 'local']);
 
 test('AC10 the testing error routes never exist in production or another environment', function (string $environment) {
     $uris = te019RoutesIn($environment);
 
     expect($uris)->toContain('locale')
-        ->and(array_filter($uris, fn (string $uri): bool => str_starts_with($uri, '_test')))->toBe([]);
+        ->and(array_filter($uris, fn (string $uri): bool => str_starts_with($uri, '_test') || $uri === 'design'))->toBe([]);
 })->with(['production', 'staging']);
 
 test('AC10 routes/testing.php is loaded in exactly one place, behind the local/testing guard', function () {
