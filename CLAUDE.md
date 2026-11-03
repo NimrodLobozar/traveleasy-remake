@@ -17,9 +17,9 @@ had (all of them must come back, in better form) and every mistake that must not
 | Agent team + workflow | Done (`.claude/agents/`, see § How work flows) |
 | Tech-stack decision | Done: `docs/adr/0001-tech-stack.md` (Accepted) |
 | Product plan / roadmap | Done: `docs/plan.md` (Accepted); ADR-0005 and ADR-0006 Accepted; no open owner questions |
-| Design system | In progress: tokens implemented (TE-020 done, Direction A "Fjord", Figtree self-hosted); app shell design (TE-016) approved; component specs (TE-021) passed a11y audit, awaiting owner approval (`docs/design/system.md`, links in `docs/design/previews.md`) |
+| Design system | In progress: tokens implemented (TE-020 done, Direction A "Fjord", Figtree self-hosted); app shell design (TE-016) approved; component specs (TE-021) approved; base components I (TE-022) built (`docs/design/system.md`, links in `docs/design/previews.md`) |
 | Scaffolding + Docker dev env | Done: TE-001 to TE-006 |
-| M0 build (remaining epics) | In progress: TE-007 to TE-030 written. Done: TE-007 to TE-013, TE-015 to TE-020, TE-024, TE-025, TE-027 to TE-030; CI green on `main`. TE-014 done: `v0.1.0` published to GHCR. Open: TE-031 (push the scanned image), TE-022/TE-023 (after TE-021 owner approval), TE-026 (first LAN deploy, owner-gated) |
+| M0 build (remaining epics) | In progress: TE-007 to TE-030 written. Done: TE-007 to TE-013, TE-015 to TE-020, TE-024, TE-025, TE-027 to TE-030; CI green on `main`. TE-014 done (`v0.1.0` on GHCR), TE-021 approved, TE-022 done. Open: TE-023 (in progress), TE-031 (push the scanned image), TE-026 (first LAN deploy, owner-gated) |
 
 Update this table when a phase changes.
 
