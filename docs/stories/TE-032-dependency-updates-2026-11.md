@@ -1,7 +1,7 @@
 ---
 id: TE-032
 title: Safe dependency updates from Dependabot PRs #1-#3 (2026-11)
-status: in-progress
+status: in-test
 priority: should
 epic: Maintenance
 agents: [devops-engineer]
