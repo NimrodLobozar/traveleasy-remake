@@ -279,6 +279,22 @@ Wait for React before scanning: the Inertia root `#app` is empty in the server H
   `x.allow`, `x['allow']`, or helper options that aren't an object literal with only `bestPractice`, fails the run. Each
   form is proven with a fixture.
 
+### 5.5 The external-request guard (TE-029 AC1)
+
+`tests/e2e/base-test.ts` exports the `test` (and `expect`) every spec must use. It adds an auto-fixture, `externalRequests`,
+that watches the whole browser context (pages, popups, workers) and fails the test when any request goes to a host other
+than `localhost`, `127.0.0.1` or `[::1]`. Raw IP addresses fail too (`isLocalRequest` in `tests/e2e/external-requests.ts`).
+
+- **Why:** the Chromium resolver rule in `playwright.config.ts` only stops hostnames, and a blocked request does not fail a
+  test by itself. Raw IPs bypass the resolver rule. The guard keeps CDNs, fonts, trackers and stray calls out of the app
+  (product principle: no third parties) and keeps tests from leaving the machine.
+- **Writing a spec:** `import { expect, test } from './base-test';` and use it as normal. Never import `test` from
+  `@playwright/test` in a `*.spec.ts` (`external-requests.test.ts` in the `e2e-rules` project fails if you do); types such as
+  `Page` may still come from there. There is no opt-out and no allow-list. If a test needs a fake external page, serve it
+  through `page.route` on a localhost URL.
+- **Proof:** `external-requests.spec.ts` has two `test.fail()` cases (a hostname and a raw IP, which pass only when the guard
+  fails them) and a localhost case that must pass.
+
 ## 6. Browser test runs (Playwright)
 
 - **The command:** `docker compose run --rm e2e` (no `--profile` needed for `run`; `docker compose --profile e2e run
