@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base-test';
 
 // TE-007 AC3: loading the home page logs no console error, which includes React's hydration
 // warnings (React reports a server/client markup mismatch through console.error).

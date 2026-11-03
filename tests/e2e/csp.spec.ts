@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base-test';
 import type { Page } from '@playwright/test';
 
 // TE-015 AC3: opening a page in Chromium, loading it and letting it hydrate produces zero CSP

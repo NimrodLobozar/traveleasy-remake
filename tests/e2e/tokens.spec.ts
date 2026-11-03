@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base-test';
 import { expectNoA11yViolations } from './axe';
 
 // TE-020: the design tokens as the browser sees them (AC5 text spacing, AC6 self-hosted fonts,

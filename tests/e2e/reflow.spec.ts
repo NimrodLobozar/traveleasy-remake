@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base-test';
 import type { Page } from '@playwright/test';
 
 // Dutch strings must neither overflow the page nor be clipped (WCAG 1.4.4 resize text, 1.4.10 reflow).

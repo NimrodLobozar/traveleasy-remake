@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base-test';
 import type { Page } from '@playwright/test';
 import { expectNoA11yViolations } from './axe';
 
