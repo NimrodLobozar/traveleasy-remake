@@ -291,10 +291,10 @@ Each "Tests" line lists what TE-022/TE-023 must write (Vitest/RTL for behaviour 
 That date does not exist. Use dd/mm/yyyy, for example 12/06/2027.; `combobox.count` {n} resultaten beschikbaar / {n} results available; `combobox.none` Geen luchthavens gevonden voor "{q}" / No airports found for "{q}".
 Full sample copy is in the artifact.
 
-### 4.14 Open questions for the owner (TE-021)
-1. Toast placement bottom-left on desktop (so it never covers the future chat button at bottom-right): OK?
-2. Staff tables use a 40 px dense row and a 36 px small button (precise pointer only); customer layouts stay at 44 px. OK?
-3. The destructive confirm shows the refund amount including VAT in the dialog text. OK?
+### 4.14 Owner decisions (TE-021, answered 2026-11-03)
+1. Toast placement bottom-left on desktop (so it never covers the future chat button at bottom-right): decided yes.
+2. Staff tables use a 40 px dense row and a 36 px small button (precise pointer only); customer layouts stay at 44 px. Decided yes; 44 px under `pointer: coarse`.
+3. The destructive confirm shows the refund amount including VAT in the dialog text. Decided yes.
 
 ### 4.15 Tests every component must have (TE-022, TE-023)
 Beyond the per-component lines above, each component's tests include:

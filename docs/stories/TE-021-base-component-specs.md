@@ -1,12 +1,12 @@
 ---
 id: TE-021
 title: Base component specs (states, keyboard behaviour, ARIA patterns)
-status: ready
+status: done
 priority: must
 epic: M0 Design system
 agents: [ux-ui-designer]
 testers: [accessibility-auditor]
-design: required
+design: approved:https://claude.ai/artifact/Dx7ZrtzrcD8eoPfwx7VDTL
 rework_rounds: 0
 ---
 
@@ -58,7 +58,7 @@ As a developer, I want a precise spec for every base component, so that I can im
 - Implementation (TE-022, TE-023); components beyond the 12 (added with the milestone that needs them).
 
 ## Open questions
-- (none)
+- Answered 2026-11-03 (owner): toasts bottom-left on desktop; dense staff rows 40/36 px, 44 px under `pointer: coarse`; cancel dialog shows refund including VAT.
 
 ## Rework log
 (empty)
