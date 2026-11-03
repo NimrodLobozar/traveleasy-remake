@@ -341,7 +341,7 @@ than `localhost`, `127.0.0.1` or `[::1]`. Raw IP addresses fail too (`isLocalReq
   `EADDRINUSE 127.0.0.1:8000`. `--output /tmp/…` only separates the `test-results` artefacts; it does **not** make
   concurrent runs possible (the HTML report path is fixed by `PLAYWRIGHT_HTML_OUTPUT_DIR` too). Agents and humans
   take turns.
-- **Version sync.** The image `mcr.microsoft.com/playwright:v1.64.0-noble` must equal `@playwright/test` (pinned
+- **Version sync.** The image `mcr.microsoft.com/playwright:v1.64.1-noble` must equal `@playwright/test` (pinned
   exactly, `1.64.0`). `tests/Unit/PlaywrightImageVersionSyncTest.php` fails while they differ. Upgrade steps:
   [`dev.md` § Browser tests](deploy/dev.md#browser-tests-playwright--axe).
 - If `vite` is unhealthy (e.g. right after a `vite.config.ts` change), the run stops with

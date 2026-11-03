@@ -79,4 +79,9 @@ TE-006 (exact stack versions in `CLAUDE.md`), `docs/testing.md` (paratest and Pl
 (empty)
 
 ## Changelog
-(filled when done)
+- 2026-11-03 (devops): applied on `chore/deps-2026-11`. Composer: inertia-laravel 3.6.0, laravel/framework 13.39.0, wayfinder 0.1.23, laravel-data 4.23.1, larastan 3.13.2, symfony/yaml 8.1.10 (pinned to the story versions; newer inertia-laravel 3.7.0 / larastan 3.14.0 / @inertiajs 3.11.0 were not taken). npm: AC3 set; `@types/node` ^24.19.2; vite-plus and the vite alias stay 0.3.3 (the story's "vite 3.10.0" is not applied, it is the pinned alias); @playwright/test exactly 1.64.1; Playwright image v1.64.1-noble@sha256:2f05f8a7...; Adminer 6.2.0.
+- Larastan: `routes/testing.php` needed the same `@phpstan-ignore method.nonObject` as `routes/web.php` for `Route::inertia()` (no baseline added).
+- Suites: composer check green (759 tests, 4713 assertions; parallel 759 green), npm check green, vitest 323/323, e2e 144 passed / 2 skipped (a first run had 7 load-related failures in complex-components 320px dark; the spec passed alone and the full rerun was green), dev-ssr smoke + off OK, production image builds, verify-production-stack 31/0.
+- Vite advisory check (2026-11-03), bundled Vite 8.3.0 (vite-plus 0.3.3): GHSA-rq7h-c2jc-7f22, GHSA-vfpm-58rq-9qcg (medium) and GHSA-9jrq-w75r-8gcw (low), all patched in 8.3.3, concern the dev server (`server.fs`, `?vite-wasm-instance`, custom middleware). Not exploitable in production (static build, no Vite server); dev ports bind to 127.0.0.1. GHSA-8g5g-mxqh-grgj is v6 only. Fixed only by a newer vite-plus (deferred, major pin).
+- Remaining audits: `npm audit --omit=dev` 0 vulnerabilities. `npm audit` 5 (4 moderate, 1 high), all dev-only: @vitest/mocker, @vitest/browser(-preview) and vite-plus (bundled vitest); fix needs `--force` (vite-plus major), deferred. `composer audit`: phpunit 13.4.1 (PKSA-qhjm-rpqc-qkn6, medium, PHPT coverage temp dir; dev-only) cannot move because pest 5.3.1 conflicts with phpunit 13.4.4+; resolved when Pest allows it.
+- Production build size comparison with `main` and the Trivy comparison (AC8) are not measured here; CI decides.
