@@ -1,12 +1,12 @@
 ---
 id: TE-022
 title: Base components I: button, link, field, select, number field, alert and banner
-status: ready
+status: in-progress
 priority: must
 epic: M0 Design system
 agents: [frontend-developer]
 testers: [qa-engineer, accessibility-auditor]
-design: required
+design: approved:https://claude.ai/artifact/Dx7ZrtzrcD8eoPfwx7VDTL
 rework_rounds: 0
 ---
 
