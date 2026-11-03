@@ -1,7 +1,7 @@
 ---
 id: TE-025
 title: One-file Portainer env file and the secrets helper command
-status: ready
+status: in-progress
 priority: must
 epic: M0 First home-server deploy
 agents: [backend-developer, devops-engineer]

@@ -1,12 +1,12 @@
 ---
 id: TE-019
 title: Localised error pages (403, 404, 419, 429, 500, 503) with a request ID
-status: ready
+status: in-progress
 priority: must
 epic: M0 App shell
 agents: [backend-developer, frontend-developer]
 testers: [qa-engineer, accessibility-auditor, security-privacy-reviewer]
-design: required
+design: approved:https://claude.ai/artifact/Ja7zyTDu9EznHuxPEu2dDD
 rework_rounds: 0
 ---
 

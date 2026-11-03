@@ -1,12 +1,12 @@
 ---
 id: TE-018
 title: Light/dark theme with a manual override and no flash under SSR
-status: ready
+status: in-progress
 priority: must
 epic: M0 App shell
 agents: [frontend-developer, backend-developer]
 testers: [qa-engineer, accessibility-auditor, security-privacy-reviewer]
-design: required
+design: approved:https://claude.ai/artifact/Ja7zyTDu9EznHuxPEu2dDD
 rework_rounds: 0
 ---
 

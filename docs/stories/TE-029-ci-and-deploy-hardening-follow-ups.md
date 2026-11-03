@@ -1,7 +1,7 @@
 ---
 id: TE-029
 title: CI and deploy hardening follow-ups (chore)
-status: ready
+status: in-progress
 priority: should
 epic: M0 CI/CD to GHCR
 agents: [devops-engineer, frontend-developer]

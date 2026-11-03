@@ -1,12 +1,12 @@
 ---
 id: TE-017
 title: Language switch nl/en with persisted preference
-status: ready
+status: in-progress
 priority: must
 epic: M0 App shell
 agents: [frontend-developer, backend-developer]
 testers: [qa-engineer, accessibility-auditor]
-design: required
+design: approved:https://claude.ai/artifact/Ja7zyTDu9EznHuxPEu2dDD
 rework_rounds: 0
 ---
 
