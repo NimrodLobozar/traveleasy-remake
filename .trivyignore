@@ -1,0 +1,3 @@
+# Reviewed Trivy exceptions (TE-014). One finding per line: the ID, then an expiry date.
+# Format: <ID> exp:YYYY-MM-DD   (Trivy stops ignoring the entry after the date, so the scan fails again).
+# Every entry needs a comment line above it with the reason and the reviewer. Currently empty on purpose.

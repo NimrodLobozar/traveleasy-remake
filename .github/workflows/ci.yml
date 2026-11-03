@@ -1,9 +1,10 @@
 # CI part 1: quality gates (TE-013). It runs the same Docker flow as local development (docs/testing.md), so
 # a green run here means the local commands are green too. Building and publishing the production image
-# (GHCR, Trivy) is TE-014 and needs the owner's go-ahead; nothing here publishes anything.
+# (GHCR, Trivy) is the `release` job at the bottom (TE-014); it pushes only from main or a vX.Y.Z tag, never for a PR.
 #
 # Security posture:
-# - read-only GITHUB_TOKEN (contents: read), no secrets used anywhere, no pull_request_target: a run from a fork
+# - read-only GITHUB_TOKEN (contents: read); only the release job has packages: write (GITHUB_TOKEN, no personal token);
+#   no other secrets, no pull_request_target: a run from a fork
 #   PR behaves exactly like a run on this repository.
 # - every third-party action is pinned by commit SHA (the tag is in the comment); Dependabot bumps them.
 # - the database password is generated per run and masked; the stack is thrown away with the runner.
@@ -11,6 +12,8 @@ name: CI
 
 on:
     push:
+        branches: ['**']
+        tags: ['v*.*.*']
     pull_request:
         branches: [main]
 
@@ -172,3 +175,158 @@ jobs:
             - name: Tear down (this runner only)
               if: always()
               run: docker compose --profile ssr down
+
+    # TE-014: build the production image for linux/amd64, verify it, scan it with Trivy and only then push it to GHCR.
+    # Pull requests (also from forks) run every step except the login and the push.
+    release:
+        name: Release (build, verify, Trivy, push to GHCR)
+        needs: [workflows, compose, quality]
+        runs-on: ubuntu-24.04
+        timeout-minutes: 25
+        permissions:
+            contents: read
+            packages: write # the only job with write access; GITHUB_TOKEN only
+        env:
+            IMAGE: ghcr.io/nimrodlobozar/traveleasy
+            # Trivy scanner image, pinned by digest (0.76.1). Dependabot does not see it: bump by hand (also in scan-weekly.yml).
+            TRIVY_IMAGE: aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Decide tags and whether to publish
+              id: meta
+              env:
+                  EVENT: ${{ github.event_name }}
+                  REF: ${{ github.ref }}
+                  REF_NAME: ${{ github.ref_name }}
+              run: |
+                  short="$(git rev-parse --short=7 HEAD)"
+                  tags="$IMAGE:sha-$short"
+                  publish=false
+                  version="sha-$short"
+                  if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ]; then
+                      publish=true
+                  elif [ "$EVENT" = push ] && [ "${REF#refs/tags/}" != "$REF" ]; then
+                      if [[ "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                          publish=true
+                          version="$REF_NAME"
+                          tags="$tags"$'\n'"$IMAGE:$REF_NAME"
+                      else
+                          echo "::error::tag $REF_NAME is not vX.Y.Z; nothing is published"
+                          exit 1
+                      fi
+                  fi
+                  {
+                      echo "publish=$publish"
+                      echo "version=$version"
+                      echo "sha_tag=$IMAGE:sha-$short"
+                      echo "created=$(git show -s --format=%cI HEAD)"
+                      echo "tags<<TAGS_END"
+                      echo "$tags"
+                      echo "TAGS_END"
+                  } >> "$GITHUB_OUTPUT"
+                  echo "publish=$publish tags: $tags"
+
+            - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+            - name: Build the production image (linux/amd64 only) into the local Docker daemon
+              uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+              with:
+                  context: .
+                  target: production
+                  platforms: linux/amd64
+                  load: true
+                  push: false
+                  tags: ${{ steps.meta.outputs.sha_tag }}
+                  build-args: |
+                      VERSION=${{ steps.meta.outputs.version }}
+                      REVISION=${{ github.sha }}
+                      CREATED=${{ steps.meta.outputs.created }}
+                  cache-from: type=gha,scope=production-image
+                  cache-to: type=gha,scope=production-image,mode=max
+              env:
+                  DOCKER_BUILD_RECORD_UPLOAD: 'false'
+                  DOCKER_BUILD_SUMMARY: 'false'
+
+            - name: Verify the image (TE-012 checks, then the production compose stack)
+              env:
+                  SHA_TAG: ${{ steps.meta.outputs.sha_tag }}
+              run: |
+                  bash docker/prod/verify.sh "$SHA_TAG"
+                  bash scripts/ci/verify-production-stack.sh "$SHA_TAG"
+
+            - name: Trivy scan (vuln, secret, misconfig; High and Critical fail; reviewed .trivyignore only)
+              env:
+                  SHA_TAG: ${{ steps.meta.outputs.sha_tag }}
+              run: |
+                  mkdir -p trivy-out
+                  docker run --rm --user root \
+                      -v /var/run/docker.sock:/var/run/docker.sock \
+                      -v "$PWD:/work" -w /work \
+                      -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
+                      "$TRIVY_IMAGE" image \
+                      --scanners vuln,secret,misconfig \
+                      --severity HIGH,CRITICAL \
+                      --ignorefile .trivyignore \
+                      --exit-code 1 \
+                      --format json --output trivy-out/report.json \
+                      "$SHA_TAG"
+
+            - name: Trivy findings (readable, in the job log)
+              if: failure()
+              run: |
+                  [ -f trivy-out/report.json ] || exit 0
+                  docker run --rm --user root -v "$PWD:/work" -w /work "$TRIVY_IMAGE" convert \
+                      --format table --severity HIGH,CRITICAL trivy-out/report.json | tail -n 80
+
+            # Secret matches in a Trivy report are censored by Trivy. Workflow artifact only, never a release asset.
+            - name: Upload the Trivy report (3 days)
+              if: always()
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: trivy-report
+                  path: trivy-out/report.json
+                  retention-days: 3
+                  if-no-files-found: ignore
+
+            - name: Log in to GHCR (GITHUB_TOKEN)
+              if: steps.meta.outputs.publish == 'true'
+              uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            # Same build again: every layer comes from the cache of the build that was verified and scanned.
+            # Attestations (SBOM, provenance) cannot be stored in the local daemon, so this push adds them.
+            - name: Push (single linux/amd64 manifest, SBOM and provenance attached)
+              if: steps.meta.outputs.publish == 'true'
+              id: push
+              uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+              with:
+                  context: .
+                  target: production
+                  platforms: linux/amd64
+                  push: true
+                  tags: ${{ steps.meta.outputs.tags }}
+                  build-args: |
+                      VERSION=${{ steps.meta.outputs.version }}
+                      REVISION=${{ github.sha }}
+                      CREATED=${{ steps.meta.outputs.created }}
+                  cache-from: type=gha,scope=production-image
+                  sbom: true
+                  provenance: mode=max
+              env:
+                  DOCKER_BUILD_RECORD_UPLOAD: 'false'
+                  DOCKER_BUILD_SUMMARY: 'false'
+
+            - name: Show the pushed manifest
+              if: steps.meta.outputs.publish == 'true'
+              env:
+                  SHA_TAG: ${{ steps.meta.outputs.sha_tag }}
+                  DIGEST: ${{ steps.push.outputs.digest }}
+              run: |
+                  docker buildx imagetools inspect "$SHA_TAG" | head -n 30
+                  echo "Pushed $SHA_TAG at $DIGEST" >> "$GITHUB_STEP_SUMMARY"
