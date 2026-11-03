@@ -7,7 +7,7 @@ epic: M0 Design system
 agents: [frontend-developer]
 testers: [qa-engineer, accessibility-auditor]
 design: approved:https://claude.ai/artifact/Dx7ZrtzrcD8eoPfwx7VDTL
-rework_rounds: 0
+rework_rounds: 1
 ---
 
 ## User story
@@ -79,7 +79,19 @@ Bundle growth (2026-11-03, `npm run build`): the base components with React Aria
 - (none)
 
 ## Rework log
-(empty)
+
+### Round 1 (2026-11-03)
+- **Testers:** qa-engineer PASS (Vitest 273/273, Pest 759/759, e2e 97 passed + 2 skipped, check clean). accessibility-auditor FAIL.
+- **Failed criteria:** AC5 (locale number parsing), WCAG 3.3.1 / 3.3.3.
+- **Evidence:** `resources/js/components/ui/base/number-field.tsx:28`: `raw.replace(/./g, '')` has an unescaped dot. For `nl` it strips every character, so `Number('')` becomes 0. A valid "2" is read as 0 and gets a false out-of-range error when min > 0. A real out-of-range value (99) goes undetected whenever 0 is in range. The current e2e (`tests/e2e/base-components.spec.ts` ~line 150) covers only `en`.
+- **Likely cause:** unescaped regex dot.
+- **Expected fix:**
+  - Escape the dot: `/\./g`.
+  - Add unit tests for `nl` parsing (`1.234,5` → 1234.5; "2" → 2).
+  - Add an `nl` e2e case for an out-of-range value.
+- **Minor, same round:** `announcer.tsx`: setting an identical message twice causes no DOM change, so the second announcement is silent. Clear the text, then set it again in a timeout.
+- **Clarified for the re-audit:** the auditor has not yet reviewed `select.tsx`, `button.tsx`, `link.tsx`, `alert.tsx` or `banner.tsx`, nor contrast, focus-not-obscured or reduced motion. The re-audit must cover them.
+- **Accepted by QA (no change needed):** clamped value plus localised error; `<output>` as the announcer; bundle size recorded as the current chunk.
 
 ## Changelog
 (filled when done)
