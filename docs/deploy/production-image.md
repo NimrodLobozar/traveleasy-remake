@@ -76,3 +76,14 @@ Roll back by deploying the previous tag. Migrations are expand/contract (ADR-000
 The Caddyfile answers 404 for every path starting with a dot (`/.env`, `/.git/...`, `/.htaccess`), except `/.well-known/`.
 The kit's `public/.htaccess` is also removed from the image. Everything under `/var/www/html` is owned by root except the
 `storage/app` volume; `verify.sh` checks both.
+
+## Secrets helper and maintenance (TE-025, TE-019)
+
+- `docker run --rm -it <image> php artisan traveleasy:generate-secrets [--without-super-admin] [--light-terminal]` goes
+  through the pass-through role (no DB wait, no boot check). `-it` is required: without a terminal it exits 1 before
+  printing. `--without-super-admin` prints only the three M0 secrets (works without a TTY, used by CI and `verify.sh`);
+  the super_admin variables only become used in M1, so they are not in the env file yet. The password hash is printed as
+  `base64:...` so compose never expands its `$` signs. `--force-ci` is needed when `CI=true`.
+- `php artisan down` is used **without** `--render`: the 503 page comes from the error handler (localised, with headers).
+- When PHP or the upstream fails (502/504), the Caddyfile `handle_errors` block serves a static nl/en page with the strict
+  CSP (`default-src 'none'`), no script and no style, so it needs no nonce. `verify.sh` checks the block is present.

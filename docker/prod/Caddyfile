@@ -50,4 +50,42 @@
 	handle {
 		php_server
 	}
+
+	# TE-019 AC9: when PHP or the upstream is unreachable (502/504) the app cannot render its own error page, so the
+	# web server answers with a static, bilingual (nl/en) page. No script, no style, no external resource, so the strict
+	# CSP below needs no nonce. Headers set by `header` above do not apply to error routes, so they are repeated here.
+	# Other error statuses keep Caddy's default (empty body).
+	handle_errors {
+		@unavailable expression {http.error.status_code} in [502, 504]
+		handle @unavailable {
+			header {
+				Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+				X-Content-Type-Options "nosniff"
+				X-Frame-Options "DENY"
+				Referrer-Policy "strict-origin-when-cross-origin"
+				Cache-Control "no-store"
+				Content-Type "text/html; charset=utf-8"
+				-Server
+			}
+			respond <<HTML
+				<!doctype html>
+				<html lang="nl">
+				<head>
+				<meta charset="utf-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1">
+				<meta name="color-scheme" content="light dark">
+				<title>TravelEasy is tijdelijk niet bereikbaar / temporarily unavailable</title>
+				</head>
+				<body>
+				<main>
+				<h1>TravelEasy is tijdelijk niet bereikbaar</h1>
+				<p>Er ging iets mis aan onze kant. Probeer het over een paar minuten opnieuw.</p>
+				<h1 lang="en">TravelEasy is temporarily unavailable</h1>
+				<p lang="en">Something went wrong on our side. Please try again in a few minutes.</p>
+				</main>
+				</body>
+				</html>
+				HTML {http.error.status_code}
+		}
+	}
 }

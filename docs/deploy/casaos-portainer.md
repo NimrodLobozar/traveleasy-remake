@@ -37,15 +37,22 @@ MUST declare `depends_on: app: condition: service_healthy`, so they never run ne
    Read the result: `docker inspect <npm container> --format '{{(index .NetworkSettings.Networks "npm_shared").IPAddress}}'`.
    The app refuses to start in production when `TRUSTED_PROXIES` is `*` or a range wider than a single address.
 3. **Generate the secrets** with the helper in the published image. It needs only Docker (no PHP, no database, no network),
-   writes nothing to disk and prints three ready-to-paste lines. Run it in the CasaOS terminal or on your PC:
+   writes nothing to disk and prints ready-to-paste lines. Run it in the CasaOS terminal or on your PC:
 
    ```
-   docker run --rm -it ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan traveleasy:generate-secrets
+   docker run --rm -it ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan traveleasy:generate-secrets --without-super-admin
    ```
 
-   It prints `DB_SUPERUSER_PASSWORD=...`, `DB_PASSWORD=...` and `APP_KEY=base64:...` (two independent passwords and the
-   Laravel key). Copy the three lines for the next step and close the terminal; run the command again for new values, never
-   reuse old ones. Never share the output.
+   - `-it` is required: without a terminal the command refuses to print anything (passwords are never read from arguments).
+   - `--without-super-admin` is right for M0. The two super_admin variables (`SUPER_ADMIN_PASSWORD_HASH`,
+     `SUPER_ADMIN_TOTP_SECRET`) only become used in M1, so they are not in the env file yet. Leave the flag out from M1 on:
+     the helper then asks for the password (hidden prompt) and draws the TOTP QR code in the terminal.
+   - On a light terminal background add `--light-terminal` so the QR code stays readable.
+   - It prints `DB_SUPERUSER_PASSWORD=...`, `DB_PASSWORD=...` and `APP_KEY=base64:...` (two independent passwords and the
+     Laravel key). The super_admin password hash is printed as `base64:...` on purpose: a raw bcrypt hash contains `$`
+     signs, which compose would try to expand.
+   - Copy the lines for the next step and close the terminal; run the command again for new values, never reuse old ones.
+     Never share the output.
 
 ## First deploy (Portainer UI)
 
@@ -157,3 +164,10 @@ In Portainer, **Remove** the stack and leave **Remove associated volumes** **off
 network (never `npm_shared`), runs about 30 checks (health, hardening, no ports, DB role limits, no secrets in logs, no
 egress, server-side rendering, cookie flags, devtools 404, no client IP in logs, SSR-down fallback, missing-secret errors)
 and removes everything it created. Build the image first: `docker build --target production -t traveleasy:local .`.
+
+## Maintenance mode
+
+To take the site offline briefly, run `docker exec <stack>-app-1 php artisan down` and later `... php artisan up`. Use
+`down` **without** `--render`: the app renders its own localised 503 page through the error handler. A static page
+(`--render`) would bypass the security headers and the translations. If PHP itself is unreachable (502/504), the web server
+answers with a small static Dutch/English page that carries the same security headers.
