@@ -106,9 +106,11 @@ test('user-like path: scroll a little, click a visible link, go back', async ({
     await page.waitForTimeout(300);
     const link = page.getByRole('link', { name: 'Inloggen' }).first();
     const box = await link.boundingBox();
-    expect(box).not.toBeNull();
+    if (!box) {
+        throw new Error('the Inloggen link has no box');
+    }
     // Real mouse click at the link's on-screen position (no scrolling into view).
-    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await expect(page).toHaveURL(/\/login$/);
     await page.goBack();
     await expect(page.locator('main#main')).toBeFocused();
