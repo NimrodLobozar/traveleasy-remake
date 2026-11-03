@@ -10,7 +10,7 @@ import { Banner, BannerLiveRegion } from './banner';
 import { Button } from './button';
 import { FormErrorSummary } from './form-error-summary';
 import { Link } from './link';
-import { NumberField } from './number-field';
+import { NumberField, parseLocaleNumber } from './number-field';
 import { Select } from './select';
 import { TextField } from './text-field';
 
@@ -439,7 +439,79 @@ describe('NumberField out-of-range message (AC5)', () => {
     });
 });
 
+describe('parseLocaleNumber (AC5)', () => {
+    it('parses nl typing: thousands dot, decimal comma', () => {
+        expect(parseLocaleNumber('1.234,5', 'nl')).toBe(1234.5);
+        expect(parseLocaleNumber('2', 'nl')).toBe(2);
+        expect(parseLocaleNumber('23,5', 'nl')).toBe(23.5);
+        expect(parseLocaleNumber('abc', 'nl')).toBeNull();
+        expect(parseLocaleNumber('', 'nl')).toBeNull();
+    });
+
+    it('parses en typing: thousands comma, decimal dot', () => {
+        expect(parseLocaleNumber('1,234.5', 'en')).toBe(1234.5);
+        expect(parseLocaleNumber('2', 'en')).toBe(2);
+    });
+});
+
+describe('NumberField in nl (AC5)', () => {
+    it('does not flag a valid "2" when min is 1, and flags 99 when 0 is in range', async () => {
+        const { unmount } = render(
+            <NumberField
+                label="Aantal"
+                minValue={1}
+                maxValue={9}
+                defaultValue={5}
+            />,
+        );
+        const input = screen.getByRole('textbox');
+        await userEvent.clear(input);
+        await userEvent.type(input, '2');
+        await userEvent.tab();
+        expect(input).not.toHaveAttribute('aria-invalid', 'true');
+        unmount();
+
+        render(
+            <NumberField
+                label="Aantal"
+                minValue={0}
+                maxValue={9}
+                defaultValue={5}
+            />,
+        );
+        const second = screen.getByRole('textbox');
+        await userEvent.clear(second);
+        await userEvent.type(second, '99');
+        await userEvent.tab();
+        expect(second).toHaveAttribute('aria-invalid', 'true');
+    });
+});
+
 describe('Blur announcements (live region)', () => {
+    it('announces an identical repeated message again', async () => {
+        render(<ValidationAnnouncer />);
+        const region = screen.getByRole('status');
+        announce('Stad: Vul een stad in.');
+        await waitFor(() => {
+            expect(region).toHaveTextContent('Stad: Vul een stad in.');
+        });
+        let mutations = 0;
+        const observer = new MutationObserver(() => {
+            mutations += 1;
+        });
+        observer.observe(region, {
+            childList: true,
+            characterData: true,
+            subtree: true,
+        });
+        announce('Stad: Vul een stad in.');
+        await waitFor(() => {
+            expect(region).toHaveTextContent('Stad: Vul een stad in.');
+            expect(mutations).toBeGreaterThan(0);
+        });
+        observer.disconnect();
+    });
+
     it('writes a blur error into the persistent polite region', async () => {
         function Demo() {
             const [error, setError] = useState<string | undefined>();

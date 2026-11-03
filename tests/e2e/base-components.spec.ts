@@ -163,3 +163,22 @@ test('number field says so when the typed value is out of range (AC5)', async ({
         page.locator('output[data-validation-announcer]'),
     ).toContainText('Adults: Kies een getal van 1 tot 9.');
 });
+
+test('nl number field: a valid 2 is accepted, 1.234,5 is out of range (AC5)', async ({
+    page,
+}) => {
+    await page.goto('/design');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'nl');
+    const adults = page.getByRole('textbox', { name: 'Adults' });
+    await adults.fill('2');
+    await page.keyboard.press('Tab');
+    await expect(adults).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(adults).toHaveValue('2');
+    await adults.fill('1.234,5');
+    await page.keyboard.press('Tab');
+    await expect(adults).toHaveAttribute('aria-invalid', 'true');
+    await expect(
+        page.getByText('Kies een getal van 1 tot 9.').last(),
+    ).toBeVisible();
+});

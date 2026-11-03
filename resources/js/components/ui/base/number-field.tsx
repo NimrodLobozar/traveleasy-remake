@@ -19,13 +19,13 @@ import {
 import { useBlurAnnounce } from './announcer';
 
 /** Parses typed text in the locale's format (nl `1.234,5`, en `1,234.5`); null when not a number. */
-function parseLocaleNumber(raw: string, locale: string): number | null {
+export function parseLocaleNumber(raw: string, locale: string): number | null {
     if (raw === '') {
         return null;
     }
     const normalised =
         locale === 'nl'
-            ? raw.replace(/./g, '').replace(',', '.')
+            ? raw.replace(/\./g, '').replace(',', '.')
             : raw.replace(/,/g, '');
     const value = Number(normalised);
 

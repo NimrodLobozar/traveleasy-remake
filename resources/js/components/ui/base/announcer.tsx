@@ -8,11 +8,32 @@ import { useEffect, useRef, useSyncExternalStore } from 'react';
 let message = '';
 const listeners = new Set<() => void>();
 
-export function announce(text: string): void {
-    message = text;
+function emit(): void {
     listeners.forEach((listener) => {
         listener();
     });
+}
+
+let pending: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Sets the live-region text. An identical repeat is cleared first and set again in a timeout, so the
+ * DOM changes and screen readers announce it again. Never touches `window` (SSR-safe).
+ */
+export function announce(text: string): void {
+    clearTimeout(pending);
+    if (text !== '' && text === message) {
+        message = '';
+        emit();
+        pending = setTimeout(() => {
+            message = text;
+            emit();
+        }, 50);
+
+        return;
+    }
+    message = text;
+    emit();
 }
 
 function subscribe(listener: () => void): () => void {
