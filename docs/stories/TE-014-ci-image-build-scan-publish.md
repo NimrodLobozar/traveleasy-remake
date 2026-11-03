@@ -1,7 +1,7 @@
 ---
 id: TE-014
 title: GitHub Actions pipeline, part 2: amd64 build, Trivy scan, publish to GHCR
-status: in-progress
+status: in-test
 priority: must
 epic: M0 CI/CD to GHCR
 agents: [devops-engineer]
