@@ -37,6 +37,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-029](TE-029-ci-and-deploy-hardening-follow-ups.md) | CI and deploy hardening follow-ups (chore) | should | done | 0 | not-needed |
 | [TE-030](TE-030-deploy-and-error-page-polish.md) | Deploy and error-page polish (chore) | should | done | 0 | not-needed |
 | [TE-031](TE-031-release-push-the-scanned-image.md) | Release pushes the scanned image by digest, and Trivy ignores are scoped per image | should | ready | 0 | not-needed |
+| [TE-032](TE-032-dependency-updates-2026-11.md) | Safe dependency updates from Dependabot PRs #1-#3 (2026-11) | should | ready | 0 | not-needed |
 
 ### Epics
 - **M0 Project scaffold and tooling:** TE-001, TE-003, TE-004, TE-005 (docs part in TE-006).
@@ -47,6 +48,16 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 - **M0 App shell:** TE-015, TE-016, TE-017, TE-018, TE-019.
 - **M0 Design system:** TE-020, TE-021, TE-022, TE-023.
 - **M0 First home-server deploy:** TE-024, TE-025, TE-026.
+- **Maintenance:** TE-032.
+
+### Follow-ups (2026-11 dependency updates)
+Deferred from TE-032 (major or breaking; each needs its own story before it is applied):
+- TypeScript 7 (major): needs a dedicated compatibility story (tsc, oxlint type-aware rules, SSR build).
+- vite-plus 1.x (major): exact pin stays at 0.3.3 until its own story.
+- lucide-react 1.x (major): icon API changes need a UI story.
+- @laravel/passkeys 0.4 (0.x minor, breaking): needs its own auth story (passkeys are not in M0).
+- @rolldown/plugin-babel 0.3 (0.x minor, breaking): needs a build-pipeline story.
+- @types/node 26 (major, not Node 24): waits until the runtime moves to Node 26.
 
 ### Moved into the M0 stories (2026-11-02)
 The notes that used to sit here are now acceptance or quality criteria:
