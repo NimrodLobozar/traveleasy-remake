@@ -54,6 +54,15 @@ Targets for TE-012/TE-024/TE-026; verified when those stories are tested.
 | `ssr` process memory | Page props of each rendered page (may include the logged-in user's data) | Nothing persisted | Per request | Internal network only; no secrets, no DB credentials; no props in logs |
 | tmpfs config cache (`php artisan optimize`) | Secrets (`APP_KEY`, `DB_PASSWORD`), no personal data | uid 10001 | Container lifetime | Never in an image layer or a volume (ADR-0002 D3) |
 
+## Preference cookies (M0 app shell)
+
+First-party, functional cookies without personal data; no consent needed (strictly necessary for the visitor's own
+choice). Their values are checked against an allow-list on every request, never echoed into HTML and never logged.
+
+| Cookie | Set by | Value | Attributes | Lifetime | Notes |
+|---|---|---|---|---|---|
+| `locale` | Server, `POST /locale` (TE-017) | `nl` or `en` | Host-only, `Path=/`, `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS; not encrypted | 1 year | Read by `LocaleResolver`; any other value is ignored. React reads the locale from the Inertia props, not the cookie |
+
 ## External processors and outgoing requests
 
 | Service | When | Data it receives | Personal data? | Status |

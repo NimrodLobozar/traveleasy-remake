@@ -56,6 +56,9 @@ class HandleInertiaRequests extends Middleware
             'locale' => $locale->value,
             'fallbackLocale' => Locale::fallback()->value,
             'translations' => fn (): array => app(Translations::class)->for($locale),
+            // TE-017: the session's CSRF token, for plain (no-JavaScript) form posts such as the language switch.
+            // Inertia's own requests send the XSRF-TOKEN cookie instead. Null when there is no session.
+            'csrfToken' => fn (): ?string => $request->hasSession() ? $request->session()->token() : null,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }
