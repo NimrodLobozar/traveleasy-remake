@@ -23,6 +23,12 @@ final readonly class SecretsGenerator
     /** Base32 characters of the TOTP secret: 160 bits (RFC 4226 recommends at least 128). */
     public const int TOTP_SECRET_LENGTH = 32;
 
+    /**
+     * Issuer shown in the authenticator app. Fixed, not APP_NAME: `docker run` of the production image sets no APP_NAME,
+     * which would make it Laravel's default "Laravel" (TE-030 AC2).
+     */
+    public const string TOTP_ISSUER = 'TravelEasy';
+
     public function __construct(private TwoFactorAuthenticationProvider $totp) {}
 
     /**
@@ -61,10 +67,10 @@ final readonly class SecretsGenerator
     }
 
     /**
-     * The `otpauth://` URI for the QR code. The account label is a role name, never an e-mail address.
+     * The `otpauth://` URI for the QR code: issuer TravelEasy, and an account label that is a role name, never an e-mail address.
      */
     public function totpUri(#[\SensitiveParameter] string $secret): string
     {
-        return $this->totp->qrCodeUrl(config()->string('app.name'), 'super_admin', $secret);
+        return $this->totp->qrCodeUrl(self::TOTP_ISSUER, 'super_admin', $secret);
     }
 }

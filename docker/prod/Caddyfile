@@ -74,13 +74,13 @@
 				<meta charset="utf-8">
 				<meta name="viewport" content="width=device-width, initial-scale=1">
 				<meta name="color-scheme" content="light dark">
-				<title>TravelEasy is tijdelijk niet bereikbaar / temporarily unavailable</title>
+				<title>TravelEasy is tijdelijk niet bereikbaar</title>
 				</head>
 				<body>
 				<main>
 				<h1>TravelEasy is tijdelijk niet bereikbaar</h1>
 				<p>Er ging iets mis aan onze kant. Probeer het over een paar minuten opnieuw.</p>
-				<h1 lang="en">TravelEasy is temporarily unavailable</h1>
+				<h2 lang="en">TravelEasy is temporarily unavailable</h2>
 				<p lang="en">Something went wrong on our side. Please try again in a few minutes.</p>
 				</main>
 				</body>

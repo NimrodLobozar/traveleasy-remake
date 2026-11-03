@@ -79,7 +79,7 @@ The kit's `public/.htaccess` is also removed from the image. Everything under `/
 
 ## Secrets helper and maintenance (TE-025, TE-019)
 
-- `docker run --rm -it <image> php artisan traveleasy:generate-secrets [--without-super-admin] [--light-terminal]` goes
+- `docker run --rm -it --log-driver none <image> php artisan traveleasy:generate-secrets [--without-super-admin] [--light-terminal]` goes
   through the pass-through role (no DB wait, no boot check). `-it` is required: without a terminal it exits 1 before
   printing. `--without-super-admin` prints only the three M0 secrets (works without a TTY, used by CI and `verify.sh`);
   the super_admin variables only become used in M1, so they are not in the env file yet. The password hash is printed as

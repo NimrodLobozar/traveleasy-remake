@@ -40,9 +40,10 @@ MUST declare `depends_on: app: condition: service_healthy`, so they never run ne
    writes nothing to disk and prints ready-to-paste lines. Run it in the CasaOS terminal or on your PC:
 
    ```
-   docker run --rm -it ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan traveleasy:generate-secrets --without-super-admin
+   docker run --rm -it --log-driver none ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan traveleasy:generate-secrets --without-super-admin
    ```
 
+   - `--log-driver none` keeps Docker from storing the printed secrets in the container log.
    - `-it` is required: without a terminal the command refuses to print anything (passwords are never read from arguments).
    - `--without-super-admin` is right for M0. The two super_admin variables (`SUPER_ADMIN_PASSWORD_HASH`,
      `SUPER_ADMIN_TOTP_SECRET`) only become used in M1, so they are not in the env file yet. Leave the flag out from M1 on:

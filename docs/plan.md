@@ -140,7 +140,7 @@ switch, skip link, light/dark theme, error pages) on the home server from your L
     an empty value): the DB superuser password (`DB_SUPERUSER_PASSWORD`, used only by `db` and `db-init`), the app's
     DB password (`DB_PASSWORD`), `APP_KEY`, and (from M1) `SUPER_ADMIN_PASSWORD_HASH` and `SUPER_ADMIN_TOTP_SECRET`.
   - **One documented helper command** generates them, run with Docker from the published image (no PHP on the host),
-    e.g. `docker run --rm -it ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan traveleasy:generate-secrets`. It
+    e.g. `docker run --rm -it --log-driver none ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan traveleasy:generate-secrets`. It
     prints two random DB passwords (superuser and app role) and an `APP_KEY`, asks for the super_admin password (hidden input) and prints its
     hash, and generates the TOTP secret with a terminal QR code for the authenticator app. The output is ready-to-paste
     `KEY=value` lines. Nothing is written to disk or logged.
