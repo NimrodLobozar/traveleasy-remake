@@ -86,6 +86,12 @@ From the TE-005 security review (L5 and the e2e data rule on the board):
 - **Reports are sensitive, even after green runs.** `playwright-report/` holds page HTML, URLs and the needs-review
   attachments; traces and screenshots in `test-results/` can hold cookies and typed passwords. Both are git-ignored;
   never share them, never upload them to an online trace viewer or a public CI artifact.
+- **No secrets in e2e, ever** (TE-029 AC2). The e2e container gets no `.env` and no credentials, and tests use only fake
+  data. The repo is public, so CI failure artifacts (`playwright-failure`: report and traces) can be downloaded by any
+  GitHub user while they exist (2 days); anything a test types or loads ends up in them.
+- **The `.dockerbuild` build record is off.** `docker/build-push-action` would upload a build-record artifact (inputs,
+  build args, timings) that is public in this repo. It holds no secret (the build takes none), but `ci.yml` disables it
+  with `DOCKER_BUILD_RECORD_UPLOAD: 'false'` anyway; keep it off on every build step.
 - **`storageState` files** (saved logins) go only under `test-results/` or `/tmp` inside the container, never in
   the repo tree elsewhere.
 
@@ -273,6 +279,22 @@ Wait for React before scanning: the Inertia root `#app` is empty in the server H
   `x.allow`, `x['allow']`, or helper options that aren't an object literal with only `bestPractice`, fails the run. Each
   form is proven with a fixture.
 
+### 5.5 The external-request guard (TE-029 AC1)
+
+`tests/e2e/base-test.ts` exports the `test` (and `expect`) every spec must use. It adds an auto-fixture, `externalRequests`,
+that watches the whole browser context (pages, popups, workers) and fails the test when any request goes to a host other
+than `localhost`, `127.0.0.1` or `[::1]`. Raw IP addresses fail too (`isLocalRequest` in `tests/e2e/external-requests.ts`).
+
+- **Why:** the Chromium resolver rule in `playwright.config.ts` only stops hostnames, and a blocked request does not fail a
+  test by itself. Raw IPs bypass the resolver rule. The guard keeps CDNs, fonts, trackers and stray calls out of the app
+  (product principle: no third parties) and keeps tests from leaving the machine.
+- **Writing a spec:** `import { expect, test } from './base-test';` and use it as normal. Never import `test` from
+  `@playwright/test` in a `*.spec.ts` (`external-requests.test.ts` in the `e2e-rules` project fails if you do); types such as
+  `Page` may still come from there. There is no opt-out and no allow-list. If a test needs a fake external page, serve it
+  through `page.route` on a localhost URL.
+- **Proof:** `external-requests.spec.ts` has two `test.fail()` cases (a hostname and a raw IP, which pass only when the guard
+  fails them) and a localhost case that must pass.
+
 ## 6. Browser test runs (Playwright)
 
 - **The command:** `docker compose run --rm e2e` (no `--profile` needed for `run`; `docker compose --profile e2e run
@@ -447,6 +469,20 @@ CI (TE-013) calls `npm run i18n:check` (or `npm run check`, which includes it).
 - `tests/Arch/InlineScriptTest.php`: no inline handlers, `javascript:` URLs or unreviewed raw-HTML sinks in Blade and
   `resources/js` (rules and proof snippets in `tests/Support/MarkupRules.php`).
 - Browser: `tests/e2e/csp.spec.ts` (zero violations). Details: [security headers](deploy/security-headers.md).
+
+### App shell server tests (TE-017, TE-018, TE-019)
+
+- `tests/Feature/I18n/LanguageSwitchTest.php`: `POST /locale` (allow-list, 422/inline error, cookie attributes, CSRF,
+  30/min throttle, no open redirect via `Referer`). CSRF is skipped while unit tests run, so the CSRF test switches the
+  container to `app()->instance('env', 'staging')` for that request.
+- `tests/Feature/Appearance/ThemeRenderingTest.php`: the `appearance` cookie on `<html>`, the color-scheme meta, the nonce'd
+  system script and junk cookie values.
+- `tests/Feature/Errors/ErrorPagesTest.php`: every error status in both locales, request ID, no leak, maintenance 503 (an
+  in-memory `MaintenanceMode` fake, never the shared `down` file), Inertia XHR errors and the fallback page.
+- **Deterministic error pages:** `GET /_test/error/{403|404|419|429|500|503}` (`routes/testing.php`) exists only with
+  `APP_ENV=local` or `testing`; `tests/Arch/TestingRoutesTest.php` proves it is absent in production (a `route:list
+  --env=production` subprocess). The 500 route always renders the production page, also with `APP_DEBUG=true`, so the e2e
+  CSP check uses it: `E2E_CSP_500_PATH=/_test/error/500` in `.env`.
 
 ### Manual check: Vite advisories
 

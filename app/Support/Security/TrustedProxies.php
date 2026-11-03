@@ -10,7 +10,9 @@ use InvalidArgumentException;
  * The proxies whose X-Forwarded-For/-Proto/-Port headers are trusted (TE-012 AC12, ADR-0002 D6).
  *
  * Read from `security.trusted_proxies` (env TRUSTED_PROXIES): a comma-separated list of IP addresses or CIDR ranges,
- * normally the CIDR of the `npm_shared` network or Nginx Proxy Manager's single IP. Empty means no proxy is trusted.
+ * in production exactly Nginx Proxy Manager's single fixed IP on `npm_shared` (TE-026); the production boot check
+ * refuses any network range (a /32 or /128 is a single address). Ranges are accepted only outside production. Empty means
+ * no proxy is trusted.
  * Anything that trusts every caller (`*`, `**`, `REMOTE_ADDR`, a /0 range) or is not an IP/CIDR is rejected loudly with
  * an InvalidArgumentException: the boot check refuses to start and the middleware refuses to serve.
  */

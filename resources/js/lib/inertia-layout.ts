@@ -10,6 +10,7 @@ type Layout = ComponentType<{ children: ReactNode }>;
 export function layoutFor(name: string): Layout | Layout[] | null {
     switch (true) {
         case name === 'home':
+        case name === 'error':
             return ShellLayout;
         case name.startsWith('auth/'):
             return AuthLayout;

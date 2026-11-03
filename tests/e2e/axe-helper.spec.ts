@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base-test';
 import { expectNoA11yViolations, NEEDS_REVIEW_ATTACHMENT } from './axe';
 
 // Proves the axe helper (TE-005 AC5, AC8, AC9), so a broken axe setup can't pass silently.

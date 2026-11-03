@@ -52,14 +52,14 @@ jobs:
                   DB_SUPERUSER_PASSWORD: ${{ env.CI_FAKE_SECRET }}
                   DB_PASSWORD: ${{ env.CI_FAKE_SECRET }}
                   APP_KEY: base64:Y2ktZmFrZS1rZXktMDEyMzQ1Njc4OWFiY2RlZjAxMjM=
-                  TRUSTED_PROXIES: 172.30.0.0/16
+                  TRUSTED_PROXIES: 172.30.0.2
               run: docker compose -f compose.yaml --env-file deploy/portainer.env.example config --quiet
             - name: Production file fails loudly when a secret is missing
               run: |
                   set -u
                   for var in DB_SUPERUSER_PASSWORD DB_PASSWORD APP_KEY TRUSTED_PROXIES; do
                       env -i PATH="$PATH" HOME="$HOME" \
-                          DB_SUPERUSER_PASSWORD=x DB_PASSWORD=x APP_KEY=x TRUSTED_PROXIES=172.30.0.0/16 \
+                          DB_SUPERUSER_PASSWORD=x DB_PASSWORD=x APP_KEY=x TRUSTED_PROXIES=172.30.0.2 \
                           "$var=" \
                           docker compose -f compose.yaml --env-file deploy/portainer.env.example config --quiet 2> err.txt \
                           && { echo "::error::compose accepted an empty $var"; exit 1; }
@@ -70,7 +70,7 @@ jobs:
                   DB_SUPERUSER_PASSWORD: ${{ env.CI_FAKE_SECRET }}
                   DB_PASSWORD: ${{ env.CI_FAKE_SECRET }}
                   APP_KEY: base64:Y2ktZmFrZS1rZXktMDEyMzQ1Njc4OWFiY2RlZjAxMjM=
-                  TRUSTED_PROXIES: 172.30.0.0/16
+                  TRUSTED_PROXIES: 172.30.0.2
               run: |
                   docker compose -f compose.yaml --env-file deploy/portainer.env.example config --format json > prod-config.json
                   node scripts/ci/compose-guard.mjs prod-config.json
@@ -110,6 +110,10 @@ jobs:
                   tags: traveleasy-remake-dev:local
                   cache-from: type=gha,scope=dev-image
                   cache-to: type=gha,scope=dev-image,mode=max
+              env:
+                  # No ".dockerbuild" build-record artifact: artifacts of a public repo are downloadable by anyone (TE-029 AC2).
+                  DOCKER_BUILD_RECORD_UPLOAD: 'false'
+                  DOCKER_BUILD_SUMMARY: 'false'
 
             - name: Start db, app and vite (waits for healthy)
               run: docker compose up -d --wait --wait-timeout 300

@@ -1,4 +1,4 @@
-{{-- The framework's minimal error layout, with the CSP nonce on its inline styles (TE-015). TE-019 replaces it. --}}
+{{-- The framework's minimal error layout, with the CSP nonce on its inline styles (TE-015). Since TE-019 it is only the last-resort fallback when the localised Inertia error page (App\Support\Errors\ErrorPageRenderer) cannot render. --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>

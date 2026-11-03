@@ -4,9 +4,8 @@ Production runs as one Portainer stack made from [`compose.yaml`](../../compose.
 ([`deploy/portainer.env.example`](../../deploy/portainer.env.example)). The image comes from GHCR (pinned tag, built by CI).
 Public access goes through the existing Nginx Proxy Manager (NPM); the stack publishes **no host port**.
 
-Status: the file layout and the stack are finished and tested (TE-024). The secrets helper and the final env file are
-TE-025; the first real deploy is TE-026 (owner-gated); the image build and publish is TE-014. Until then the tag in the env
-file is a placeholder and the interim secret commands below apply.
+Status: the stack, the env file and the secrets helper are finished and tested (TE-024, TE-025); the first real deploy is
+TE-026 (owner-gated); the image build and publish is TE-014. Until a release exists the tag in the env file is a placeholder.
 
 ## What runs
 
@@ -37,22 +36,35 @@ MUST declare `depends_on: app: condition: service_healthy`, so they never run ne
    `docker network inspect npm_shared --format '{{(index .IPAM.Config 0).Subnet}}'`; the network needs an explicit subnet), then redeploy NPM.
    Read the result: `docker inspect <npm container> --format '{{(index .NetworkSettings.Networks "npm_shared").IPAddress}}'`.
    The app refuses to start in production when `TRUSTED_PROXIES` is `*` or a range wider than a single address.
-3. **Generate the secrets** (interim commands; TE-025 replaces them with one helper). Run them anywhere with OpenSSL, for
-   example in Git Bash, and keep the output for the next step only:
-   - `DB_SUPERUSER_PASSWORD`: `openssl rand -hex 24`
-   - `DB_PASSWORD`: `openssl rand -hex 24` (a different value)
-   - `APP_KEY`: `echo "base64:$(openssl rand -base64 32)"`
+3. **Generate the secrets** with the helper in the published image. It needs only Docker (no PHP, no database, no network),
+   writes nothing to disk and prints ready-to-paste lines. Run it in the CasaOS terminal or on your PC:
+
+   ```
+   docker run --rm -it ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan traveleasy:generate-secrets --without-super-admin
+   ```
+
+   - `-it` is required: without a terminal the command refuses to print anything (passwords are never read from arguments).
+   - `--without-super-admin` is right for M0. The two super_admin variables (`SUPER_ADMIN_PASSWORD_HASH`,
+     `SUPER_ADMIN_TOTP_SECRET`) only become used in M1, so they are not in the env file yet. Leave the flag out from M1 on:
+     the helper then asks for the password (hidden prompt) and draws the TOTP QR code in the terminal.
+   - On a light terminal background add `--light-terminal` so the QR code stays readable.
+   - It prints `DB_SUPERUSER_PASSWORD=...`, `DB_PASSWORD=...` and `APP_KEY=base64:...` (two independent passwords and the
+     Laravel key). The super_admin password hash is printed as `base64:...` on purpose: a raw bcrypt hash contains `$`
+     signs, which compose would try to expand.
+   - Copy the lines for the next step and close the terminal; run the command again for new values, never reuse old ones.
+     Never share the output.
 
 ## First deploy (Portainer UI)
 
 1. Portainer -> **Stacks** -> **Add stack**. Name: `traveleasy` (the volumes are then named after the stack).
 2. Build method **Web editor**. Paste the full content of `compose.yaml`.
 3. Under **Environment variables** choose **Load variables from .env file** and pick `deploy/portainer.env.example`
-   from your PC (or switch to the advanced mode and paste its lines). Then edit these values:
+   from your PC (or switch to the advanced mode and paste its lines). The file already holds working defaults for everything
+   else. Then edit only these values (they are marked `EDIT` or `SECRET` in the file):
    - `APP_IMAGE_TAG`: the released tag you deploy, for example `v0.1.0` (never `latest`).
    - `APP_URL`: the public https address NPM serves, for example `https://traveleasy.example.com`.
    - `TRUSTED_PROXIES`: NPM's fixed IP from step 2 above.
-   - `DB_SUPERUSER_PASSWORD`, `DB_PASSWORD`, `APP_KEY`: the three secrets.
+   - `DB_SUPERUSER_PASSWORD`, `DB_PASSWORD`, `APP_KEY`: paste the three lines from step 3 of the preparation.
 4. Click **Deploy the stack**. Portainer reports an error naming the variable if a required one is empty.
 5. Open **Containers**. Within about 2 minutes `db`, `ssr` and `app` are `healthy` and `db-init` is `exited (0)`.
    `app` needs the longest (migrations on the first start).
@@ -117,9 +129,13 @@ previous release runs on the newer schema. Never delete the volumes to "roll bac
 
 The scheduled dump service is a later story. Until then, take a dump before every update that deletes data:
 
-- Dump (CasaOS terminal): `docker exec <stack>-db-1 pg_dump -U postgres -Fc traveleasy > traveleasy-$(date +%F).dump`
-  (enter the superuser password when asked is not possible here: run `docker exec -e PGPASSWORD='<DB_SUPERUSER_PASSWORD>' ...`
-  and clear your shell history afterwards).
+- Dump (CasaOS terminal). `umask 077` makes the dump readable by you only; the database talks over the container's local
+  socket, so no password is needed on the command line or in your shell history:
+
+  ```
+  umask 077
+  docker exec <stack>-db-1 pg_dump -U postgres -Fc traveleasy > traveleasy-$(date +%F).dump
+  ```
 - Restore into an empty database only, after stopping `app`: `docker exec -i <stack>-db-1 pg_restore -U postgres -d traveleasy --clean --if-exists < file.dump`,
   then start `app`; `db-init` re-applies the app role on the next deploy.
 - Keep dumps off the server too. A restore test is part of the `backup` story.
@@ -148,3 +164,10 @@ In Portainer, **Remove** the stack and leave **Remove associated volumes** **off
 network (never `npm_shared`), runs about 30 checks (health, hardening, no ports, DB role limits, no secrets in logs, no
 egress, server-side rendering, cookie flags, devtools 404, no client IP in logs, SSR-down fallback, missing-secret errors)
 and removes everything it created. Build the image first: `docker build --target production -t traveleasy:local .`.
+
+## Maintenance mode
+
+To take the site offline briefly, run `docker exec <stack>-app-1 php artisan down` and later `... php artisan up`. Use
+`down` **without** `--render`: the app renders its own localised 503 page through the error handler. A static page
+(`--render`) would bypass the security headers and the translations. If PHP itself is unreachable (502/504), the web server
+answers with a small static Dutch/English page that carries the same security headers.

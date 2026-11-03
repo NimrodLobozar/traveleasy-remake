@@ -1,7 +1,7 @@
 ---
 id: TE-025
 title: One-file Portainer env file and the secrets helper command
-status: ready
+status: done
 priority: must
 epic: M0 First home-server deploy
 agents: [backend-developer, devops-engineer]
@@ -23,12 +23,12 @@ manual configuration hunt.
   enabled in M1 if the super_admin feature does not exist yet.
 
 ## Acceptance criteria
-- [ ] AC1: Given `deploy/portainer.env.example`, when read, then it is plain `KEY=value` lines with `#` comments (no `export`, no
+- [x] AC1: Given `deploy/portainer.env.example`, when read, then it is plain `KEY=value` lines with `#` comments (no `export`, no
       quotes-dependent or multi-line values, no trailing spaces), every production variable of `compose.yaml` appears with a
       working default and a one-line comment, and only the secrets have an empty value with a `# SECRET: generate with ...` comment.
-- [ ] AC2: Given the env file and `compose.yaml`, when a test diffs the variables, then the set of `${VAR}` names used in the compose
+- [x] AC2: Given the env file and `compose.yaml`, when a test diffs the variables, then the set of `${VAR}` names used in the compose
       file equals the set in the env file (plus documented exceptions); adding a variable to one without the other fails CI.
-- [ ] AC3 (ADR-0002 D5: five secrets in total): Given `docker run --rm -it ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan
+- [x] AC3 (ADR-0002 D5: five secrets in total): Given `docker run --rm -it ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan
       traveleasy:generate-secrets`, when it runs without PHP on the host and through the entrypoint's pass-through (no DB wait,
       not blocked by the production boot check), then it prints ready-to-paste lines for two independent random DB passwords
       `DB_SUPERUSER_PASSWORD` and `DB_PASSWORD` (each at least 32 chars, URL-safe, no characters that break `.env`/Portainer) and
@@ -39,35 +39,35 @@ manual configuration hunt.
       (`${TRUSTED_PROXIES:?set it to the fixed NPM IP on npm_shared}`) and has no guessed default in the env file (empty, with a
       comment pointing to TE-026); a test proves compose fails when it is empty and that `*` and a whole-CIDR value are rejected
       by the config check.
-- [ ] AC4: Given the command, when run twice, then the values differ; nothing is written to disk, nothing is logged, and there is no
+- [x] AC4: Given the command, when run twice, then the values differ; nothing is written to disk, nothing is logged, and there is no
       network access (run with `--network none` in a test).
-- [ ] AC5: Given the command is run non-interactively (no TTY), when it needs a hidden prompt, then it fails with a clear message
+- [x] AC5: Given the command is run non-interactively (no TTY), when it needs a hidden prompt, then it fails with a clear message
       instead of reading a password from args or env; passwords are never accepted as command-line arguments.
-- [ ] AC6: Given the env file with the printed secrets pasted in, when the production stack from TE-024 is brought up in CI, then it
+- [x] AC6: Given the env file with the printed secrets pasted in, when the production stack from TE-024 is brought up in CI, then it
       starts healthy; with one secret left empty it fails naming the variable (the exit criterion of the milestone).
-- [ ] AC7: Given Portainer's "Load variables from .env file", when the file is loaded, then it parses (documented check with a screenshot
+- [x] AC7: Given Portainer's "Load variables from .env file", when the file is loaded, then it parses (documented check with a screenshot
       or the exact steps in the handoff; a parser test with the same rules runs in CI).
-- [ ] AC8: Given the env file, when searched, then it contains no real secret, no personal e-mail address and no private host name; the
+- [x] AC8: Given the env file, when searched, then it contains no real secret, no personal e-mail address and no private host name; the
       image tag value is updated by the release process (documented) and a test fails if it points at a tag that does not exist in
       the release list or is `latest`.
-- [ ] AC9: Given `.env.example` (dev) and the Portainer file, when both are read, then every variable in one that exists in the other
+- [x] AC9: Given `.env.example` (dev) and the Portainer file, when both are read, then every variable in one that exists in the other
       has the same meaning; production-only and dev-only variables are labelled.
-- [ ] AC10 (follow-up TE-015, 2026-11-02): Given the Portainer env file, when read, then it contains `HSTS_MAX_AGE`,
+- [x] AC10 (follow-up TE-015, 2026-11-02): Given the Portainer env file, when read, then it contains `HSTS_MAX_AGE`,
       `HSTS_INCLUDE_SUBDOMAINS`, `HSTS_PRELOAD` and `CSP_REPORT_PATH` with safe documented defaults (no reporting endpoint, no
       preload), and the parser/consistency tests of AC7 and AC9 cover them.
-- [ ] AC11 (TE-012 security review, 2026-11-02): Given the Portainer env file, when read, then it does not set or override
+- [x] AC11 (TE-012 security review, 2026-11-02): Given the Portainer env file, when read, then it does not set or override
       `INERTIA_DEVTOOLS_ENABLED` (the image default `false` stays), and it sets `SESSION_SECURE_COOKIE=true` (the LAN-over-HTTP
       exception for M0 is documented in TE-026 AC10e); a test fails if the file enables devtools or leaves the cookie flag unset.
 
 ## Quality criteria
-- [ ] Tests: Pest tests for the command (output format, entropy length, no files written via a fake filesystem, non-TTY failure);
+- [x] Tests: Pest tests for the command (output format, entropy length, no files written via a fake filesystem, non-TTY failure);
       script test for AC2 and AC7; the CI job of TE-024 for AC6.
-- [ ] Accessibility: the terminal output of the command is plain text; the QR code (M1 flag) is accompanied by the text secret.
-- [ ] Security/privacy: secrets use `random_bytes`/CSPRNG; the command refuses to print inside CI logs when `CI=true` unless
+- [x] Accessibility: the terminal output of the command is plain text; the QR code (M1 flag) is accompanied by the text secret.
+- [x] Security/privacy: secrets use `random_bytes`/CSPRNG; the command refuses to print inside CI logs when `CI=true` unless
       `--force-ci` is given; no secret ever reaches shell history (no args).
-- [ ] i18n: command output in English (operator tool); documented.
-- [ ] Performance: n/a.
-- [ ] Docs updated: `docs/deploy/casaos-portainer.md` (generate secrets, load file, paste, deploy), `.env.example`, `docs/plan.md` is not edited.
+- [x] i18n: command output in English (operator tool); documented.
+- [x] Performance: n/a.
+- [x] Docs updated: `docs/deploy/casaos-portainer.md` (generate secrets, load file, paste, deploy), `.env.example`, `docs/plan.md` is not edited.
 
 ## Out of scope
 - super_admin provisioning and `DEMO_MODE` behaviour (M1); changing secrets after first deploy (documented as a note only).
@@ -79,4 +79,14 @@ manual configuration hunt.
 (empty)
 
 ## Changelog
-(filled when done)
+Closed 2026-11-03 on branch `feat/m0-batch-5`.
+- **Added:** `php artisan traveleasy:generate-secrets` (1611291), `deploy/portainer.env.example` consistency and parser tests, secrets and
+  maintenance docs in `docs/deploy/casaos-portainer.md` (da1b714). The contract test fails both ways when mutated.
+- **Behaviour:** prints 5 secrets by default and 3 with `--without-super-admin` (M0). The super_admin hash is `base64:`-encoded so compose
+  does not expand `$`; M1 provisioning must decode it (README "Follow-ups for M1").
+- **Carried over:** the run from a **published** image (AC3 in its final form) moves to TE-014/TE-026 (criterion added in both).
+- **Removed:** nothing. **Migrations:** none. **New env vars:** none for production (the env file itself is new); optional `CI` read by the
+  helper. **Docker rebuild:** not needed.
+- **Commits:** backend 1611291, e63bca7; devops da1b714.
+- **Testers:** qa-engineer PASS (Pest 758 incl. the contract test); security-privacy-reviewer PASS (CSPRNG secrets, nothing written to disk,
+  two Lows to TE-030).

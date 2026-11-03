@@ -214,3 +214,52 @@ test('the Portainer env file holds no secret value and never uses latest', funct
     expect($values['APP_IMAGE_TAG'] ?? '')->toMatch('/^v\d+\.\d+\.\d+$/')
         ->and($values)->not->toHaveKey('INERTIA_DEVTOOLS_ENABLED');
 });
+
+/** @return array<string, string> KEY => value of the Portainer env file */
+function portainerEnvValues(): array
+{
+    $values = [];
+    foreach (fileLines(dirname(__DIR__, 2).'/deploy/portainer.env.example') as $line) {
+        if (preg_match('/^([A-Z0-9_]+)=(.*)$/', $line, $match) === 1) {
+            $values[$match[1]] = $match[2];
+        }
+    }
+
+    return $values;
+}
+
+test('every variable of the Portainer env file is used by compose.yaml (TE-025 AC2)', function () {
+    expect(array_values(array_diff(array_keys(portainerEnvValues()), productionComposeVariables())))->toBe([]);
+});
+
+test('the Portainer env file is plain KEY=value with a comment per variable (TE-025 AC1, AC7)', function () {
+    $lines = fileLines(dirname(__DIR__, 2).'/deploy/portainer.env.example');
+    $previous = '';
+    foreach ($lines as $line) {
+        expect($line)->not->toMatch('/\s$/', "trailing space: {$line}");
+        if ($line !== '' && ! str_starts_with($line, '#')) {
+            expect($line)->toMatch('#^[A-Z][A-Z0-9_]*=[A-Za-z0-9_.:/@+=,-]*$#', "not plain KEY=value: {$line}");
+            expect($previous)->toStartWith('#', "no comment above: {$line}");
+        }
+        $previous = $line;
+    }
+
+    $values = portainerEnvValues();
+    $empty = array_keys(array_filter($values, static fn (string $v): bool => $v === ''));
+    sort($empty);
+    expect($empty)->toBe(['APP_KEY', 'CSP_REPORT_PATH', 'DB_PASSWORD', 'DB_SUPERUSER_PASSWORD', 'TRUSTED_PROXIES']);
+});
+
+test('the Portainer env file has the secure production settings (TE-025 AC10, AC11)', function () {
+    $values = portainerEnvValues();
+    $lines = implode("\n", fileLines(dirname(__DIR__, 2).'/deploy/portainer.env.example'));
+
+    expect($values['SESSION_SECURE_COOKIE'] ?? null)->toBe('true')
+        ->and($values)->toHaveKeys(['HSTS_MAX_AGE', 'HSTS_INCLUDE_SUBDOMAINS', 'HSTS_PRELOAD', 'CSP_REPORT_PATH'])
+        ->and($values['HSTS_PRELOAD'])->toBe('false')
+        ->and($lines)->not->toContain('INERTIA_DEVTOOLS_ENABLED');
+
+    foreach (['DB_SUPERUSER_PASSWORD', 'DB_PASSWORD', 'APP_KEY'] as $secret) {
+        expect($lines)->toMatch('/^# SECRET: generate with .*\n'.$secret.'=$/m');
+    }
+});

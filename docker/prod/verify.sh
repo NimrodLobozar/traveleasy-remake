@@ -53,6 +53,7 @@ check "AC14 frankenphp has no file capability" docker run --rm --entrypoint sh "
 check "AC14 only the node binary, no npm or node_modules" docker run --rm --entrypoint sh "$IMAGE" -c 'node --version >/dev/null && ! command -v npm && ! test -d /usr/local/lib/node_modules'
 check "AC14 SSR bundle starts without node_modules" docker run --rm --entrypoint sh "$IMAGE" -c '! test -d /var/www/html/node_modules && (timeout 5 node bootstrap/ssr/ssr.js >/tmp/o 2>&1; true) && ! grep -qi "cannot find\|ERR_MODULE_NOT_FOUND" /tmp/o'
 check "AC10 OCI labels (source, revision, version, licence)" bash -c "docker inspect $IMAGE --format '{{json .Config.Labels}}' | grep -q 'image.source' && docker inspect $IMAGE --format '{{json .Config.Labels}}' | grep -q 'image.revision' && docker inspect $IMAGE --format '{{json .Config.Labels}}' | grep -q 'image.version' && docker inspect $IMAGE --format '{{json .Config.Labels}}' | grep -q '\"org.opencontainers.image.licenses\":\"MIT\"'"
+check "TE-019 AC9 the Caddyfile serves a static 502/504 page with security headers" docker run --rm --entrypoint sh "$IMAGE" -c 'grep -q "handle_errors" /etc/frankenphp/Caddyfile && grep -qF "in [502, 504]" /etc/frankenphp/Caddyfile && grep -q "Content-Security-Policy" /etc/frankenphp/Caddyfile'
 
 echo "== configuration"
 PHPI="$(docker run --rm --entrypoint php "$IMAGE" -i)"

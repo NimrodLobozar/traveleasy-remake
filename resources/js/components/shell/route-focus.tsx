@@ -35,8 +35,10 @@ export default function RouteFocus() {
         const offBefore = router.on('before', () => {
             positions.set(pageUrl, window.scrollY);
         });
-        const offStart = router.on('start', () => {
-            visiting = true;
+        const offStart = router.on('start', (event) => {
+            // A visit that keeps the page state (the language switch) stays where it is: focus must
+            // remain on the control that was used (TE-017 AC2).
+            visiting = event.detail.visit.preserveState !== true;
         });
         const offNavigate = router.on('navigate', (event) => {
             pageUrl = event.detail.page.url;

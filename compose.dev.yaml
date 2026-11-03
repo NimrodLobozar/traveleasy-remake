@@ -253,6 +253,8 @@ services:
         environment:
             E2E_BASE_URL: http://localhost:8000
             E2E_FORWARD: 8000=app:8000
+            # TE-019 AC11: path of the deterministic 500 page (testing/local only); empty = the 500 check in csp.spec.ts skips.
+            E2E_CSP_500_PATH: ${E2E_CSP_500_PATH:-}
             NPM_CONFIG_UPDATE_NOTIFIER: 'false'
             HOME: /tmp
             # Playwright deletes and recreates its output folders, which fails on a mount point under the

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Data\SharedUserData;
+use App\Enums\Appearance;
 use App\Enums\Locale;
 use App\Models\User;
 use App\Support\I18n\Translations;
@@ -41,11 +42,23 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $user = $request->user();
+        return [
+            ...parent::share($request),
+            ...self::appProps($request, $request->user()),
+        ];
+    }
+
+    /**
+     * The app's own shared props. Also used by the error pages (App\Support\Errors\ErrorPageRenderer), which can render
+     * without this middleware (unmatched URLs, maintenance mode), so nothing here may need the database or a session.
+     *
+     * @return array<string, mixed>
+     */
+    public static function appProps(Request $request, mixed $user): array
+    {
         $locale = Locale::current();
 
         return [
-            ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
                 // Never share the Eloquent model itself: only the whitelisted fields in SharedUserData.
@@ -56,6 +69,11 @@ class HandleInertiaRequests extends Middleware
             'locale' => $locale->value,
             'fallbackLocale' => Locale::fallback()->value,
             'translations' => fn (): array => app(Translations::class)->for($locale),
+            // TE-018: the allow-listed theme choice, so SSR renders the theme control in the right state.
+            'appearance' => Appearance::fromRequest($request)->value,
+            // TE-017: the session's CSRF token, for plain (no-JavaScript) form posts such as the language switch.
+            // Inertia's own requests send the XSRF-TOKEN cookie instead. Null when there is no session.
+            'csrfToken' => fn (): ?string => $request->hasSession() ? $request->session()->token() : null,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

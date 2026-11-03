@@ -1,6 +1,8 @@
 import { Link } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import Brand from '@/components/shell/brand';
+import LanguageSwitch from '@/components/shell/language-switch';
+import ThemeSwitch from '@/components/shell/theme-switch';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -73,12 +75,12 @@ export default function SiteHeader() {
                 <div
                     id="mobile-menu"
                     className={cn(
-                        'w-full flex-col gap-2 pb-2 md:flex md:w-auto md:flex-1 md:flex-row md:items-center md:justify-between md:pb-0',
+                        'w-full flex-col gap-2 pb-2 md:flex md:w-auto md:flex-1 md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-y-2 md:pb-0',
                         open ? 'flex' : 'hidden',
                     )}
                 >
                     <nav aria-label={t('shell.nav.label')} className="md:ml-6">
-                        <ul className="flex flex-col md:flex-row md:gap-1">
+                        <ul className="flex flex-col md:flex-row md:flex-wrap md:gap-1">
                             {NAV.map((item) => {
                                 const current = currentUrl === item.href;
 
@@ -103,9 +105,9 @@ export default function SiteHeader() {
                             })}
                         </ul>
                     </nav>
-                    <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                        {/* Slot: language switch (TE-017) */}
-                        {/* Slot: theme switch (TE-018) */}
+                    <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:justify-end">
+                        <LanguageSwitch />
+                        <ThemeSwitch />
                         <Link
                             href={login()}
                             onClick={close}

@@ -71,6 +71,12 @@ I know the whole path from `git push` to a running stack works.
       `SESSION_SECURE_COOKIE=false` is set, then the production boot check refuses to start (clear message, nonzero exit), so the
       LAN-over-HTTP exception (AC10e) cannot stay on by accident after HTTPS arrives; with an `http://` `APP_URL` the exception is
       still accepted. A Pest test covers both cases.
+- [ ] AC14 (carried over from TE-019 AC9, optional owner step): Given the web server's static 502/504 page cannot be produced by
+      FrankenPHP's `php_server`, and NPM serves its own 502 when the `app` container is down, when the doc is read, then it records the
+      decision whether to configure an NPM custom error page (owner step, optional) and, if yes, gives the exact steps.
+- [ ] AC15 (carried over from TE-025 AC3): Given the published image, when the owner runs `docker run --rm -it
+      ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan traveleasy:generate-secrets --without-super-admin` (3 secrets in M0), then it
+      prints ready-to-paste lines and exits 0; the output is pasted into the env file without further edits.
 - [ ] AC9 (owner does the server steps): Given the doc, when read, then every Portainer and NPM step (create the proxy host, the
       access list, the stack, the env file, the redeploy) is written as an exact click-by-click/command instruction for the
       owner, with the expected result after each step; agents do not access the server, Portainer or NPM, and the evidence for

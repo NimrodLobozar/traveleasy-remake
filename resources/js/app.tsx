@@ -1,6 +1,7 @@
 import { createInertiaApp } from '@inertiajs/react';
 import { initializeTheme } from '@/hooks/use-appearance';
 import { readCspNonce } from '@/lib/csp-nonce';
+import { syncHtmlLang } from '@/lib/html-lang';
 import { layoutFor } from '@/lib/inertia-layout';
 import { pageTitle } from '@/lib/page-title';
 import { withProviders } from '@/lib/with-providers';
@@ -20,3 +21,4 @@ void createInertiaApp({
 
 // This will set light / dark mode on load...
 initializeTheme();
+syncHtmlLang();
