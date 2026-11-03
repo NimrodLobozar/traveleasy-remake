@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expectNoA11yViolations } from './axe';
 import { expect, test } from './base-test';
+import { skipOnDebugPage } from './debug-page';
 
 // The localised error pages (TE-019). The testing-only routes /_test/error/{status} exist only
 // when APP_ENV is local or testing.
@@ -29,6 +30,9 @@ const titles = {
 async function open(page: Page, status: number): Promise<void> {
     const response = await page.goto(`/_test/error/${String(status)}`);
     expect(response?.status()).toBe(status);
+    if (status >= 500) {
+        await skipOnDebugPage(page);
+    }
     await page.waitForLoadState('networkidle');
 }
 

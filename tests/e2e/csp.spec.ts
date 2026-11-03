@@ -1,3 +1,4 @@
+import { skipOnDebugPage } from './debug-page';
 import { expect, test } from './base-test';
 import type { Page } from '@playwright/test';
 
@@ -63,6 +64,9 @@ async function expectNoViolations(
     const response = await page.goto(path);
 
     expect(response?.status()).toBe(expectedStatus);
+    if (expectedStatus >= 500) {
+        await skipOnDebugPage(page);
+    }
     // Without a policy there is nothing to violate, so the test would pass for the wrong reason.
     expect(
         response?.headers()['content-security-policy'],
