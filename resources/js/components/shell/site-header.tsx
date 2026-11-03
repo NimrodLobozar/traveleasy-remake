@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import Brand from '@/components/shell/brand';
+import LanguageSwitch from '@/components/shell/language-switch';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -104,8 +105,7 @@ export default function SiteHeader() {
                         </ul>
                     </nav>
                     <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                        {/* Slot: language switch (TE-017) */}
-                        {/* Slot: theme switch (TE-018) */}
+                        <LanguageSwitch />
                         <Link
                             href={login()}
                             onClick={close}
