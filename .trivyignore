@@ -3,7 +3,9 @@
 # Every entry needs a comment above it with the reason and an expiry date.
 
 # --- Debian 13 base image and FrankenPHP binary, no fix available (first scan 2026-11-03). Re-check every entry at expiry; drop it when a fix ships.
-# --- Reviewer: security-privacy-reviewer must confirm before the first release.
+# --- Reviewed 2026-11-03 (security-privacy-reviewer): every entry has no fixed Debian/upstream package and is not reachable in
+#     the runtime (uid 10001, cap_drop ALL, no-new-privileges, Caddy auto_https/admin off, no XML parsing of untrusted input,
+#     no outbound HTTP yet). Re-check reachability when the app starts parsing XML or calling external APIs (M8/M9).
 # util-linux: High/Critical in the Debian 13 base image, no fixed package available yet.
 CVE-2026-76642 exp:2026-12-15
 CVE-2026-78408 exp:2026-12-15
@@ -22,7 +24,8 @@ CVE-2026-119373 exp:2026-12-15
 CVE-2026-16742 exp:2026-12-15
 # ncurses: High/Critical in the Debian 13 base image, no fixed package available yet.
 CVE-2025-69720 exp:2026-12-15
-# libxml2: High/Critical in the Debian 13 base image, no fixed package available yet.
+# libxml2: High/Critical in the Debian 13 base image, no fixed package available yet. Linked into PHP (ext-dom/xml), so it
+# cannot be removed; Debian marks CVE-2026-6653 no-dsa (fixed only in forky/sid). Reachable only by parsing attacker XML.
 CVE-2026-6653 exp:2026-12-15
 CVE-2026-74860 exp:2026-12-15
 CVE-2026-86138 exp:2026-12-15
