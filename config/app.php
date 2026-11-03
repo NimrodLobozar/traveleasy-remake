@@ -42,6 +42,12 @@ return [
     'debug' => (bool) env('APP_DEBUG', false),
 
     /*
+    | TE-025: true inside a CI runner (GitHub Actions sets CI=true). The secrets helper refuses to print
+    | secrets into CI logs unless it is given --force-ci. Never changes how the app itself behaves.
+    */
+    'ci' => (bool) env('CI', false),
+
+    /*
     |--------------------------------------------------------------------------
     | Application URL
     |--------------------------------------------------------------------------
