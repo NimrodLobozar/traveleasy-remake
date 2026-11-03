@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Foundation\Vite;
+use Illuminate\Support\Facades\Vite as ViteFacade;
 use Illuminate\Testing\ParallelTesting;
 use Laravel\Fortify\Features;
+use Tests\Support\BuildlessVite;
 use Tests\Support\TestDatabase;
 
 abstract class TestCase extends BaseTestCase
@@ -49,8 +52,23 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
-        // PHP feature tests must not depend on a frontend build (public/build/manifest.json).
+        // PHP tests must not depend on a frontend build (public/build/manifest.json) or on a running Vite dev
+        // server (public/hot): CI runs Pest before the client build, and dev machines have both.
         $this->withoutVite();
+    }
+
+    /**
+     * Swaps in Tests\Support\BuildlessVite: no tags, no manifest, never "hot". Laravel's own double still reads
+     * public/hot. withVite() restores the real Vite for the few tests that set one up explicitly.
+     */
+    protected function withoutVite()
+    {
+        parent::withoutVite();
+
+        ViteFacade::clearResolvedInstance();
+        $this->swap(Vite::class, new BuildlessVite);
+
+        return $this;
     }
 
     protected function skipUnlessFortifyHas(string $feature, ?string $message = null): void

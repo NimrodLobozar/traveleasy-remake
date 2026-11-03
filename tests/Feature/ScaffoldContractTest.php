@@ -64,7 +64,7 @@ test('MAIL_MAILER=smtp in the environment still boots the app with the array mai
     $saved = [];
 
     foreach ($keys as $key => $value) {
-        $saved[$key] = getenv($key);
+        $saved[$key] = [getenv($key), $_ENV[$key] ?? null, $_SERVER[$key] ?? null];
         putenv("{$key}={$value}");
         $_ENV[$key] = $_SERVER[$key] = $value;
     }
@@ -76,11 +76,23 @@ test('MAIL_MAILER=smtp in the environment still boots the app with the array mai
             ->and(config('mail.default'))->toBe('array')
             ->and(array_keys(config()->array('mail.mailers')))->toBe(['array']);
     } finally {
-        foreach ($saved as $key => $value) {
-            $value === false ? putenv($key) : putenv("{$key}={$value}");
+        // Restore the process environment exactly (getenv, $_ENV and $_SERVER), so later tests in this worker
+        // see what they would have seen without this test.
+        foreach ($saved as $key => [$getenv, $envValue, $serverValue]) {
+            $getenv === false ? putenv($key) : putenv("{$key}={$getenv}");
             unset($_ENV[$key], $_SERVER[$key]);
+            if ($envValue !== null) {
+                $_ENV[$key] = $envValue;
+            }
+            if ($serverValue !== null) {
+                $_SERVER[$key] = $serverValue;
+            }
         }
+
+        // A refreshed app is a fresh container: re-apply the TestCase's Vite double, so nothing after this point
+        // depends on public/build or public/hot.
         $this->refreshApplication();
+        $this->withoutVite();
     }
 });
 

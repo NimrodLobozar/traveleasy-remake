@@ -2,14 +2,12 @@
 
 declare(strict_types=1);
 
-use Illuminate\Foundation\Vite as ViteService;
 use Illuminate\Http\Client\Request;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Vite;
-use Illuminate\Support\HtmlString;
 use Illuminate\Testing\TestResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Yaml\Yaml;
@@ -100,22 +98,9 @@ function te007UseFakeSsrServer(): void
 beforeEach(function () {
     Http::preventStrayRequests();
 
-    // Act as a production build: no asset tags and Vite "not running hot". Laravel's withoutVite()
-    // double still reads public/hot, which exists while the dev server runs, so pin it here.
+    // Act as a production build without one: Tests\TestCase::withoutVite() (BuildlessVite) emits no tags, never reads
+    // public/build or public/hot, and is never "running hot". Pinned here because these tests depend on it.
     $this->withoutVite();
-    Vite::clearResolvedInstance();
-    $this->swap(ViteService::class, new class extends ViteService
-    {
-        public function __invoke($entrypoints, $buildDirectory = null): HtmlString
-        {
-            return new HtmlString('');
-        }
-
-        public function isRunningHot(): bool
-        {
-            return false;
-        }
-    });
 });
 
 // --- Config ---------------------------------------------------------------------------------
