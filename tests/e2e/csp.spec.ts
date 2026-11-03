@@ -90,16 +90,11 @@ test('a 404 page has zero CSP violations', async ({ page }) => {
     await expectNoViolations(page, '/csp-spec-this-page-does-not-exist', 404);
 });
 
-// A deterministic 500 needs a route that throws; there is none in the app on purpose (no test-only
-// routes in production code). Point E2E_CSP_500_PATH at one when the environment has it.
-const serverErrorPath = process.env.E2E_CSP_500_PATH ?? '';
+// A deterministic 500 comes from the testing-only route (TE-019 AC10: registered only when APP_ENV is
+// local or testing, never in production). E2E_CSP_500_PATH overrides the path for other setups.
+const serverErrorPath = process.env.E2E_CSP_500_PATH || '/_test/error/500';
 
 test('a 500 page has zero CSP violations', async ({ page }) => {
-    test.skip(
-        serverErrorPath === '',
-        'E2E_CSP_500_PATH is not set; no deterministic 500 route in this environment',
-    );
-
     await expectNoViolations(page, serverErrorPath, 500);
 });
 
