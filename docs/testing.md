@@ -454,6 +454,20 @@ CI (TE-013) calls `npm run i18n:check` (or `npm run check`, which includes it).
   `resources/js` (rules and proof snippets in `tests/Support/MarkupRules.php`).
 - Browser: `tests/e2e/csp.spec.ts` (zero violations). Details: [security headers](deploy/security-headers.md).
 
+### App shell server tests (TE-017, TE-018, TE-019)
+
+- `tests/Feature/I18n/LanguageSwitchTest.php`: `POST /locale` (allow-list, 422/inline error, cookie attributes, CSRF,
+  30/min throttle, no open redirect via `Referer`). CSRF is skipped while unit tests run, so the CSRF test switches the
+  container to `app()->instance('env', 'staging')` for that request.
+- `tests/Feature/Appearance/ThemeRenderingTest.php`: the `appearance` cookie on `<html>`, the color-scheme meta, the nonce'd
+  system script and junk cookie values.
+- `tests/Feature/Errors/ErrorPagesTest.php`: every error status in both locales, request ID, no leak, maintenance 503 (an
+  in-memory `MaintenanceMode` fake, never the shared `down` file), Inertia XHR errors and the fallback page.
+- **Deterministic error pages:** `GET /_test/error/{403|404|419|429|500|503}` (`routes/testing.php`) exists only with
+  `APP_ENV=local` or `testing`; `tests/Arch/TestingRoutesTest.php` proves it is absent in production (a `route:list
+  --env=production` subprocess). The 500 route always renders the production page, also with `APP_DEBUG=true`, so the e2e
+  CSP check uses it: `E2E_CSP_500_PATH=/_test/error/500` in `.env`.
+
 ### Manual check: Vite advisories
 
 `vite` in `package.json` is an npm alias for `@voidzero-dev/vite-plus-core@0.3.3`, so **`npm audit` can't see Vite

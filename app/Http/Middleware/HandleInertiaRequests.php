@@ -42,11 +42,23 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $user = $request->user();
+        return [
+            ...parent::share($request),
+            ...self::appProps($request, $request->user()),
+        ];
+    }
+
+    /**
+     * The app's own shared props. Also used by the error pages (App\Support\Errors\ErrorPageRenderer), which can render
+     * without this middleware (unmatched URLs, maintenance mode), so nothing here may need the database or a session.
+     *
+     * @return array<string, mixed>
+     */
+    public static function appProps(Request $request, mixed $user): array
+    {
         $locale = Locale::current();
 
         return [
-            ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
                 // Never share the Eloquent model itself: only the whitelisted fields in SharedUserData.

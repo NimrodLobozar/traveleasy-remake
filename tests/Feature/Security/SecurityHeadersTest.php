@@ -265,6 +265,11 @@ test('AC8 error pages give their inline styles the header nonce', function (stri
     expect($tags)->not->toBeEmpty();
 
     foreach ($tags as [$tag, $attributes]) {
+        // Since TE-019 error pages are Inertia pages: the page object is JSON data the browser never runs.
+        if ($tag === 'script' && ($attributes['type'] ?? '') === 'application/json') {
+            continue;
+        }
+
         expect($attributes)->toHaveKey('nonce', $nonce, "<{$tag}> on {$uri} without the matching nonce");
     }
 })->with(['/te015-no-such-page', '/te015/500', '/te015/abort/503']);
