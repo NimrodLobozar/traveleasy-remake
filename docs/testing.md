@@ -259,6 +259,15 @@ and accessible name, drive it with `userEvent` (keyboard first), assert the stat
 spacing, forced colours) belong in `tests/e2e/base-components.spec.ts`; inject test CSS with
 `adoptedStyleSheets`, because `addStyleTag` is blocked by the CSP.
 
+#### Overlay and popup components (TE-023)
+
+`complex.test.tsx` covers combobox, date picker (and its parser), table, dialog, toast and pagination with the same recipe. Notes:
+- Popovers and modals need no portal setup; query them with `screen`. For axe pass the **dialog element** (`expect(dialog).toHaveNoA11yViolations()`), because RAC sets `aria-hidden` on the rest of the page and axe cannot judge that in jsdom (an `aria-hidden-focus` incomplete fails the matcher).
+- RAC restores focus after a frame: assert it with `await waitFor(() => expect(trigger).toHaveFocus())`.
+- The combobox count comes from RAC's global announcer: read `[data-live-announcer] [aria-live]`.
+- Toasts: `vi.useFakeTimers({ shouldAdvanceTime: true })`, `userEvent.setup({ advanceTimers: vi.advanceTimersByTime })`, wrap `showToast` in `act`, and `toastQueue.clear()` between tests.
+- Playwright specs wait for hydration without `networkidle` (it times out under load): `openDesign()` in `complex-components.spec.ts` waits until an element carries React's `__reactFiber` key. While a combobox list is open React Aria hides the rest of the page, so `expectOpenComboboxNoViolations()` scans only the input and the list (the page is scanned closed; no rule is disabled).
+
 ### 5.3 Browser tests (Playwright)
 
 ```ts
