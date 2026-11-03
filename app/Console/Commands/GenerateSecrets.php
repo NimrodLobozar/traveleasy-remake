@@ -16,7 +16,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Prints the five production secrets as ready-to-paste `KEY=value` lines for the Portainer env file (TE-025,
  * ADR-0002 D5, docs/deploy/casaos-portainer.md):
  *
- *   docker run --rm -it ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan traveleasy:generate-secrets
+ *   docker run --rm -it --log-driver none ghcr.io/nimrodlobozar/traveleasy:<tag> php artisan traveleasy:generate-secrets
+ *
+ * (`--log-driver none`: a non-default Docker log driver would otherwise keep the printed secrets.)
  *
  * - Runs through the production entrypoint's pass-through: no database, no boot check, no network.
  * - Writes nothing to disk and logs nothing; the values exist only on the terminal.
@@ -54,7 +56,7 @@ final class GenerateSecrets extends Command
         if ($withSuperAdmin && (! $this->input->isInteractive() || ! $terminal->hasInteractiveInput())) {
             $this->components->error(
                 'The super_admin password is read with a hidden prompt, which needs an interactive terminal. Run '
-                .'`docker run --rm -it <image> php artisan traveleasy:generate-secrets` (note -it), or add '
+                .'`docker run --rm -it --log-driver none <image> php artisan traveleasy:generate-secrets` (note -it), or add '
                 .'--without-super-admin to print only the database passwords and APP_KEY. Passwords are never '
                 .'accepted as arguments or environment variables.',
             );

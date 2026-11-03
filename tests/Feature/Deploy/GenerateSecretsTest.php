@@ -264,3 +264,15 @@ test('quality the terminal QR code is square with a quiet zone, and --light-term
             ->and($line)->toMatch("/\A[ \u{2580}\u{2584}\u{2588}]+\z/u");
     }
 });
+
+test('TE-030 AC2 the TOTP issuer is TravelEasy even when APP_NAME is unset (docker run of the production image)', function () {
+    // config/app.php falls back to Laravel's default name when APP_NAME is unset, as under `docker run`.
+    config(['app.name' => 'Laravel']);
+
+    $uri = app(SecretsGenerator::class)->totpUri('JBSWY3DPEHPK3PXP');
+    parse_str((string) parse_url($uri, PHP_URL_QUERY), $query);
+
+    expect(rawurldecode((string) parse_url($uri, PHP_URL_PATH)))->toBe('/TravelEasy:super_admin')
+        ->and($query['issuer'] ?? null)->toBe('TravelEasy')
+        ->and($uri)->not->toContain('Laravel');
+});
