@@ -228,9 +228,12 @@ describe('Select (AC5)', () => {
         await waitFor(() =>
             expect(screen.queryByRole('listbox')).not.toBeInTheDocument(),
         );
-        expect(
-            screen.getByRole('button', { name: /Reisklasse/ }),
-        ).toHaveFocus();
+        // RAC restores focus after a frame; wait for it (flaky under parallel load otherwise).
+        await waitFor(() => {
+            expect(
+                screen.getByRole('button', { name: /Reisklasse/ }),
+            ).toHaveFocus();
+        });
     });
 
     it('shows the error with description wiring', () => {

@@ -95,6 +95,8 @@ test('reflows at 400 % zoom (320 CSS px) with text-spacing overrides (AC10)', as
             .filter(
                 (el) =>
                     el.offsetParent !== null &&
+                    // visually hidden (sr-only, also the responsive max-md:sr-only) is 1 px wide
+                    el.getBoundingClientRect().width > 1 &&
                     !el.closest('.sr-only') &&
                     el.scrollWidth > el.clientWidth + 1 &&
                     ['hidden', 'clip'].includes(getComputedStyle(el).overflowX),

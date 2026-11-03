@@ -9,6 +9,7 @@ import { Link } from '@/components/ui/base/link';
 import { NumberField } from '@/components/ui/base/number-field';
 import { Select } from '@/components/ui/base/select';
 import { TextField } from '@/components/ui/base/text-field';
+import { ComplexShowcase } from '@/components/design/complex-showcase';
 
 /**
  * Component showcase (TE-022). Registered only in the local and testing environments
@@ -157,6 +158,8 @@ export default function Design() {
                         Something went wrong.
                     </Alert>
                 </section>
+
+                <ComplexShowcase />
             </div>
         </>
     );
