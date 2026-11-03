@@ -27,7 +27,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-019](TE-019-localised-error-pages.md) | Localised error pages (403, 404, 419, 429, 500, 503) with a request ID | must | done | 0 | required (TE-016 artifact) |
 | [TE-020](TE-020-design-tokens-and-type-scale.md) | Design tokens and type scale (artifact, token file, contrast tests) | must | done | 1 | required |
 | [TE-021](TE-021-base-component-specs.md) | Base component specs (states, keyboard, ARIA) | must | ready | 0 | required |
-| [TE-022](TE-022-base-components-forms-and-feedback.md) | Base components I: button, link, field, select, number field, alert, banner | must | ready | 0 | required (TE-021 approval) |
+| [TE-022](TE-022-base-components-forms-and-feedback.md) | Base components I: button, link, field, select, number field, alert, banner | must | done | 1 | approved (TE-021 artifact) |
 | [TE-023](TE-023-base-components-complex-widgets.md) | Base components II: combobox, date picker, table, dialog, toast, pagination | must | ready | 0 | required (TE-021 approval) |
 | [TE-024](TE-024-production-compose-for-portainer.md) | Production compose.yaml for Portainer (pinned tag, health checks, limits, ssr) | must | done | 0 | not-needed |
 | [TE-025](TE-025-portainer-env-file-and-secrets-helper.md) | One-file Portainer env file and the secrets helper command | must | done | 0 | not-needed |
@@ -137,6 +137,9 @@ From the TE-006 close (2026-10-12).
   real page; enable it when the first real page exists.
 - **`ScaffoldContractTest` flake (from TE-016 close, 2026-11-03, QA watch item):** failed once in `composer check` and passed on
   the rerun; investigate the flakiness.
+- **(a) e2e waits (from TE-022 close, 2026-11-03):** e2e specs use `waitForLoadState('networkidle')`, which times out under parallel load on the Vite dev server. Replace it with a wait on a hydrated element.
+- **(b) One e2e run per working tree (from TE-022 close, 2026-11-03):** only one e2e run at a time per working tree; concurrent runs cause `EADDRINUSE` and false axe failures.
+- **(c) Owner manual screen-reader checklist for the base components (from TE-022 close, 2026-11-03, owner, manual):** NVDA and VoiceOver checks for password reveal `aria-pressed`, error summary focus, NumberField announcements, Select touch fallback, and banner dismiss focus.
 
 ## Follow-ups for M1
 Found while TE-001 was tested (2026-10-11; security-privacy-reviewer and qa-engineer). There are no M1 story files
