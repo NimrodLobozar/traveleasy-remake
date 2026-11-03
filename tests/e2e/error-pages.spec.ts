@@ -110,8 +110,13 @@ test('an unknown URL is the 404 page inside the shell (AC1)', async ({
 });
 
 test('the 500 page leaks no SQL or path (AC4)', async ({ page }) => {
-    await open(page, 500);
-    const html = await page.content();
+    const response = await page.goto('/_test/error/500');
+    await skipOnDebugPage(page);
+    // The server's own HTML and headers, not the DOM after the dev server injected its styles.
+    const sent = [
+        await response?.text(),
+        JSON.stringify(await response?.allHeaders()),
+    ].join(' ');
 
-    expect(html).not.toMatch(/SQLSTATE|\/var\/www|\.php/);
+    expect(sent).not.toMatch(/SQLSTATE|\/var\/www|\.php/);
 });

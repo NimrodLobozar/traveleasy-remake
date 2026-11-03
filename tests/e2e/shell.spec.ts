@@ -70,7 +70,7 @@ test.describe('skip link and focus (AC2, AC11)', () => {
         await expect(page.locator('main#main')).toBeFocused();
     });
 
-    test('Tab order: skip link, brand, nav, login, main content, footer', async ({
+    test('Tab order: skip link, brand, nav, language, theme, login, main content, footer', async ({
         page,
     }) => {
         await openHome(page);
@@ -94,8 +94,13 @@ test.describe('skip link and focus (AC2, AC11)', () => {
             'header:Mijn boekingen',
             'header:Help',
         ]);
-        expect(order[6]).toBe('header:Inloggen');
-        expect(order[7]?.startsWith('main:')).toBe(true);
+        expect(order.slice(6, 10)).toEqual([
+            'header:Nederlands',
+            'header:English',
+            'header:Thema',
+            'header:Inloggen',
+        ]);
+        expect(order[10]?.startsWith('main:')).toBe(true);
         expect(order.some((entry) => entry.startsWith('footer:'))).toBe(true);
         expect(order.lastIndexOf('header:Inloggen')).toBeLessThan(
             order.findIndex((entry) => entry.startsWith('main:')),
@@ -228,14 +233,17 @@ test.describe('mobile (AC6, AC8, AC12)', () => {
         const sizes = await page
             .locator('header a, header button, footer a')
             .evaluateAll((els) =>
-                els.map((el) => {
-                    const rect = el.getBoundingClientRect();
-                    return {
-                        name: (el.textContent || '').trim(),
-                        w: rect.width,
-                        h: rect.height,
-                    };
-                }),
+                els
+                    .map((el) => {
+                        const rect = el.getBoundingClientRect();
+                        return {
+                            name: (el.textContent || '').trim(),
+                            w: rect.width,
+                            h: rect.height,
+                        };
+                    })
+                    // The desktop-only theme button is display:none here.
+                    .filter((size) => size.h > 0),
             );
         expect(sizes.length).toBeGreaterThan(8);
         for (const size of sizes) {
