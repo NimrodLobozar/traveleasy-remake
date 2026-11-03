@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 use App\Http\Controllers\HealthController;
 use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\AssignRequestId;
