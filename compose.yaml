@@ -1,8 +1,8 @@
 # TravelEasy: PRODUCTION stack (TE-024, ADR-0002). Deployed from Portainer's web editor; no repository checkout,
 # no bind mounts, no env_file: every setting comes from the stack's environment variables (deploy/portainer.env.example).
 #
-# Development uses this file together with compose.dev.yaml (COMPOSE_FILE in .env). The dev file resets what differs:
-# image, bind mounts, hardening, limits, networks and secrets. `docker compose up -d` in dev behaves as before.
+# Development does not merge with this file: compose.dev.yaml is a standalone dev stack (COMPOSE_FILE in .env), so a
+# change here can never alter the dev environment.
 #
 # Update = change APP_IMAGE_TAG and redeploy. Rollback = set the previous tag (migrations are expand/contract,
 # ADR-0002 D4). Never use `docker compose down -v`: it deletes the database volume.

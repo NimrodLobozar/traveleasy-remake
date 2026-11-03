@@ -86,6 +86,12 @@ From the TE-005 security review (L5 and the e2e data rule on the board):
 - **Reports are sensitive, even after green runs.** `playwright-report/` holds page HTML, URLs and the needs-review
   attachments; traces and screenshots in `test-results/` can hold cookies and typed passwords. Both are git-ignored;
   never share them, never upload them to an online trace viewer or a public CI artifact.
+- **No secrets in e2e, ever** (TE-029 AC2). The e2e container gets no `.env` and no credentials, and tests use only fake
+  data. The repo is public, so CI failure artifacts (`playwright-failure`: report and traces) can be downloaded by any
+  GitHub user while they exist (2 days); anything a test types or loads ends up in them.
+- **The `.dockerbuild` build record is off.** `docker/build-push-action` would upload a build-record artifact (inputs,
+  build args, timings) that is public in this repo. It holds no secret (the build takes none), but `ci.yml` disables it
+  with `DOCKER_BUILD_RECORD_UPLOAD: 'false'` anyway; keep it off on every build step.
 - **`storageState` files** (saved logins) go only under `test-results/` or `/tmp` inside the container, never in
   the repo tree elsewhere.
 
