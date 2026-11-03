@@ -49,6 +49,9 @@ version.
       handoff.
 - [ ] AC13 (carried over from TE-013 AC7): Given a PR from a fork, when `ci.yml` runs, then no secrets are available, the token is
       read-only, and nothing is published; the run link is noted in the handoff.
+- [ ] AC14 (carried over from TE-025 AC3): Given the first published image, when `docker run --rm -it <image>:<tag> php artisan
+      traveleasy:generate-secrets --without-super-admin` runs on a clean machine, then it prints 3 secrets and exits 0 (evidence in the
+      handoff; also asserted in TE-026 AC15).
 
 ## Quality criteria
 - [ ] Tests: workflow linted with `actionlint`; the verify script is exercised; one real tagged release `v0.0.1` is run

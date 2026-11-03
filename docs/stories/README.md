@@ -22,26 +22,27 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-014](TE-014-ci-image-build-scan-publish.md) | GitHub Actions pipeline, part 2: amd64 build, Trivy, publish to GHCR | must | ready | 0 | not-needed |
 | [TE-015](TE-015-security-headers-and-csp-baseline.md) | Security headers and CSP baseline (nonces) | must | done | 0 | not-needed |
 | [TE-016](TE-016-accessible-base-layout.md) | Accessible base layout (landmarks, skip link, route-change focus, empty axe allow-list) | must | done | 1 | required |
-| [TE-017](TE-017-language-switch.md) | Language switch nl/en with persisted preference | must | in-progress | 0 | required (TE-016 artifact) |
-| [TE-018](TE-018-theme-light-dark-no-flash.md) | Light/dark theme with a manual override and no flash under SSR | must | in-progress | 0 | required (TE-016 artifact) |
-| [TE-019](TE-019-localised-error-pages.md) | Localised error pages (403, 404, 419, 429, 500, 503) with a request ID | must | in-progress | 0 | required (TE-016 artifact) |
+| [TE-017](TE-017-language-switch.md) | Language switch nl/en with persisted preference | must | done | 0 | required (TE-016 artifact) |
+| [TE-018](TE-018-theme-light-dark-no-flash.md) | Light/dark theme with a manual override and no flash under SSR | must | done | 0 | required (TE-016 artifact) |
+| [TE-019](TE-019-localised-error-pages.md) | Localised error pages (403, 404, 419, 429, 500, 503) with a request ID | must | done | 0 | required (TE-016 artifact) |
 | [TE-020](TE-020-design-tokens-and-type-scale.md) | Design tokens and type scale (artifact, token file, contrast tests) | must | done | 1 | required |
 | [TE-021](TE-021-base-component-specs.md) | Base component specs (states, keyboard, ARIA) | must | ready | 0 | required |
 | [TE-022](TE-022-base-components-forms-and-feedback.md) | Base components I: button, link, field, select, number field, alert, banner | must | ready | 0 | required (TE-021 approval) |
 | [TE-023](TE-023-base-components-complex-widgets.md) | Base components II: combobox, date picker, table, dialog, toast, pagination | must | ready | 0 | required (TE-021 approval) |
 | [TE-024](TE-024-production-compose-for-portainer.md) | Production compose.yaml for Portainer (pinned tag, health checks, limits, ssr) | must | done | 0 | not-needed |
-| [TE-025](TE-025-portainer-env-file-and-secrets-helper.md) | One-file Portainer env file and the secrets helper command | must | in-progress | 0 | not-needed |
+| [TE-025](TE-025-portainer-env-file-and-secrets-helper.md) | One-file Portainer env file and the secrets helper command | must | done | 0 | not-needed |
 | [TE-026](TE-026-first-lan-only-deploy.md) | First LAN-only deploy to the home server (**owner-gated**) | must | ready | 0 | not-needed |
 | [TE-027](TE-027-bump-php-8-5-12-dev-image.md) | Bump PHP to 8.5.12 in the dev image (chore) | must | done | 0 | not-needed |
 | [TE-028](TE-028-production-image-hardening-follow-ups.md) | Production image hardening follow-ups (chore) | must | done | 0 | not-needed |
-| [TE-029](TE-029-ci-and-deploy-hardening-follow-ups.md) | CI and deploy hardening follow-ups (chore) | should | in-progress | 0 | not-needed |
+| [TE-029](TE-029-ci-and-deploy-hardening-follow-ups.md) | CI and deploy hardening follow-ups (chore) | should | done | 0 | not-needed |
+| [TE-030](TE-030-deploy-and-error-page-polish.md) | Deploy and error-page polish (chore) | should | ready | 0 | not-needed |
 
 ### Epics
 - **M0 Project scaffold and tooling:** TE-001, TE-003, TE-004, TE-005 (docs part in TE-006).
 - **M0 Docker dev environment:** TE-002, TE-006.
 - **M0 Server-side rendering:** TE-007, TE-008.
 - **M0 i18n infrastructure:** TE-009, TE-010.
-- **M0 CI/CD to GHCR:** TE-011 (ADR-0002), TE-012, TE-013, TE-014, TE-028, TE-029.
+- **M0 CI/CD to GHCR:** TE-011 (ADR-0002), TE-012, TE-013, TE-014, TE-028, TE-029, TE-030.
 - **M0 App shell:** TE-015, TE-016, TE-017, TE-018, TE-019.
 - **M0 Design system:** TE-020, TE-021, TE-022, TE-023.
 - **M0 First home-server deploy:** TE-024, TE-025, TE-026.
@@ -160,7 +161,9 @@ yet. When M1 stories are written, put each item below into the matching story as
 - **ADR-0002 requirements for M1 stories:**
   - `worker`/`scheduler` health checks via `php artisan traveleasy:healthcheck worker|scheduler` (heartbeat job every minute
     processed within 3 min; scheduled closure heartbeat under 3 min old; interval 60 s, timeout 10 s, retries 3);
-  - `SUPER_ADMIN_PASSWORD_HASH` and `SUPER_ADMIN_TOTP_SECRET` join the Portainer env file as secrets 4 and 5 (helper from TE-025);
+  - `SUPER_ADMIN_PASSWORD_HASH` and `SUPER_ADMIN_TOTP_SECRET` join the Portainer env file as secrets 4 and 5 (helper from TE-025;
+    it prints 5 secrets by default and 3 with `--without-super-admin`). The hash is `base64:`-encoded so compose does not expand
+    `$`; the M1 super_admin provisioning must **decode** it before use;
   - the `app` role does DDL and DML (one role); migrations follow expand/contract (no drops or renames in the same release);
   - `worker` memory 256M PHP `memory_limit`, container limit 384 MB; no endpoint may hold a request open for more than a few seconds.
 - **Trusted hosts** (from the TE-002 security review; ADR-0002 D6 completes the proxy contract with it): `$middleware->trustHosts()` derived from the `APP_URL` host. Health checks send that Host header.
