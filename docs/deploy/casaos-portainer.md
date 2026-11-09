@@ -128,6 +128,16 @@ Do the access list first, so the site is never open to everyone, even for a minu
 | SSL tab | see C below |
 
 Use the alias `traveleasy-app`, not `app`: other stacks on `npm_shared` may also have a service called `app`.
+
+Then open the **Advanced** tab and put this single line in **Custom Nginx Configuration**:
+
+```
+set_real_ip_from 127.0.0.1/32;
+```
+
+Why: by default NPM believes an `X-Real-IP` header sent by any private or CDN address, so a LAN device could pretend to be
+another IP (slipping past per-IP login throttles and, later, the `lan-only` list). This line replaces that list for this host
+with loopback only, so NPM's `[Client ...]` address is always the real peer. Check 5d proves it works.
 Click **Save**. Expect the host with status **Online**.
 
 **C. HTTPS and HSTS.** Once a certificate exists (M0 may have none yet: see D), open the **SSL** tab, choose the certificate,
@@ -145,7 +155,9 @@ with a safe max-age); two sources would conflict.
 
 ## Verify the deploy
 
-Evidence to paste back to the orchestrator for TE-034: the outputs of steps 1, 2, 4 and 5 (no secrets in any of them).
+Evidence to paste back to the orchestrator for TE-034: the outputs of steps 1, 2, 4 and 5 (no secrets in any of them). For
+step 5 paste **only** the `[Client ...]` fragments that the commands below print and the two lines of 5b; never paste whole NPM
+log lines (they hold more than the IP).
 
 1. **Health.** `docker ps --filter name=traveleasy --format '{{.Names}}  {{.Status}}'` (or Portainer -> Containers). Expect `db`,
    `ssr`, `app` `Up ... (healthy)` and `db-init` `Exited (0)`.
@@ -156,8 +168,11 @@ Evidence to paste back to the orchestrator for TE-034: the outputs of steps 1, 2
    `403 Forbidden`, or no connection at all (the router has no port forward). Any TravelEasy page here is a failure: stop and report.
 5. **Real client IPs (trust check).** The app writes no request log and no client IP (TE-024 AC10, by design), so the proof has
    two parts. Replace `<npm-ip>` with your `TRUSTED_PROXIES` value; the app container is `traveleasy-app-1`.
-   a. *A LAN device is seen as itself.* Open the site from a LAN device (for example `192.168.1.50`), then read NPM's log (path in
-      "Logs and privacy"; or NPM -> **Hosts** -> three dots on the host -> **Logs**). Expect the last access line to start with that LAN IP.
+   a. *A LAN device is seen as itself.* Open the site from a LAN device (for example `192.168.1.50`), then on the server print the
+      client of the last request (replace `<npm>` with NPM's container name and `<id>` with the number from
+      `docker exec <npm> ls /data/logs`):
+      `docker exec <npm> tail -n 1 /data/logs/proxy-host-<id>_access.log | grep -o '\[Client [^]]*\]'`.
+      Expect `[Client 192.168.1.50]` (your device's LAN IP). If NPM's log format differs, verify in TE-041.
    b. *The trusted proxy is believed, anyone else is ignored.* This boots the app and asks which address it assigns to a request
       carrying `X-Forwarded-For: 203.0.113.9`, once from NPM and once from a neighbour:
 
@@ -174,20 +189,73 @@ Evidence to paste back to the orchestrator for TE-034: the outputs of steps 1, 2
 
       Expect two lines: `<npm-ip> -> 203.0.113.9` (the trusted proxy is believed) and `172.20.0.99 -> 172.20.0.99` (a neighbour
       or the gateway is **not** believed). If the second line shows `203.0.113.9`, `TRUSTED_PROXIES` is too wide: fix it at once.
-   c. *Through NPM a forged header does not take over.* From a LAN device:
+   c. *Through NPM a forged `X-Forwarded-For` does not take over.* From a LAN device:
       `curl -sk -H "X-Forwarded-For: 203.0.113.9" https://<your domain>/ -o /dev/null -w '%{http_code}\n'` (`http://` in the
-      LAN-over-HTTP setup). Expect `200`, and in NPM's log the client shown is your LAN IP, not `203.0.113.9`.
+      LAN-over-HTTP setup). Expect `200`. Then on the server run the 5a `tail ... | grep -o` command again: expect
+      `[Client <your LAN IP>]`, never `203.0.113.9`.
+   d. *Through NPM a forged `X-Real-IP` does not take over.* NPM trusts this header from private and CDN addresses unless the
+      proxy host has `set_real_ip_from 127.0.0.1/32;` (section B), so this check proves that line works. From a LAN device:
+      `curl -sk -H "X-Real-IP: 203.0.113.9" https://<your domain>/ -o /dev/null -w '%{http_code}\n'` (`http://` in the LAN-over-HTTP
+      setup). Expect `200`; then the 5a `tail ... | grep -o` command prints `[Client <your LAN IP>]`. If it prints
+      `[Client 203.0.113.9]`, the line is missing or in the wrong place: fix it in the Advanced tab, **Save**, and repeat.
+      Repeat once with `-H "X-Real-IP: 127.0.0.1"`: expect the same result (your LAN IP, and the `lan-only` list still applies).
    The variant with a neighbouring container as sender is also run in the TE-041 dry run.
 
 ## Logs and privacy
 
 - The app's own logs (Portainer -> Containers -> `app` -> **Logs**) are JSON on stderr, level `warning`, with **no client IP and
   no request line** (the web server's access log is off on purpose). Docker caps them at 3 files of 10 MB.
-- **NPM keeps access logs with client IPs.** Location: NPM's data volume, `/data/logs/proxy-host-<id>_access.log` (and
-  `_error.log`); list them with `docker exec <npm container> ls /data/logs`. Retention: NPM rotates them with logrotate; read the
-  rule with `docker exec <npm container> cat /etc/logrotate.d/nginx-proxy-manager`. Required: 14 days at most. If the rule keeps
-  more (for example weekly with `rotate 4`), change it to `weekly` and `rotate 2` and note the date; delete older files by hand.
-  The IPs stay on your server and are never sent anywhere.
+- **NPM keeps access and error logs with client IPs.** Location: NPM's data volume, `/data/logs/proxy-host-<id>_access.log` and
+  `proxy-host-<id>_error.log`; list them with `docker exec <npm> ls /data/logs`. NPM's own rule (weekly, 4 to 10 rotations) keeps
+  more than the 14 days we allow, and a change made inside the container is lost when NPM is recreated. So we replace the rule
+  with a file that lives **outside** the container and is mounted read-only from NPM's own stack. The IPs stay on your server
+  and are never sent anywhere.
+
+**Set the 14-day log retention (once; again only if NPM's stack is rebuilt from scratch)**
+
+1. Look at the current rule, to copy its `postrotate` lines: `docker exec <npm> cat /etc/logrotate.d/nginx-proxy-manager`.
+2. On the server, make a folder that is not inside NPM's data volume (CasaOS example):
+   `sudo mkdir -p /DATA/AppData/npm-extra && cd /DATA/AppData/npm-extra`.
+3. Create `logrotate-nginx-proxy-manager` there (the `postrotate` line must equal what step 1 showed; the version below is
+   the usual one):
+
+   ```
+   sudo tee logrotate-nginx-proxy-manager >/dev/null <<'EOF'
+   /data/logs/*_access.log /data/logs/*_error.log {
+       daily
+       rotate 13
+       missingok
+       notifempty
+       compress
+       delaycompress
+       create 0640 root root
+       sharedscripts
+       postrotate
+           /bin/kill -USR1 $(cat /run/nginx/nginx.pid 2>/dev/null) 2>/dev/null || true
+       endscript
+   }
+   EOF
+   sudo chown root:root logrotate-nginx-proxy-manager && sudo chmod 644 logrotate-nginx-proxy-manager
+   ```
+
+   `daily` + `rotate 13` keeps today's log plus 13 rotated days = 14 days. The file must be owned by root and not writable by
+   others, or logrotate refuses to read it.
+4. In Portainer open **NPM's own stack** (Stacks -> the NPM stack -> **Editor**) and add one line under the NPM service's
+   `volumes:`, keeping the existing ones:
+   `- /DATA/AppData/npm-extra/logrotate-nginx-proxy-manager:/etc/logrotate.d/nginx-proxy-manager:ro`
+   (If NPM was installed as a CasaOS app instead, add the same path in the app's settings under **Volumes**.)
+5. Click **Update the stack**. This recreates NPM and takes every site behind it offline for a few seconds. The fixed IP from
+   "Before the first deploy" must still be in the stack, otherwise `TRUSTED_PROXIES` no longer matches.
+6. Verify with a dry run (it changes nothing): `docker exec <npm> logrotate -d /etc/logrotate.d/nginx-proxy-manager`. Expect
+   `rotating pattern: /data/logs/*_access.log /data/logs/*_error.log  after 1 days (13 rotations)` and no `error:` line. Then
+   `docker exec <npm> grep -c 'rotate 13' /etc/logrotate.d/nginx-proxy-manager`; expect `1`.
+7. Delete files already older than the limit. First list them:
+   `docker exec <npm> find /data/logs -name '*.log*' -mtime +14 -print`. If the list shows only old log files, run the same
+   command with `-delete` instead of `-print`.
+8. Note the date. After every NPM image update, repeat step 6.
+
+Whether NPM's image runs logrotate daily and accepts this file (and the exact `postrotate` line) cannot be proven without
+NPM: verify in TE-041.
 
 ## Optional: NPM custom error page (502/504)
 
@@ -259,8 +327,10 @@ The scheduled dump service is a later story. Until then, take a dump before ever
   umask 077
   docker exec traveleasy-db-1 pg_dump -U postgres -Fc traveleasy > traveleasy-$(date +%F).dump
   ```
-- Restore into an empty database only, after stopping `app`: `docker exec -i traveleasy-db-1 pg_restore -U postgres -d traveleasy --clean --if-exists < file.dump`,
-  then start `app`; `db-init` re-applies the app role on the next deploy.
+- Restore: `--clean` **drops and overwrites** what is in the live database, so first make a fresh dump of the current state
+  (the Dump command above; the file name carries today's date) and keep it until the restore is confirmed good. Then stop `app`
+  and run `docker exec -i traveleasy-db-1 pg_restore -U postgres -d traveleasy --clean --if-exists < file.dump`; then start
+  `app`. `db-init` re-applies the app role on the next deploy.
 - Keep dumps off the server too. A restore test is part of the `backup` story.
 
 ## Removing the stack
