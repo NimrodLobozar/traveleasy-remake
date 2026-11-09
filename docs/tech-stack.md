@@ -18,8 +18,8 @@ dependency update. Stack choice and reasoning: `docs/adr/0001-tech-stack.md`.
 | Pest / pest-plugin-laravel | 5.3.1 / 5.0.1 | `vite` = npm alias of `@voidzero-dev/vite-plus-core` | 1.5.1 (bundles Vite 8.3.7) |
 | paratest (**exact pin**, see `docs/testing.md`) | 7.26.0 | Vitest (bundled in vite-plus, `vp test`) | 5.1.0 |
 | Larastan (level max, no baseline) / PHPStan | 3.13.2 / 2.3.5 | oxlint / oxfmt (bundled) | 1.91.0 / 0.76.0 |
-| Pint | 1.32.1 | @playwright/test (**exact pin**) | 1.64.1 |
-| PostgreSQL (`postgres:18.6-alpine`) | 18.6 | Playwright image | `mcr.microsoft.com/playwright:v1.64.1-noble` |
+| Pint | 1.32.1 | @playwright/test (**exact pin**) | 1.65.0 |
+| PostgreSQL (`postgres:18.6-alpine`) | 18.6 | Playwright image | `mcr.microsoft.com/playwright:v1.65.0-noble` |
 | Adminer (dev, profile `tools`) | 6.2.0 | axe-core / @axe-core/playwright | 4.14.0 / 4.14.0 |
 
 The `vite` alias hides Vite advisories from `npm audit`; check them by hand on every dependency update (note in
