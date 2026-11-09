@@ -525,7 +525,7 @@ security advisories** (TE-003 AC13). On every dependency update:
 
 ## 8. CI gates (TE-013)
 
-`.github/workflows/ci.yml` runs on every push and on pull requests to `main`. It uses the same Docker flow as local
+`.github/workflows/ci.yml` runs on every push to `dev` and `main`, on `vX.Y.Z` tags, and on pull requests to `dev` and `main`. It uses the same Docker flow as local
 work: it builds the dev image, writes a `.env` with a random masked database password and starts `db`, `app` and `vite`.
 The token is read-only (`contents: read`), no secrets are used (fork PRs behave the same) and every action is pinned by
 commit SHA. Nothing is published: building, scanning and pushing the image is TE-014.
