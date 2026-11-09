@@ -79,6 +79,7 @@ The `release` job in `.github/workflows/ci.yml` builds `production` once (local 
 4. each tag is re-inspected and must resolve to the pushed digest, else the job fails.
 
 The staging tag `ci-<sha7>` stays in GHCR (same digest, harmless, not a release tag; delete it from the package page if wanted).
+Never deploy `ci-*` tags; deploy only `vX.Y.Z` (or `sha-`) tags.
 Check by hand: `docker buildx imagetools inspect ghcr.io/nimrodlobozar/traveleasy:vX.Y.Z`. Note: SBOM/provenance
 attestations are no longer attached to the image: the push-by-digest route pushes a locally loaded image, which cannot
 carry them.

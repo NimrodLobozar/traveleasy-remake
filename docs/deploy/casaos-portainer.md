@@ -190,7 +190,7 @@ release is `v0.1.0`. A tag that is not `vX.Y.Z` makes the run red and publishes 
 
 Pull and inspect: `docker pull ghcr.io/nimrodlobozar/traveleasy:v0.1.0` and
 `docker buildx imagetools inspect ghcr.io/nimrodlobozar/traveleasy:v0.1.0` (one `linux/amd64` manifest, OCI labels
-revision and source, SBOM and provenance attestations). In Portainer you only set `APP_IMAGE_TAG`. Roll back by setting it
+revision and source; SBOM and provenance attestations only on `v0.1.0`, later releases have none until the signed-attestations follow-up, see `docs/deploy/production-image.md`). In Portainer you only set `APP_IMAGE_TAG`. Roll back by setting it
 to the previous tag (see "Roll back").
 
 Trivy fails the release on any High or Critical finding (OS, libraries, secrets, misconfiguration) unless it is listed in
