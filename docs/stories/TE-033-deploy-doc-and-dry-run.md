@@ -87,7 +87,7 @@ server needs no guessing.
 - The real deploy on the home server and its post-deploy checks (TE-034).
 
 ## Open questions
-- Owner: cut AC12 and AC14 into a follow-up so this story fits the 8-AC limit? (See Context.) Otherwise it proceeds with 9.
+- ANSWERED (2026-11-09, owner): keep all 9 AC in TE-033; do not split off AC12 or AC14.
 
 ## Rework log
 (empty)
