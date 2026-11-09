@@ -181,11 +181,11 @@ Portainer needs no registry login. There is never a `latest` tag.
 
 | Event | Tags pushed |
 |---|---|
-| Push to `main` (all quality gates green) | `sha-<7 chars>` |
+| Push to `main` (a `dev` release merge; all quality gates green) | `sha-<7 chars>` |
 | Push of a git tag `vX.Y.Z` | `sha-<7 chars>` and `vX.Y.Z` |
-| Pull request (also from a fork) | nothing (build, verify and scan only) |
+| Push to `dev`, or a pull request into `dev`/`main` (also from a fork) | nothing (build, verify and scan only) |
 
-Cut a release (after `main` is green): `git tag v0.1.0 && git push origin v0.1.0`. Milestone N gives `v0.N.0`; the first
+Cut a release (merge `dev` into `main` through a PR, wait until `main` is green, then tag `main`): `git tag v0.1.0 && git push origin v0.1.0`. Milestone N gives `v0.N.0`; the first
 release is `v0.1.0`. A tag that is not `vX.Y.Z` makes the run red and publishes nothing.
 
 Pull and inspect: `docker pull ghcr.io/nimrodlobozar/traveleasy:v0.1.0` and

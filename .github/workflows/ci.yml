@@ -12,10 +12,10 @@ name: CI
 
 on:
     push:
-        branches: ['**']
+        branches: [dev, main]
         tags: ['v*.*.*']
     pull_request:
-        branches: [main]
+        branches: [dev, main]
 
 permissions:
     contents: read

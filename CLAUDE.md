@@ -183,7 +183,9 @@ docs/deploy/                dev.md, casaos-portainer.md
 
 ## Conventions
 
-- Git: `main` is always deployable; work on `feat/…`, `fix/…`, `chore/…` branches; use Conventional Commits.
+- Git: never work on `main`. `dev` is the integration branch: branch `feat/…`, `fix/…`, `chore/…` off `dev` and merge
+  them back into `dev` through a PR. `main` only receives `dev` at a release or go-live, and release tags are cut from
+  `main`. Use Conventional Commits.
 - Every feature ships with tests; a bug fix starts with a failing test.
 - No hidden test or demo toggles in production code (the original had `dev_connection` / `simulate_error`
   checkboxes in its forms). The one sanctioned exception is **demo mode** (`docs/adr/0006-demo-mode.md`): a
