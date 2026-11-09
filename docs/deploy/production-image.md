@@ -67,6 +67,17 @@ https. A wildcard value makes the boot check refuse to start and the middleware 
 
 Largest layers: FrankenPHP base 631 MB, `node` 127 MB, PHP extensions 99 MB, `vendor` 148 MB (the estimate was 80 MB).
 
+## How a release is cut and the digest checked (TE-035)
+
+The `release` job in `.github/workflows/ci.yml` builds `production` once (local daemon), verifies and Trivy-scans it, then:
+1. pushes that same local image (no rebuild) under a staging tag `ci-<sha7>` and notes the digest from `docker push`;
+2. `scripts/ci/compare-diff-ids.sh` compares the rootfs `diff_ids` of the pushed digest with the scanned local image; a
+   mismatch fails the job before any release tag exists;
+3. `docker buildx imagetools create` adds `sha-<7>` (and `vX.Y.Z` on a `v*.*.*` tag) at that digest; never `latest`;
+4. each tag is re-inspected and must resolve to the pushed digest.
+Check by hand: `docker buildx imagetools inspect ghcr.io/nimrodlobozar/traveleasy:vX.Y.Z`. Note: SBOM/provenance
+attestations are no longer attached, because a locally loaded image cannot carry them.
+
 ## Rollback rule
 
 Roll back by deploying the previous tag. Migrations are expand/contract (ADR-0002 D4), so `previous tag + new schema` works.
