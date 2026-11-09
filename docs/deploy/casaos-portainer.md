@@ -207,36 +207,38 @@ log lines (they hold more than the IP).
   no request line** (the web server's access log is off on purpose). Docker caps them at 3 files of 10 MB.
 - **NPM keeps access and error logs with client IPs.** Location: NPM's data volume, `/data/logs/proxy-host-<id>_access.log` and
   `proxy-host-<id>_error.log`; list them with `docker exec <npm> ls /data/logs`. NPM's own rule (weekly, 4 to 10 rotations) keeps
-  more than the 14 days we allow, and a change made inside the container is lost when NPM is recreated. So we replace the rule
-  with a file that lives **outside** the container and is mounted read-only from NPM's own stack. The IPs stay on your server
-  and are never sent anywhere.
+  more than the 14 days we allow, and a change made inside the container is lost when NPM is recreated. So we keep NPM's own
+  rule **exactly as it is**, change only how often and how many times it rotates, and mount that copy read-only from a file
+  that lives **outside** the container. The IPs stay on your server and are never sent anywhere.
 
 **Set the 14-day log retention (once; again only if NPM's stack is rebuilt from scratch)**
 
-1. Look at the current rule, to copy its `postrotate` lines: `docker exec <npm> cat /etc/logrotate.d/nginx-proxy-manager`.
+1. Do this before the mount in step 4 exists, so the running container still holds NPM's upstream file. Show it:
+   `docker exec <npm> cat /etc/logrotate.d/nginx-proxy-manager`. Expect NPM's blocks with `su npm npm`, `create 0644`, `weekly`,
+   `rotate <n>`, the `/data/logs/*_access.log`, `/data/logs/*/access.log`, `*_error.log` and `*/error.log` patterns, and any
+   other log such as `backend.log`. Do not retype or shorten it; step 3 copies it whole.
 2. On the server, make a folder that is not inside NPM's data volume (CasaOS example):
    `sudo mkdir -p /DATA/AppData/npm-extra && cd /DATA/AppData/npm-extra`.
-3. Create `logrotate-nginx-proxy-manager` there (the `postrotate` line must equal what step 1 showed; the version below is
-   the usual one):
+3. Copy the upstream file, then apply only these edits: every `weekly` becomes `daily`, every `rotate <n>` becomes `rotate 13`,
+   and ` || true` is removed from the end of the `postrotate` command, so a failing reload shows as an error instead of being
+   hidden. Everything else stays byte for byte:
 
    ```
-   sudo tee logrotate-nginx-proxy-manager >/dev/null <<'EOF'
-   /data/logs/*_access.log /data/logs/*_error.log {
-       daily
-       rotate 13
-       missingok
-       notifempty
-       compress
-       delaycompress
-       create 0640 root root
-       sharedscripts
-       postrotate
-           /bin/kill -USR1 $(cat /run/nginx/nginx.pid 2>/dev/null) 2>/dev/null || true
-       endscript
-   }
-   EOF
+   docker exec <npm> cat /etc/logrotate.d/nginx-proxy-manager > ~/npm-logrotate.upstream
+   sudo cp ~/npm-logrotate.upstream logrotate-nginx-proxy-manager
+   sudo sed -i -E \
+     -e 's/^([[:space:]]*)weekly[[:space:]]*$/\1daily/' \
+     -e 's/^([[:space:]]*)rotate [0-9]+[[:space:]]*$/\1rotate 13/' \
+     -e 's/[[:space:]]*\|\|[[:space:]]*true[[:space:]]*$//' \
+     logrotate-nginx-proxy-manager
    sudo chown root:root logrotate-nginx-proxy-manager && sudo chmod 644 logrotate-nginx-proxy-manager
+   diff ~/npm-logrotate.upstream logrotate-nginx-proxy-manager
    ```
+
+   The `diff` must show only `weekly` -> `daily`, `rotate <n>` -> `rotate 13`, and the `postrotate` line(s) losing
+   ` || true`. If it shows any other change, or no `weekly` line was changed (the upstream file differs from what this guide
+   expects), stop and do not mount the file. The `postrotate` line reads the nginx pid from `/run/nginx/nginx.pid`; that this
+   path is right in your NPM image: verify in TE-041.
 
    `daily` + `rotate 13` keeps today's log plus 13 rotated days = 14 days. The file must be owned by root and not writable by
    others, or logrotate refuses to read it.
@@ -247,15 +249,21 @@ log lines (they hold more than the IP).
 5. Click **Update the stack**. This recreates NPM and takes every site behind it offline for a few seconds. The fixed IP from
    "Before the first deploy" must still be in the stack, otherwise `TRUSTED_PROXIES` no longer matches.
 6. Verify with a dry run (it changes nothing): `docker exec <npm> logrotate -d /etc/logrotate.d/nginx-proxy-manager`. Expect
-   `rotating pattern: /data/logs/*_access.log /data/logs/*_error.log  after 1 days (13 rotations)` and no `error:` line. Then
-   `docker exec <npm> grep -c 'rotate 13' /etc/logrotate.d/nginx-proxy-manager`; expect `1`.
+   one `rotating pattern: ... after 1 days (13 rotations)` line for every block of the upstream file and no `error:` line. Then
+   `docker exec <npm> grep -nE 'weekly|rotate [0-9]|\|\| true' /etc/logrotate.d/nginx-proxy-manager`; expect only
+   `rotate 13` lines (no `weekly`, no other number, no `|| true`).
 7. Delete files already older than the limit. First list them:
    `docker exec <npm> find /data/logs -name '*.log*' -mtime +14 -print`. If the list shows only old log files, run the same
    command with `-delete` instead of `-print`.
-8. Note the date. After every NPM image update, repeat step 6.
+8. Note the date. After every NPM image update, repeat step 6, and compare your file with the new image's upstream rule
+   (`docker run --rm --entrypoint cat <npm image>:<new tag> /etc/logrotate.d/nginx-proxy-manager`). If the upstream rule
+   changed beyond `weekly`, `rotate` and `|| true`, redo steps 3, 5 and 6 with that new upstream file as the base. Because the
+   running container now shows your mounted copy, the first line of step 3 then becomes
+   `docker run --rm --entrypoint cat <npm image>:<new tag> /etc/logrotate.d/nginx-proxy-manager > ~/npm-logrotate.upstream`
+   (delete the old `~/npm-logrotate.upstream` first).
 
-Whether NPM's image runs logrotate daily and accepts this file (and the exact `postrotate` line) cannot be proven without
-NPM: verify in TE-041.
+Whether NPM's image runs logrotate daily, accepts this file, and reloads nginx with the `postrotate` line (pid path
+`/run/nginx/nginx.pid`, now without `|| true`) cannot be proven without NPM: verify in TE-041.
 
 ## Optional: NPM custom error page (502/504)
 
@@ -321,17 +329,54 @@ previous release runs on the newer schema. Never delete the volumes to "roll bac
 The scheduled dump service is a later story. Until then, take a dump before every update that deletes data:
 
 - Dump (CasaOS terminal). `umask 077` makes the dump readable by you only; the database talks over the container's local
-  socket, so no password is needed on the command line or in your shell history:
+  socket, so no password is needed on the command line or in your shell history. Every dump gets its own name down to the
+  second, and `set -o noclobber` makes the shell refuse to overwrite a file that already exists, so a dump can never replace
+  an earlier one (invoices must be kept 7 years):
 
   ```
+  mkdir -p ~/traveleasy-backups && cd ~/traveleasy-backups
   umask 077
-  docker exec traveleasy-db-1 pg_dump -U postgres -Fc traveleasy > traveleasy-$(date +%F).dump
+  set -o noclobber
+  f=traveleasy-$(date +%F-%H%M%S).dump
+  docker exec traveleasy-db-1 pg_dump -U postgres -Fc traveleasy > "$f" \
+    && docker exec -i traveleasy-db-1 pg_restore -l < "$f" > /dev/null \
+    && echo "DUMP OK: $f" || echo "DUMP FAILED: $f is missing or incomplete, do not continue"
   ```
-- Restore: `--clean` **drops and overwrites** what is in the live database, so first make a fresh dump of the current state
-  (the Dump command above; the file name carries today's date) and keep it until the restore is confirmed good. Then stop `app`
-  and run `docker exec -i traveleasy-db-1 pg_restore -U postgres -d traveleasy --clean --if-exists < file.dump`; then start
-  `app`. `db-init` re-applies the app role on the next deploy.
-- Keep dumps off the server too. A restore test is part of the `backup` story.
+
+  Expect `DUMP OK: traveleasy-<date>-<time>.dump` (the second command reads the file back to prove it is a complete
+  archive). On `DUMP FAILED`, stop and read the error above it. If the error is `cannot overwrite existing file`, nothing was
+  written: wait a second and run the block again; never delete or rename that existing file.
+- Restore. `--clean` **drops and overwrites** what is in the live database. Follow these steps in order:
+  1. Write down the exact name of the dump you restore **from** (for example `traveleasy-2026-11-01-093000.dump`).
+  2. Stop `app` in Portainer (Containers -> `app` -> **Stop**), so nothing writes to the database during the restore.
+  3. Make a safety dump of the current state with this block (it uses its own `pre-restore` name):
+
+     ```
+     cd ~/traveleasy-backups
+     umask 077
+     set -o noclobber
+     f=traveleasy-pre-restore-$(date +%F-%H%M%S).dump
+     docker exec traveleasy-db-1 pg_dump -U postgres -Fc traveleasy > "$f" \
+       && docker exec -i traveleasy-db-1 pg_restore -l < "$f" > /dev/null \
+       && echo "DUMP OK: $f" || echo "DUMP FAILED: $f is missing or incomplete, do not continue"
+     ```
+
+     Continue only after `DUMP OK`. Keep this file until the restore is confirmed good.
+  4. **Warning: never write to the file you restore from.** It is only ever read with `<`. Never put it after a `>` and never
+     reuse its name for the safety dump. Check with `ls -l` that the file from step 1 and the `pre-restore` file from step 3
+     are two different files, each with a non-zero size.
+  5. Restore (replace `<file from step 1>`; `--single-transaction` means a failed restore changes nothing):
+
+     ```
+     docker exec -i traveleasy-db-1 pg_restore -U postgres -d traveleasy --clean --if-exists --single-transaction \
+       < <file from step 1> && echo "RESTORE OK" || echo "RESTORE FAILED: database unchanged, read the error above"
+     ```
+
+  6. Only after `RESTORE OK`, start `app` and run "Verify the deploy" steps 1 and 3. On `RESTORE FAILED`, the database still
+     holds the state from step 3; start `app` and read the error before trying again. `db-init` re-applies the app role on the
+     next deploy.
+- Keep dumps off the server too. Run this procedure once on the throwaway stack: verify in TE-041. A scheduled restore test is
+  part of the `backup` story.
 
 ## Removing the stack
 
