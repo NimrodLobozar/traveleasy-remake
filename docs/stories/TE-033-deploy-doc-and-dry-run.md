@@ -1,14 +1,18 @@
 ---
 id: TE-033
 title: Home-server deploy doc and dry run on a throwaway stack
-status: ready
+status: split            # superseded by TE-040 and TE-041 (2026-11-09)
 priority: must
-epic: M0 First home-server deploy (split from TE-026; order: TE-033, then TE-034)
+epic: M0 First home-server deploy
 agents: [devops-engineer, qa-engineer]
 testers: [qa-engineer, security-privacy-reviewer]
 design: not-needed
 rework_rounds: 0
 ---
+
+> **SPLIT (2026-11-09, owner-approved, size limits):** work continues in **TE-040** (deploy doc: AC1, AC9-12, AC14) and **TE-041**
+> (dry run on a throwaway stack: AC2, AC3, AC4 checkable part, AC11c neighbour variant; depends on TE-040). The AC text below is
+> kept for history only.
 
 ## User story
 As the owner, I want a step-by-step deploy doc that has been proven on a throwaway stack, so that the first deploy on my CasaOS

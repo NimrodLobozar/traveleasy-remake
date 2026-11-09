@@ -32,8 +32,11 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-024](TE-024-production-compose-for-portainer.md) | Production compose.yaml for Portainer (pinned tag, health checks, limits, ssr) | must | done | 0 | not-needed |
 | [TE-025](TE-025-portainer-env-file-and-secrets-helper.md) | One-file Portainer env file and the secrets helper command | must | done | 0 | not-needed |
 | [TE-026](TE-026-first-lan-only-deploy.md) | First LAN-only deploy to the home server (**owner-gated**); split into TE-033 and TE-034 | must | split | 0 | not-needed |
-| [TE-033](TE-033-deploy-doc-and-dry-run.md) | Home-server deploy doc and dry run on a throwaway stack (9 AC, over limit; owner decides) | must | ready | 0 | not-needed |
-| [TE-034](TE-034-owner-lan-deploy-and-post-deploy-checks.md) | First LAN-only deploy and post-deploy checks (**owner-gated**; after TE-033) | must | ready | 0 | not-needed |
+| [TE-033](TE-033-deploy-doc-and-dry-run.md) | Home-server deploy doc and dry run on a throwaway stack; split into TE-040 and TE-041 | must | split | 0 | not-needed |
+| [TE-040](TE-040-home-server-deploy-doc.md) | Home-server deploy doc (CasaOS, Portainer, NPM) | must | done | 2 | not-needed |
+| [TE-041](TE-041-deploy-dry-run-throwaway-stack.md) | Dry run of the deploy doc on a throwaway stack (after TE-040) | must | ready | 0 | not-needed |
+| [TE-042](TE-042-manual-dump-retention-and-umask.md) | Manual dump retention rule, restore re-erasure note, umask order (TE-040 follow-ups; before TE-034) | should | ready | 0 | not-needed |
+| [TE-034](TE-034-owner-lan-deploy-and-post-deploy-checks.md) | First LAN-only deploy and post-deploy checks (**owner-gated**; after TE-041) | must | ready | 0 | not-needed |
 | [TE-027](TE-027-bump-php-8-5-12-dev-image.md) | Bump PHP to 8.5.12 in the dev image (chore) | must | done | 0 | not-needed |
 | [TE-028](TE-028-production-image-hardening-follow-ups.md) | Production image hardening follow-ups (chore) | must | done | 0 | not-needed |
 | [TE-029](TE-029-ci-and-deploy-hardening-follow-ups.md) | CI and deploy hardening follow-ups (chore) | should | done | 0 | not-needed |
@@ -54,7 +57,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 - **M0 CI/CD to GHCR:** TE-011 (ADR-0002), TE-012, TE-013, TE-014, TE-028, TE-029, TE-030, TE-031 (split), TE-035, TE-036, TE-039.
 - **M0 App shell:** TE-015, TE-016, TE-017, TE-018, TE-019.
 - **M0 Design system:** TE-020, TE-021, TE-022, TE-023.
-- **M0 First home-server deploy:** TE-024, TE-025, TE-026 (split), TE-033, TE-034.
+- **M0 First home-server deploy:** TE-024, TE-025, TE-026 (split), TE-033 (split), TE-040, TE-041, TE-034 (order: TE-040, TE-041, TE-034).
 - **Maintenance:** TE-032, TE-037, TE-038.
 
 ### Follow-ups (2026-11 dependency updates)
