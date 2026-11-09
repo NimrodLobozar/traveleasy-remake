@@ -550,9 +550,9 @@ commit SHA. Nothing is published: building, scanning and pushing the image is TE
   untagged image, any service but `app` on `npm_shared`, a `default` network that is not internal, missing `cap_drop: [ALL]`,
   `no-new-privileges`, read-only root, limits or log caps, secrets in `ssr`, and the superuser password outside `db`/`db-init`.
 - **Audit triage** (`.github/audit-ignore.json`): high and critical advisories fail the run unless listed with a reason, a
-  review date and an expiry date (expired entries fail again). Medium and low are printed only. Today the entries cover the
-  dev-only `undici` (via jsdom) and `launch-editor` advisories. The `vite` alias hides Vite advisories from `npm audit`:
-  that check stays manual (see § 7).
+  review date and an expiry date (expired entries fail again). Medium and low are printed only. Today the list is empty:
+  the `launch-editor` and `undici` entries were removed once fixed or no longer needed. The `vite` alias hides Vite
+  advisories from `npm audit`: that check stays manual (see § 7).
 - **Artifacts:** the Playwright report and traces are uploaded only when the job fails, kept 2 days, as workflow artifacts
   (never release assets).
 - **No external origins in browser tests:** Chromium runs with `--host-resolver-rules` that resolve only `localhost` and

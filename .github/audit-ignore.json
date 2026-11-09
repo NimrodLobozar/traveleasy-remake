@@ -1,13 +1,4 @@
 {
     "//": "Reviewed triage for scripts/ci/audit-gate.mjs (TE-013 AC10). Only high/critical advisories need an entry. Entries expire: repeat the review, or fix the advisory. The vite alias hides Vite advisories from npm audit: that check is a manual step (CLAUDE.md).",
-    "ignores": [
-        {
-            "id": "GHSA-587h-7wmj-h5pm",
-            "tool": "npm",
-            "package": "launch-editor",
-            "reason": "Dev server only (editor launcher of the Vite overlay). The dev server runs in a Linux container bound to 127.0.0.1. Not in the production image.",
-            "reviewed": "2026-11-02",
-            "expires": "2026-12-15"
-        }
-    ]
+    "ignores": []
 }
