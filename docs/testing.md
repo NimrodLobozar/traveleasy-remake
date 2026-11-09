@@ -352,6 +352,14 @@ than `localhost`, `127.0.0.1` or `[::1]`. Raw IP addresses fail too (`isLocalReq
 
 Run from the repo root. `-T` is only needed when piping output (scripts, agents); interactive use works without it.
 
+### Quiet runner (agents use this)
+
+`bash scripts/check.sh <step> [args]` runs the same commands as below, writes the full log to
+`storage/logs/check/<step>-<time>.log` (git-ignored), and prints only `PASS`/`FAIL`, the summary lines and, on a
+failure, the failing lines plus the log's last lines. Steps: `php [pest args]`, `front [vitest args]`,
+`e2e [specs]`, `static` (Pint, Larastan, `npm run check`) and `all` (static + PHP in parallel + Vitest + e2e).
+The exit code is non-zero if any step failed. For more detail, grep the named log instead of rerunning.
+
 ### PHP (`app` container)
 
 | Command | Runs | Measured |
