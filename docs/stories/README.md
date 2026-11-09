@@ -43,6 +43,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-036](TE-036-trivy-ignores-scoped-per-image.md) | Trivy ignores are scoped per image (migrate the 21 entries, before 2026-12-15) | should | ready | 0 | not-needed |
 | [TE-037](TE-037-vite-plus-1x-upgrade.md) | Upgrade vite-plus to 1.x (due before 2026-12-15) | should | done | 1 | not-needed |
 | [TE-032](TE-032-dependency-updates-2026-11.md) | Safe dependency updates from Dependabot PRs #1-#3 (2026-11) | should | done | 0 | not-needed |
+| [TE-038](TE-038-symfony-serializer-advisories.md) | Fix symfony/serializer advisories blocking the composer audit gate | must | done | 1 | not-needed |
 
 ### Epics
 - **M0 Project scaffold and tooling:** TE-001, TE-003, TE-004, TE-005 (docs part in TE-006).
@@ -53,7 +54,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 - **M0 App shell:** TE-015, TE-016, TE-017, TE-018, TE-019.
 - **M0 Design system:** TE-020, TE-021, TE-022, TE-023.
 - **M0 First home-server deploy:** TE-024, TE-025, TE-026 (split), TE-033, TE-034.
-- **Maintenance:** TE-032, TE-037.
+- **Maintenance:** TE-032, TE-037, TE-038.
 
 ### Follow-ups (2026-11 dependency updates)
 Deferred from TE-032 (major or breaking; each needs its own story before it is applied):
