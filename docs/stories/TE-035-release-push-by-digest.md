@@ -36,6 +36,13 @@ review (2026-11-03). Related: TE-014 AC4, AC6, AC3; `docs/plan.md` § 4 M0 CI bu
       `id-token`/`attestations` as before (TE-014 AC8 still holds).
 - [ ] AC9: Given `actionlint` and the verify script, when the workflow runs on a branch, then both pass and the pushed digest is noted
       in the handoff.
+- [ ] AC10: Given a push to `dev`, a same-repo PR or a fork PR, when `ci.yml` runs, then the `release` job (which runs
+      `docker/prod/verify.sh` and `scripts/ci/verify-production-stack.sh`) has only `contents: read`, and login and push live in a
+      separate `publish` job (`needs: release`) with a job-level `if:` that allows only a push to `refs/heads/main` or a `vX.Y.Z` tag
+      and is the only job with `packages: write` (read together with AC8, `publish` is the "release job" meant there).
+- [ ] AC11: Given a `vX.Y.Z` tag on a commit that is not reachable from `origin/main`, when the `publish` job runs, then it checks
+      reachability (e.g. `git merge-base --is-ancestor <tag commit> origin/main` after a full-depth fetch) and fails before any login,
+      push or tag, with a message naming the tag and commit; a tag on a `main` commit still publishes.
 
 ## Quality criteria
 - [ ] Tests: workflow linted with `actionlint`; a branch run where the comparison is forced to fail shows the job stops before any tag
@@ -47,12 +54,16 @@ review (2026-11-03). Related: TE-014 AC4, AC6, AC3; `docs/plan.md` § 4 M0 CI bu
 - [ ] Docs updated: `docs/deploy/` (how a release is cut, how the digest is checked).
 
 ## Files to touch
-- `.github/workflows/ci.yml` (release job, push step ~line 304): push by digest, `diff_ids` compare, tag with `imagetools create`.
+- `.github/workflows/ci.yml` (release job, push step ~line 304): push by digest, `diff_ids` compare, tag with `imagetools create`;
+  split login and push into a `publish` job (`needs: release`, `if:` main push or `vX.Y.Z` tag, `packages: write` only there; `release`
+  gets `contents: read`; permissions ~lines 186-188); add the tag-on-main check (~lines 211-215); fix the comment at lines 7-8 that
+  says fork PRs behave exactly like same-repo runs (a fork's token is read-only).
 - `scripts/ci/` : the verify script (`scripts/ci/verify-production-stack.sh` or a new `scripts/ci/compare-diff-ids.sh`).
 - `docs/deploy/production-image.md`: how a release is cut and the digest checked.
 - Tests: `actionlint` on the workflow; branch run with a forced mismatch.
 
 ## Out of scope
+- Restricting `v*` tags with a repo ruleset (the owner does this in GitHub settings).
 - Multi-arch images (server is amd64 only). Cosign signing (optional, TE-014).
 - Changing the Trivy scan policy (severity threshold, scanners). Per-image ignore scoping (TE-036).
 
