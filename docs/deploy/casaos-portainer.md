@@ -194,5 +194,5 @@ revision and source, SBOM and provenance attestations). In Portainer you only se
 to the previous tag (see "Roll back").
 
 Trivy fails the release on any High or Critical finding (OS, libraries, secrets, misconfiguration) unless it is listed in
-[`.trivyignore`](../../.trivyignore) with an expiry date and a reviewed reason. The report is a workflow artifact for 3 days.
+[`.trivyignore.yaml`](../../.trivyignore.yaml) (scoped per image with `purls`; used by this production scan and by the weekly scan of the dev image, which has the same Debian base; the Playwright image scan does not use it) with an expiry date and a reviewed reason. The report is a workflow artifact for 3 days.
 A weekly run (`.github/workflows/scan-weekly.yml`, Mondays) scans the dev and Playwright images; a red run means new findings.

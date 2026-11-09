@@ -257,7 +257,7 @@ jobs:
                   bash docker/prod/verify.sh "$SHA_TAG"
                   bash scripts/ci/verify-production-stack.sh "$SHA_TAG"
 
-            - name: Trivy scan (vuln, secret, misconfig; High and Critical fail; reviewed .trivyignore only)
+            - name: Trivy scan (vuln, secret, misconfig; High and Critical fail; reviewed .trivyignore.yaml only)
               env:
                   SHA_TAG: ${{ steps.meta.outputs.sha_tag }}
               run: |
@@ -269,7 +269,7 @@ jobs:
                       "$TRIVY_IMAGE" image \
                       --scanners vuln,secret,misconfig \
                       --severity HIGH,CRITICAL \
-                      --ignorefile .trivyignore \
+                      --ignorefile .trivyignore.yaml \
                       --exit-code 1 \
                       --format json --output trivy-out/report.json \
                       "$SHA_TAG"
