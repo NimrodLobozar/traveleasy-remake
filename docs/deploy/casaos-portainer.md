@@ -4,8 +4,20 @@ Production runs as one Portainer stack made from [`compose.yaml`](../../compose.
 ([`deploy/portainer.env.example`](../../deploy/portainer.env.example)). The image comes from GHCR (pinned tag, built by CI).
 Public access goes through the existing Nginx Proxy Manager (NPM); the stack publishes **no host port**.
 
-Status: the stack, the env file and the secrets helper are finished and tested (TE-024, TE-025); the first real deploy is
-TE-026 (owner-gated); CI builds and publishes the image (TE-014, see "Releases" below). Until `v0.1.0` exists the tag in the env file is a placeholder.
+Status: v1 of this guide (TE-040). The stack, the env file and the secrets helper are tested (TE-024, TE-025); the commands in
+this guide are proven on a throwaway stack in TE-041; the real first deploy is TE-034 (owner-gated). Until the first release
+tag is deployed, the tag in the env file is a placeholder.
+
+**Who does what.** You (the owner) do every server, Portainer and NPM step yourself. Agents never access the server,
+Portainer or NPM. Where this guide says "evidence", copy the command output (never a secret) back to the orchestrator; TE-034
+uses it to close the checks.
+
+**Warnings, read once.**
+- Never run `docker compose down -v`, `docker volume prune`, `docker system prune` or `docker image prune -a` on the server.
+  `-v` and the prunes delete `pgdata` (the whole database) and `storage`, and other stacks' volumes and images.
+- In Portainer never tick **Remove associated volumes** when removing the stack.
+- Never use the tag `latest`, and never a `ci-*` tag (see "Releases and tags").
+- Never paste secrets into chat, tickets or git. Never put the database on a host port.
 
 ## What runs
 
@@ -26,16 +38,31 @@ MUST declare `depends_on: app: condition: service_healthy`, so they never run ne
 
 ## Before the first deploy
 
-1. **The network `npm_shared` must exist.** It is created by your NPM stack. Check in a CasaOS terminal (or Portainer ->
-   Networks): `docker network ls | grep npm_shared`. If the stack deploys without it, Docker stops with
-   `network npm_shared declared as external, but could not be found`; fix the network, then redeploy.
-2. **Give NPM a fixed IP on `npm_shared`** and read it. `TRUSTED_PROXIES` is that **single IP**, never the network range: trusting
-   the whole range (including Docker's gateway) would let a neighbouring container or a request through the gateway spoof client IPs.
-   In NPM's own stack, set the address under its service, for example
-   `networks: { npm_shared: { ipv4_address: 172.20.0.2 } }` (pick a free address inside the subnet shown by
-   `docker network inspect npm_shared --format '{{(index .IPAM.Config 0).Subnet}}'`; the network needs an explicit subnet), then redeploy NPM.
-   Read the result: `docker inspect <npm container> --format '{{(index .NetworkSettings.Networks "npm_shared").IPAddress}}'`.
-   The app refuses to start in production when `TRUSTED_PROXIES` is `*` or a range wider than a single address.
+0. **Prerequisites.** Portainer runs (CasaOS app store) and you can sign in; Nginx Proxy Manager (NPM) runs and you can sign in;
+   the CasaOS terminal (or SSH) works. GHCR pull access: the package `ghcr.io/nimrodlobozar/traveleasy` is public, so no
+   registry login is needed. Prove it in the terminal: `docker pull ghcr.io/nimrodlobozar/traveleasy:<tag>`. Expect
+   `Status: Downloaded newer image ...` (or `Image is up to date`). If you get `denied`, the package is private: in Portainer
+   add GHCR under **Registries** -> **Add registry** -> **Custom registry** (`ghcr.io`, your GitHub user, a token with only
+   `read:packages`), and tell the orchestrator.
+1. **The network `npm_shared` must exist** before you deploy. It is created by your NPM stack. Check in the terminal:
+   `docker network ls | grep npm_shared`. Expect one line. If nothing is printed, do not continue: fix NPM's stack first (it must
+   declare a network named `npm_shared`). Without it Docker stops with
+   `network npm_shared declared as external, but could not be found`.
+2. **Give NPM a fixed IP on `npm_shared`**, then read it. `TRUSTED_PROXIES` is that **single IP**.
+   Why not the whole network range: the range contains Docker's gateway and every neighbouring container. Anything in it could
+   then send `X-Forwarded-For` and be believed, so a neighbour could fake any client address (and dodge rate limits). Never
+   `*`, never empty, never the CIDR; the app refuses to start in production with `*` or a range.
+
+   a. Read the range: `docker network inspect npm_shared --format '{{(index .IPAM.Config 0).Subnet}}'`. Expect something like
+      `172.20.0.0/16`. If it prints nothing or an error, the network has no explicit subnet; add one to NPM's stack
+      (`networks: npm_shared: ipam: config: - subnet: 172.20.0.0/16`) and redeploy NPM.
+   b. Pick one free address inside it, away from the start (the gateway is `.1`), for example `172.20.0.2`. List used ones:
+      `docker network inspect npm_shared --format '{{range .Containers}}{{.Name}} {{.IPv4Address}} {{end}}'`.
+   c. Portainer -> **Stacks** -> NPM's stack -> **Editor**. Under NPM's service, set
+      `networks: { npm_shared: { ipv4_address: 172.20.0.2 } }` (use your address; keep any other networks NPM already has). Click
+      **Update the stack**. Expect NPM to restart and come back.
+   d. Read the result: `docker inspect <npm container name> --format '{{(index .NetworkSettings.Networks "npm_shared").IPAddress}}'`.
+      Expect exactly your address. This is your `TRUSTED_PROXIES` value. Write it down.
 3. **Generate the secrets** with the helper in the published image. It needs only Docker (no PHP, no database, no network),
    writes nothing to disk and prints ready-to-paste lines. Run it in the CasaOS terminal or on your PC:
 
@@ -60,35 +87,126 @@ MUST declare `depends_on: app: condition: service_healthy`, so they never run ne
 1. Portainer -> **Stacks** -> **Add stack**. Name: `traveleasy` (the volumes are then named after the stack).
 2. Build method **Web editor**. Paste the full content of `compose.yaml`.
 3. Under **Environment variables** choose **Load variables from .env file** and pick `deploy/portainer.env.example`
-   from your PC (or switch to the advanced mode and paste its lines). The file already holds working defaults for everything
+   from your PC (download it from the repository first; it holds no secrets) (or switch to the advanced mode and paste its lines). The file already holds working defaults for everything
    else. Then edit only these values (they are marked `EDIT` or `SECRET` in the file):
    - `APP_IMAGE_TAG`: the released tag you deploy, for example `v0.1.0` (never `latest`).
    - `APP_URL`: the public https address NPM serves, for example `https://traveleasy.example.com`.
-   - `TRUSTED_PROXIES`: NPM's fixed IP from step 2 above.
-   - `DB_SUPERUSER_PASSWORD`, `DB_PASSWORD`, `APP_KEY`: paste the three lines from step 3 of the preparation.
-4. Click **Deploy the stack**. Portainer reports an error naming the variable if a required one is empty.
+   - `TRUSTED_PROXIES`: NPM's fixed IP from step 2 above, one address and nothing else.
+   - `SESSION_SECURE_COOKIE`: leave `true`, except for the LAN-over-HTTP exception in "Nginx Proxy Manager host".
+   - `DB_SUPERUSER_PASSWORD`, `DB_PASSWORD`, `APP_KEY`: paste the three lines from step 3 of "Before the first deploy".
+4. Click **Deploy the stack**. Expect the stack to appear in the list. Portainer reports an error naming the variable if a required one is empty.
 5. Open **Containers**. Within about 2 minutes `db`, `ssr` and `app` are `healthy` and `db-init` is `exited (0)`.
    `app` needs the longest (migrations on the first start).
-6. Add the proxy host in NPM (see below).
+6. Check that no port is published: in the terminal `docker ps --filter name=traveleasy --format '{{.Names}}  {{.Ports}}'`.
+   Expect the Ports column to be empty or only `5432/tcp` / `8080/tcp` **without** `0.0.0.0:` or `:::`. Any `0.0.0.0:` entry is
+   a mistake: stop and report it.
+7. Add the proxy host in NPM (next section). Then run "Verify the deploy".
 
 If `app` keeps restarting, open its **Logs**: the entrypoint says why (`Refusing to start: ...` names the wrong variable,
 never its value).
 
 ## Nginx Proxy Manager host
 
-In NPM: **Hosts -> Proxy Hosts -> Add Proxy Host**.
+Do the access list first, so the site is never open to everyone, even for a minute.
+
+**A. LAN-only access list** (NPM -> **Access Lists** -> **Add Access List**)
+1. Name: `lan-only`. Leave **Satisfy Any** off and **Pass Auth to Upstream** off.
+2. Open the **Rules** tab: add **Allow** with your LAN range (for example `192.168.1.0/24`; use your router's range), then
+   **Deny** `all`. Order matters: Allow first, Deny all last.
+3. **Save**. Expect `lan-only` in the list.
+
+**B. Proxy host** (NPM -> **Hosts** -> **Proxy Hosts** -> **Add Proxy Host**)
 
 | Field | Value |
 |---|---|
-| Domain Names | your domain |
+| Domain Names | your domain (the host part of `APP_URL`) |
 | Scheme / Forward Hostname / Port | `http` / `traveleasy-app` / `8080` |
+| Cache Assets | off |
 | Block Common Exploits | on |
-| Websockets Support | not needed |
-| SSL | request or select a certificate, **Force SSL** on, **HSTS off** (the app sends HSTS itself, only for https) |
-| Access List (while testing, M0) | a LAN-only list |
+| Websockets Support | off (not needed) |
+| Access List | `lan-only` |
+| SSL tab | see C below |
 
 Use the alias `traveleasy-app`, not `app`: other stacks on `npm_shared` may also have a service called `app`.
-For a short LAN-only check over plain http set `SESSION_SECURE_COOKIE=false` and an `http://` `APP_URL`, then put both back.
+Click **Save**. Expect the host with status **Online**.
+
+**C. HTTPS and HSTS.** Once a certificate exists (M0 may have none yet: see D), open the **SSL** tab, choose the certificate,
+switch **Force SSL** on and **HTTP/2 Support** on, and leave **HSTS Enabled** **off**. The app sends HSTS itself (only on https,
+with a safe max-age); two sources would conflict.
+
+**D. LAN over HTTP (M0 exception).** With no certificate yet, the site can be tested on the LAN over plain http only:
+1. In the stack's environment variables set `APP_URL` to the `http://` address and `SESSION_SECURE_COOKIE` to `false`, then
+   redeploy (Stacks -> `traveleasy` -> Editor -> **Update the stack**). Cookies are normally https-only; with `true` over http you
+   cannot log in (login loops, "page expired").
+2. Keep the access list on. Never use this setup beyond the LAN.
+3. When HTTPS works: put `APP_URL` back to the `https://` address and `SESSION_SECURE_COOKIE` to `true`, redeploy, then do C.
+
+**Router.** Do not add a port forward to NPM or the server for this site. Public exposure is a later milestone (M6).
+
+## Verify the deploy
+
+Evidence to paste back to the orchestrator for TE-034: the outputs of steps 1, 2, 4 and 5 (no secrets in any of them).
+
+1. **Health.** `docker ps --filter name=traveleasy --format '{{.Names}}  {{.Status}}'` (or Portainer -> Containers). Expect `db`,
+   `ssr`, `app` `Up ... (healthy)` and `db-init` `Exited (0)`.
+2. **No published port.** `docker ps --filter name=traveleasy --format '{{.Names}}  {{.Ports}}'`: no `0.0.0.0:` or `:::` anywhere.
+   `docker port traveleasy-db-1` prints nothing.
+3. **Open the site** from a LAN device at the `APP_URL`. Expect the TravelEasy home page (Dutch by default).
+4. **LAN-only, from outside.** Switch a phone to mobile data (Wi-Fi off) and open the same address. Expect NPM's
+   `403 Forbidden`, or no connection at all (the router has no port forward). Any TravelEasy page here is a failure: stop and report.
+5. **Real client IPs (trust check).** The app writes no request log and no client IP (TE-024 AC10, by design), so the proof has
+   two parts. Replace `<npm-ip>` with your `TRUSTED_PROXIES` value; the app container is `traveleasy-app-1`.
+   a. *A LAN device is seen as itself.* Open the site from a LAN device (for example `192.168.1.50`), then read NPM's log (path in
+      "Logs and privacy"; or NPM -> **Hosts** -> three dots on the host -> **Logs**). Expect the last access line to start with that LAN IP.
+   b. *The trusted proxy is believed, anyone else is ignored.* This boots the app and asks which address it assigns to a request
+      carrying `X-Forwarded-For: 203.0.113.9`, once from NPM and once from a neighbour:
+
+      ```
+      docker exec traveleasy-app-1 php -r '
+      require "/var/www/html/vendor/autoload.php";
+      $app = require "/var/www/html/bootstrap/app.php";
+      $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+      foreach ([$argv[1], "172.20.0.99"] as $peer) {
+          $r = Illuminate\Http\Request::create("/", "GET", [], [], [], ["REMOTE_ADDR" => $peer, "HTTP_X_FORWARDED_FOR" => "203.0.113.9"]);
+          $app->make(App\Http\Middleware\TrustProxies::class)->handle($r, fn ($r) => print($peer . " -> " . $r->ip() . PHP_EOL));
+      }' <npm-ip>
+      ```
+
+      Expect two lines: `<npm-ip> -> 203.0.113.9` (the trusted proxy is believed) and `172.20.0.99 -> 172.20.0.99` (a neighbour
+      or the gateway is **not** believed). If the second line shows `203.0.113.9`, `TRUSTED_PROXIES` is too wide: fix it at once.
+   c. *Through NPM a forged header does not take over.* From a LAN device:
+      `curl -sk -H "X-Forwarded-For: 203.0.113.9" https://<your domain>/ -o /dev/null -w '%{http_code}\n'` (`http://` in the
+      LAN-over-HTTP setup). Expect `200`, and in NPM's log the client shown is your LAN IP, not `203.0.113.9`.
+   The variant with a neighbouring container as sender is also run in the TE-041 dry run.
+
+## Logs and privacy
+
+- The app's own logs (Portainer -> Containers -> `app` -> **Logs**) are JSON on stderr, level `warning`, with **no client IP and
+  no request line** (the web server's access log is off on purpose). Docker caps them at 3 files of 10 MB.
+- **NPM keeps access logs with client IPs.** Location: NPM's data volume, `/data/logs/proxy-host-<id>_access.log` (and
+  `_error.log`); list them with `docker exec <npm container> ls /data/logs`. Retention: NPM rotates them with logrotate; read the
+  rule with `docker exec <npm container> cat /etc/logrotate.d/nginx-proxy-manager`. Required: 14 days at most. If the rule keeps
+  more (for example weekly with `rotate 4`), change it to `weekly` and `rotate 2` and note the date; delete older files by hand.
+  The IPs stay on your server and are never sent anywhere.
+
+## Optional: NPM custom error page (502/504)
+
+The web server cannot show its own static 502/504 page when PHP is down (FrankenPHP's `php_server` cannot produce it), and NPM
+shows its own plain "502 Bad Gateway" when `app` is stopped or restarting. **Decision for M0: do not customise it** (the page is
+only seen during updates, on a LAN). If you want a friendlier page: NPM -> your proxy host -> **Edit** -> **Advanced** tab ->
+**Custom Nginx Configuration**, paste (no personal data in it):
+
+```
+error_page 502 504 /te-down.html;
+location = /te-down.html {
+    internal;
+    default_type text/html;
+    return 502 '<!doctype html><html lang="nl"><meta charset="utf-8"><title>TravelEasy</title><p>TravelEasy is zo weer terug. Back in a moment.</p></html>';
+}
+```
+
+Click **Save**. Expect the host to stay Online. Test: stop `app` in Portainer, reload the page (the message appears), start `app`
+again. To undo, empty the field and save.
 
 ## Variables
 
@@ -113,17 +231,21 @@ a message that names them.
 
 ## Update
 
+0. If the release deletes or rewrites data (its notes say so), make a manual backup first ("Backup and restore"). Note the
+   current `APP_IMAGE_TAG` value: it is your rollback target.
 1. Portainer -> **Stacks** -> `traveleasy` -> **Editor**.
 2. In **Environment variables** change `APP_IMAGE_TAG` to the new tag.
 3. Click **Update the stack** with **Re-pull image and redeploy** on.
 4. Watch `app` Logs for `migrating`, then wait until it is `healthy`. The data in `pgdata` and `storage` stays.
+5. Run "Verify the deploy" steps 1 and 3.
 
 Migrations are backward compatible with the previous release (expand/contract, ADR-0002 D4). A release that deletes data
 needs a manual backup first (see below).
 
 ## Roll back
 
-Set `APP_IMAGE_TAG` to the previous tag and update the stack the same way. Because migrations are expand/contract, the
+Set `APP_IMAGE_TAG` to the previous tag (the one you noted) and update the stack the same way (Editor -> change the value ->
+**Update the stack** with **Re-pull image and redeploy** on). Expect `app` `healthy` again and the site up. Because migrations are expand/contract, the
 previous release runs on the newer schema. Never delete the volumes to "roll back".
 
 ## Backup and restore (manual until the `backup` service exists)
@@ -135,9 +257,9 @@ The scheduled dump service is a later story. Until then, take a dump before ever
 
   ```
   umask 077
-  docker exec <stack>-db-1 pg_dump -U postgres -Fc traveleasy > traveleasy-$(date +%F).dump
+  docker exec traveleasy-db-1 pg_dump -U postgres -Fc traveleasy > traveleasy-$(date +%F).dump
   ```
-- Restore into an empty database only, after stopping `app`: `docker exec -i <stack>-db-1 pg_restore -U postgres -d traveleasy --clean --if-exists < file.dump`,
+- Restore into an empty database only, after stopping `app`: `docker exec -i traveleasy-db-1 pg_restore -U postgres -d traveleasy --clean --if-exists < file.dump`,
   then start `app`; `db-init` re-applies the app role on the next deploy.
 - Keep dumps off the server too. A restore test is part of the `backup` story.
 
@@ -168,7 +290,7 @@ and removes everything it created. Build the image first: `docker build --target
 
 ## Maintenance mode
 
-To take the site offline briefly, run `docker exec <stack>-app-1 php artisan down` and later `... php artisan up`. Use
+To take the site offline briefly, run `docker exec traveleasy-app-1 php artisan down` and later `... php artisan up`. Use
 `down` **without** `--render`: the app renders its own localised 503 page through the error handler. A static page
 (`--render`) would bypass the security headers and the translations. If PHP itself is unreachable (502/504), the web server
 answers with a small static Dutch/English page that carries the same security headers.
