@@ -1,4 +1,18 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "agent": "orchestrator"
+  "agent": "orchestrator",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/agents/token-guard.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
 }
