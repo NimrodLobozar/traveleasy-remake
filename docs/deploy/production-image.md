@@ -73,10 +73,15 @@ The `release` job in `.github/workflows/ci.yml` builds `production` once (local 
 1. pushes that same local image (no rebuild) under a staging tag `ci-<sha7>` and notes the digest from `docker push`;
 2. `scripts/ci/compare-diff-ids.sh` compares the rootfs `diff_ids` of the pushed digest with the scanned local image; a
    mismatch fails the job before any release tag exists;
-3. `docker buildx imagetools create` adds `sha-<7>` (and `vX.Y.Z` on a `v*.*.*` tag) at that digest; never `latest`;
-4. each tag is re-inspected and must resolve to the pushed digest.
+3. `docker buildx imagetools create --prefer-index=false` retags the single manifest registry-side: `sha-<7>` (and `vX.Y.Z`
+   on a `v*.*.*` tag) get exactly that digest at top level; never `latest`. Without `--prefer-index=false` buildx wraps the
+   manifest in a new index and the digest changes;
+4. each tag is re-inspected and must resolve to the pushed digest, else the job fails.
+
+The staging tag `ci-<sha7>` stays in GHCR (same digest, harmless, not a release tag; delete it from the package page if wanted).
 Check by hand: `docker buildx imagetools inspect ghcr.io/nimrodlobozar/traveleasy:vX.Y.Z`. Note: SBOM/provenance
-attestations are no longer attached, because a locally loaded image cannot carry them.
+attestations are no longer attached to the image: the push-by-digest route pushes a locally loaded image, which cannot
+carry them.
 
 ## Rollback rule
 

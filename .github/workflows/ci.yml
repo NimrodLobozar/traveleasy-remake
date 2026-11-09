@@ -333,7 +333,9 @@ jobs:
                       case "$t" in *:latest) echo "::error::latest is never published"; exit 1;; esac
                       args+=(--tag "$t")
                   done <<< "$TAGS"
-                  docker buildx imagetools create "${args[@]}" "$IMAGE@$DIGEST"
+                  # --prefer-index=false: a registry-side retag of the single manifest. Without it, imagetools wraps the
+                  # manifest in a new index and the tag digest no longer equals the scanned one (TE-035 round 1).
+                  docker buildx imagetools create --prefer-index=false "${args[@]}" "$IMAGE@$DIGEST"
 
             - name: Verify every tag points at the scanned digest
               if: steps.meta.outputs.publish == 'true'
@@ -344,6 +346,7 @@ jobs:
                   while IFS= read -r t; do
                       [ -n "$t" ] || continue
                       got="$(docker buildx imagetools inspect "$t" --format '{{.Manifest.Digest}}')"
+                      [ -n "$got" ] || { echo "::error::could not resolve $t"; exit 1; }
                       echo "$t -> $got"
                       [ "$got" = "$DIGEST" ] || { echo "::error::$t does not point at $DIGEST"; exit 1; }
                   done <<< "$TAGS"
