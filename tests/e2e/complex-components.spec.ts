@@ -295,7 +295,11 @@ test('combobox announces the count through one live region (AC1)', async ({
 test('combobox async: loading status, focus stays in the input (AC1)', async ({
     page,
 }) => {
+    // The showcase answers after a 300 ms timer. Pause the page clock so the
+    // loading state cannot end before the assertions run on a loaded machine.
+    await page.clock.install();
     await openDesign(page);
+    await page.clock.pauseAt(new Date(Date.now() + 60_000));
     const input = page.getByRole('combobox', {
         name: 'Destination (loads from the server)',
     });
@@ -304,6 +308,7 @@ test('combobox async: loading status, focus stays in the input (AC1)', async ({
     await expect(page.getByText('Resultaten laden…').first()).toBeAttached();
     await expect(input).toBeFocused();
     await expect(input).toHaveAttribute('aria-busy', 'true');
+    await page.clock.runFor(300);
     await expect(page.getByRole('option')).toHaveCount(3);
     await expect(input).not.toHaveAttribute('aria-busy', 'true');
     await expect(input).toBeFocused();
