@@ -299,28 +299,57 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
 
-            # Same build again: every layer comes from the cache of the build that was verified and scanned.
-            # Attestations (SBOM, provenance) cannot be stored in the local daemon, so this push adds them.
-            - name: Push (single linux/amd64 manifest, SBOM and provenance attached)
+            # TE-035: no second build. The scanned local image is pushed as it is, under a staging tag that is neither
+            # sha-* nor vX.Y.Z; the release tags are added only after the diff_ids comparison passed.
+            - name: Push the scanned image (no rebuild) and note its digest
               if: steps.meta.outputs.publish == 'true'
               id: push
-              uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-              with:
-                  context: .
-                  target: production
-                  platforms: linux/amd64
-                  push: true
-                  tags: ${{ steps.meta.outputs.tags }}
-                  build-args: |
-                      VERSION=${{ steps.meta.outputs.version }}
-                      REVISION=${{ github.sha }}
-                      CREATED=${{ steps.meta.outputs.created }}
-                  cache-from: type=gha,scope=production-image
-                  sbom: true
-                  provenance: mode=max
               env:
-                  DOCKER_BUILD_RECORD_UPLOAD: 'false'
-                  DOCKER_BUILD_SUMMARY: 'false'
+                  SHA_TAG: ${{ steps.meta.outputs.sha_tag }}
+              run: |
+                  stage="$IMAGE:ci-${SHA_TAG##*:sha-}"
+                  docker tag "$SHA_TAG" "$stage"
+                  docker push "$stage" | tee push.log
+                  digest="$(grep -oE 'sha256:[0-9a-f]{64}' push.log | tail -n 1)"
+                  [ -n "$digest" ] || { echo "::error::no digest in docker push output"; exit 1; }
+                  echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+            - name: Compare rootfs diff_ids (pushed digest vs scanned local image)
+              if: steps.meta.outputs.publish == 'true'
+              env:
+                  SHA_TAG: ${{ steps.meta.outputs.sha_tag }}
+                  DIGEST: ${{ steps.push.outputs.digest }}
+              run: bash scripts/ci/compare-diff-ids.sh "$SHA_TAG" "$IMAGE@$DIGEST"
+
+            - name: Add the release tags at that digest (never latest)
+              if: steps.meta.outputs.publish == 'true'
+              env:
+                  TAGS: ${{ steps.meta.outputs.tags }}
+                  DIGEST: ${{ steps.push.outputs.digest }}
+              run: |
+                  args=()
+                  while IFS= read -r t; do
+                      [ -n "$t" ] || continue
+                      case "$t" in *:latest) echo "::error::latest is never published"; exit 1;; esac
+                      args+=(--tag "$t")
+                  done <<< "$TAGS"
+                  # --prefer-index=false: a registry-side retag of the single manifest. Without it, imagetools wraps the
+                  # manifest in a new index and the tag digest no longer equals the scanned one (TE-035 round 1).
+                  docker buildx imagetools create --prefer-index=false "${args[@]}" "$IMAGE@$DIGEST"
+
+            - name: Verify every tag points at the scanned digest
+              if: steps.meta.outputs.publish == 'true'
+              env:
+                  TAGS: ${{ steps.meta.outputs.tags }}
+                  DIGEST: ${{ steps.push.outputs.digest }}
+              run: |
+                  while IFS= read -r t; do
+                      [ -n "$t" ] || continue
+                      got="$(docker buildx imagetools inspect "$t" --format '{{.Manifest.Digest}}')"
+                      [ -n "$got" ] || { echo "::error::could not resolve $t"; exit 1; }
+                      echo "$t -> $got"
+                      [ "$got" = "$DIGEST" ] || { echo "::error::$t does not point at $DIGEST"; exit 1; }
+                  done <<< "$TAGS"
 
             - name: Show the pushed manifest
               if: steps.meta.outputs.publish == 'true'

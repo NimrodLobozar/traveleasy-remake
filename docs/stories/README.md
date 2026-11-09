@@ -39,7 +39,8 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-029](TE-029-ci-and-deploy-hardening-follow-ups.md) | CI and deploy hardening follow-ups (chore) | should | done | 0 | not-needed |
 | [TE-030](TE-030-deploy-and-error-page-polish.md) | Deploy and error-page polish (chore) | should | done | 0 | not-needed |
 | [TE-031](TE-031-release-push-the-scanned-image.md) | Release pushes the scanned image by digest, and Trivy ignores are scoped per image; split into TE-035 and TE-036 | should | split | 0 | not-needed |
-| [TE-035](TE-035-release-push-by-digest.md) | Release pushes the scanned image by digest and gates the tags | should | ready | 0 | not-needed |
+| [TE-035](TE-035-release-push-by-digest.md) | Release pushes the scanned image by digest and gates the tags | should | done | 1 | not-needed |
+| [TE-039](TE-039-signed-attestations-ghcr-retention.md) | Signed attestations on the pushed digest and `ci-*` staging tag cleanup (before go-live) | should | ready | 0 | not-needed |
 | [TE-036](TE-036-trivy-ignores-scoped-per-image.md) | Trivy ignores are scoped per image (migrate the 20 entries, before 2026-12-15) | should | done | 1 | not-needed |
 | [TE-037](TE-037-vite-plus-1x-upgrade.md) | Upgrade vite-plus to 1.x (due before 2026-12-15) | should | done | 1 | not-needed |
 | [TE-032](TE-032-dependency-updates-2026-11.md) | Safe dependency updates from Dependabot PRs #1-#3 (2026-11) | should | done | 0 | not-needed |
@@ -50,7 +51,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 - **M0 Docker dev environment:** TE-002, TE-006.
 - **M0 Server-side rendering:** TE-007, TE-008.
 - **M0 i18n infrastructure:** TE-009, TE-010.
-- **M0 CI/CD to GHCR:** TE-011 (ADR-0002), TE-012, TE-013, TE-014, TE-028, TE-029, TE-030, TE-031 (split), TE-035, TE-036.
+- **M0 CI/CD to GHCR:** TE-011 (ADR-0002), TE-012, TE-013, TE-014, TE-028, TE-029, TE-030, TE-031 (split), TE-035, TE-036, TE-039.
 - **M0 App shell:** TE-015, TE-016, TE-017, TE-018, TE-019.
 - **M0 Design system:** TE-020, TE-021, TE-022, TE-023.
 - **M0 First home-server deploy:** TE-024, TE-025, TE-026 (split), TE-033, TE-034.
