@@ -1,0 +1,110 @@
+# Reviewed Trivy exceptions (TE-014, migrated to per-image scope in TE-036).
+# Used ONLY by the production image scan (.github/workflows/ci.yml). scan-weekly.yml does not use this file, so a finding
+# accepted here is not accepted for the dev or Playwright (Ubuntu) images.
+# Scope: every entry has `purls`. Debian OS packages are limited to pkg:deb/debian (the production base is Debian 13, the
+# Playwright image is Ubuntu); the FrankenPHP finding is limited to its Go module.
+# Every entry expires 2026-12-15 (Trivy stops ignoring it after that date, so the scan fails again). Re-check at expiry.
+# Reviewed 2026-11-03 (security-privacy-reviewer): no fixed Debian/upstream package, not reachable in the runtime (uid 10001,
+# cap_drop ALL, no-new-privileges, Caddy auto_https/admin off, no XML parsing of untrusted input, no outbound HTTP yet).
+# Re-check reachability when the app starts parsing XML or calling external APIs (M8/M9).
+vulnerabilities:
+    - id: CVE-2026-76642
+      purls:
+          - pkg:deb/debian
+      statement: 'util-linux: High/Critical in the Debian 13 base image, no fixed package available yet.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-78408
+      purls:
+          - pkg:deb/debian
+      statement: 'util-linux: High/Critical in the Debian 13 base image, no fixed package available yet.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-78409
+      purls:
+          - pkg:deb/debian
+      statement: 'util-linux: High/Critical in the Debian 13 base image, no fixed package available yet.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-78410
+      purls:
+          - pkg:deb/debian
+      statement: 'util-linux: High/Critical in the Debian 13 base image, no fixed package available yet.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-12064
+      purls:
+          - pkg:deb/debian
+      statement: 'curl: High/Critical in the Debian 13 base image, no fixed package available yet.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-8458
+      purls:
+          - pkg:deb/debian
+      statement: 'curl: High/Critical in the Debian 13 base image, no fixed package available yet.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-54369
+      purls:
+          - pkg:deb/debian
+      statement: 'libacl1: High/Critical in the Debian 13 base image, no fixed package available yet.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-9538
+      purls:
+          - pkg:deb/debian
+      statement: 'perl: High/Critical in the Debian 13 base image, no fixed package available yet.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-119373
+      purls:
+          - pkg:deb/debian
+      statement: 'libsqlite3-0: High/Critical in the Debian 13 base image, no fixed package available yet.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-16742
+      purls:
+          - pkg:deb/debian
+      statement: 'systemd: High/Critical in the Debian 13 base image, no fixed package available yet.'
+      expired_at: 2026-12-15
+    - id: CVE-2025-69720
+      purls:
+          - pkg:deb/debian
+      statement: 'ncurses: High/Critical in the Debian 13 base image, no fixed package available yet.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-6653
+      purls:
+          - pkg:deb/debian
+      statement: 'libxml2: High/Critical in the Debian 13 base image, no fixed package available yet. Linked into PHP (ext-dom/xml), so it cannot be removed; Debian marks CVE-2026-6653 no-dsa (fixed only in forky/sid). Reachable only by parsing attacker XML.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-74860
+      purls:
+          - pkg:deb/debian
+      statement: 'libxml2: High/Critical in the Debian 13 base image, no fixed package available yet. Linked into PHP (ext-dom/xml), so it cannot be removed; Debian marks CVE-2026-6653 no-dsa (fixed only in forky/sid). Reachable only by parsing attacker XML.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-86138
+      purls:
+          - pkg:deb/debian
+      statement: 'libxml2: High/Critical in the Debian 13 base image, no fixed package available yet. Linked into PHP (ext-dom/xml), so it cannot be removed; Debian marks CVE-2026-6653 no-dsa (fixed only in forky/sid). Reachable only by parsing attacker XML.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-86139
+      purls:
+          - pkg:deb/debian
+      statement: 'libxml2: High/Critical in the Debian 13 base image, no fixed package available yet. Linked into PHP (ext-dom/xml), so it cannot be removed; Debian marks CVE-2026-6653 no-dsa (fixed only in forky/sid). Reachable only by parsing attacker XML.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-86140
+      purls:
+          - pkg:deb/debian
+      statement: 'libxml2: High/Critical in the Debian 13 base image, no fixed package available yet. Linked into PHP (ext-dom/xml), so it cannot be removed; Debian marks CVE-2026-6653 no-dsa (fixed only in forky/sid). Reachable only by parsing attacker XML.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-86142
+      purls:
+          - pkg:deb/debian
+      statement: 'libxml2: High/Critical in the Debian 13 base image, no fixed package available yet. Linked into PHP (ext-dom/xml), so it cannot be removed; Debian marks CVE-2026-6653 no-dsa (fixed only in forky/sid). Reachable only by parsing attacker XML.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-86143
+      purls:
+          - pkg:deb/debian
+      statement: 'libxml2: High/Critical in the Debian 13 base image, no fixed package available yet. Linked into PHP (ext-dom/xml), so it cannot be removed; Debian marks CVE-2026-6653 no-dsa (fixed only in forky/sid). Reachable only by parsing attacker XML.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-86144
+      purls:
+          - pkg:deb/debian
+      statement: 'libxml2: High/Critical in the Debian 13 base image, no fixed package available yet. Linked into PHP (ext-dom/xml), so it cannot be removed; Debian marks CVE-2026-6653 no-dsa (fixed only in forky/sid). Reachable only by parsing attacker XML.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-116587
+      purls:
+          - pkg:golang/github.com/go-jose/go-jose/v3
+      statement: 'go-jose/v3 inside the FrankenPHP (Caddy) binary of the upstream image, no fixed release yet; the image does not use JOSE/ACME features.'
+      expired_at: 2026-12-15

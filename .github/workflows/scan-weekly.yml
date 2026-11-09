@@ -39,13 +39,13 @@ jobs:
                   ref="$(grep -oE 'mcr\.microsoft\.com/playwright:[^ ]+' compose.dev.yaml | head -n 1)"
                   echo "PLAYWRIGHT_IMAGE=$ref" >> "$GITHUB_ENV"
                   docker pull "$ref"
-            - name: Trivy scan of both images (High and Critical fail the run)
+            - name: Trivy scan of both images (High and Critical fail the run; no ignore file: .trivyignore.yaml is scoped to the production image, TE-036)
               run: |
                   status=0
                   for image in traveleasy-remake-dev:local "$PLAYWRIGHT_IMAGE"; do
                       echo "== $image"
                       docker run --rm --user root -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/work" -w /work \
                           "$TRIVY_IMAGE" image --scanners vuln,secret,misconfig --severity HIGH,CRITICAL \
-                          --ignorefile .trivyignore --exit-code 1 "$image" || status=1
+                          --exit-code 1 "$image" || status=1
                   done
                   exit "$status"
