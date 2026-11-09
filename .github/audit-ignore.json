@@ -2,38 +2,6 @@
     "//": "Reviewed triage for scripts/ci/audit-gate.mjs (TE-013 AC10). Only high/critical advisories need an entry. Entries expire: repeat the review, or fix the advisory. The vite alias hides Vite advisories from npm audit: that check is a manual step (CLAUDE.md).",
     "ignores": [
         {
-            "id": "GHSA-xjj6-f33q-929c",
-            "tool": "npm",
-            "package": "undici",
-            "reason": "Dev/test only: undici arrives through jsdom (Vitest component tests). Not in the production image; npm audit --omit=dev finds 0. Waits for the vite-plus/jsdom update.",
-            "reviewed": "2026-11-02",
-            "expires": "2026-12-15"
-        },
-        {
-            "id": "GHSA-4w7w-5xrc-9h26",
-            "tool": "npm",
-            "package": "undici",
-            "reason": "Dev/test only (jsdom, Vitest). Not in the production image; the tests make no outgoing requests.",
-            "reviewed": "2026-11-02",
-            "expires": "2026-12-15"
-        },
-        {
-            "id": "GHSA-2m5v-pch6-74hx",
-            "tool": "npm",
-            "package": "undici",
-            "reason": "Dev/test only (jsdom, Vitest). Not in the production image; the tests open no TLS connections.",
-            "reviewed": "2026-11-02",
-            "expires": "2026-12-15"
-        },
-        {
-            "id": "GHSA-qrxm-fqhp-jwvm",
-            "tool": "npm",
-            "package": "undici",
-            "reason": "Dev/test only (jsdom, Vitest). Not in the production image.",
-            "reviewed": "2026-11-02",
-            "expires": "2026-12-15"
-        },
-        {
             "id": "GHSA-587h-7wmj-h5pm",
             "tool": "npm",
             "package": "launch-editor",

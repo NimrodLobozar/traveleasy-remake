@@ -113,11 +113,3 @@ async function toHaveNoA11yViolations(received: unknown) {
 }
 
 expect.extend({ toHaveNoA11yViolations });
-
-declare module 'vitest' {
-    // Type parameters must match Vitest's own `Assertion<T = any>` for declaration merging.
-    // oxlint-disable-next-line typescript/no-explicit-any -- must equal Vitest's declaration
-    interface Assertion<T = any> {
-        toHaveNoA11yViolations: () => Promise<void>;
-    }
-}
