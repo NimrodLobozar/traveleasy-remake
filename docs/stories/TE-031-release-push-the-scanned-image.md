@@ -1,7 +1,7 @@
 ---
 id: TE-031
 title: Release pushes the scanned image by digest, and Trivy ignores are scoped per image
-status: ready
+status: split            # superseded by TE-035 and TE-036 (2026-11-09)
 priority: should
 epic: M0 CI/CD to GHCR
 agents: [devops-engineer]
@@ -9,6 +9,9 @@ testers: [qa-engineer, security-privacy-reviewer]
 design: not-needed
 rework_rounds: 0
 ---
+
+> **SPLIT (2026-11-09, size limits):** work continues in **TE-035** (push by digest, diff_ids check, tag gate: AC1-4, AC8, AC9) and
+> **TE-036** (per-image Trivy ignores, migrate the 21 entries: AC5-7). The AC text below is kept for history only.
 
 ## User story
 As the owner, I want the image that GHCR receives to be exactly the image that was scanned and verified, and the Trivy

@@ -1,7 +1,7 @@
 # Story board
 
 Maintained by the `task-writer`; the orchestrator updates the status during the flow.
-Statuses: `draft` → `ready` → `in-progress` → `in-test` → (`rework` → `in-progress` …) → `done`.
+Statuses: `draft` → `ready` → `in-progress` → `in-test` → (`rework` → `in-progress` …) → `done`. `split` = superseded by smaller stories (history only).
 Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 
 | ID | Title | Priority | Status | Rework rounds | Design |
@@ -26,17 +26,22 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-018](TE-018-theme-light-dark-no-flash.md) | Light/dark theme with a manual override and no flash under SSR | must | done | 0 | required (TE-016 artifact) |
 | [TE-019](TE-019-localised-error-pages.md) | Localised error pages (403, 404, 419, 429, 500, 503) with a request ID | must | done | 0 | required (TE-016 artifact) |
 | [TE-020](TE-020-design-tokens-and-type-scale.md) | Design tokens and type scale (artifact, token file, contrast tests) | must | done | 1 | required |
-| [TE-021](TE-021-base-component-specs.md) | Base component specs (states, keyboard, ARIA) | must | ready | 0 | required |
+| [TE-021](TE-021-base-component-specs.md) | Base component specs (states, keyboard, ARIA) | must | done | 0 | required |
 | [TE-022](TE-022-base-components-forms-and-feedback.md) | Base components I: button, link, field, select, number field, alert, banner | must | done | 1 | approved (TE-021 artifact) |
 | [TE-023](TE-023-base-components-complex-widgets.md) | Base components II: combobox, date picker, table, dialog, toast, pagination | must | done | 0 | approved (TE-021 artifact) |
 | [TE-024](TE-024-production-compose-for-portainer.md) | Production compose.yaml for Portainer (pinned tag, health checks, limits, ssr) | must | done | 0 | not-needed |
 | [TE-025](TE-025-portainer-env-file-and-secrets-helper.md) | One-file Portainer env file and the secrets helper command | must | done | 0 | not-needed |
-| [TE-026](TE-026-first-lan-only-deploy.md) | First LAN-only deploy to the home server (**owner-gated**) | must | ready | 0 | not-needed |
+| [TE-026](TE-026-first-lan-only-deploy.md) | First LAN-only deploy to the home server (**owner-gated**); split into TE-033 and TE-034 | must | split | 0 | not-needed |
+| [TE-033](TE-033-deploy-doc-and-dry-run.md) | Home-server deploy doc and dry run on a throwaway stack (9 AC, over limit; owner decides) | must | ready | 0 | not-needed |
+| [TE-034](TE-034-owner-lan-deploy-and-post-deploy-checks.md) | First LAN-only deploy and post-deploy checks (**owner-gated**; after TE-033) | must | ready | 0 | not-needed |
 | [TE-027](TE-027-bump-php-8-5-12-dev-image.md) | Bump PHP to 8.5.12 in the dev image (chore) | must | done | 0 | not-needed |
 | [TE-028](TE-028-production-image-hardening-follow-ups.md) | Production image hardening follow-ups (chore) | must | done | 0 | not-needed |
 | [TE-029](TE-029-ci-and-deploy-hardening-follow-ups.md) | CI and deploy hardening follow-ups (chore) | should | done | 0 | not-needed |
 | [TE-030](TE-030-deploy-and-error-page-polish.md) | Deploy and error-page polish (chore) | should | done | 0 | not-needed |
-| [TE-031](TE-031-release-push-the-scanned-image.md) | Release pushes the scanned image by digest, and Trivy ignores are scoped per image | should | ready | 0 | not-needed |
+| [TE-031](TE-031-release-push-the-scanned-image.md) | Release pushes the scanned image by digest, and Trivy ignores are scoped per image; split into TE-035 and TE-036 | should | split | 0 | not-needed |
+| [TE-035](TE-035-release-push-by-digest.md) | Release pushes the scanned image by digest and gates the tags | should | ready | 0 | not-needed |
+| [TE-036](TE-036-trivy-ignores-scoped-per-image.md) | Trivy ignores are scoped per image (migrate the 21 entries, before 2026-12-15) | should | ready | 0 | not-needed |
+| [TE-037](TE-037-vite-plus-1x-upgrade.md) | Upgrade vite-plus to 1.x (due before 2026-12-15) | should | ready | 0 | not-needed |
 | [TE-032](TE-032-dependency-updates-2026-11.md) | Safe dependency updates from Dependabot PRs #1-#3 (2026-11) | should | done | 0 | not-needed |
 
 ### Epics
@@ -44,11 +49,11 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 - **M0 Docker dev environment:** TE-002, TE-006.
 - **M0 Server-side rendering:** TE-007, TE-008.
 - **M0 i18n infrastructure:** TE-009, TE-010.
-- **M0 CI/CD to GHCR:** TE-011 (ADR-0002), TE-012, TE-013, TE-014, TE-028, TE-029, TE-030, TE-031.
+- **M0 CI/CD to GHCR:** TE-011 (ADR-0002), TE-012, TE-013, TE-014, TE-028, TE-029, TE-030, TE-031 (split), TE-035, TE-036.
 - **M0 App shell:** TE-015, TE-016, TE-017, TE-018, TE-019.
 - **M0 Design system:** TE-020, TE-021, TE-022, TE-023.
-- **M0 First home-server deploy:** TE-024, TE-025, TE-026.
-- **Maintenance:** TE-032.
+- **M0 First home-server deploy:** TE-024, TE-025, TE-026 (split), TE-033, TE-034.
+- **Maintenance:** TE-032, TE-037.
 
 ### Follow-ups (2026-11 dependency updates)
 Deferred from TE-032 (major or breaking; each needs its own story before it is applied):

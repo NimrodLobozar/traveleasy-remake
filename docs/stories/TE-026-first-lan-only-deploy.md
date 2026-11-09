@@ -1,7 +1,7 @@
 ---
 id: TE-026
 title: First LAN-only deploy to the home server (owner-gated)
-status: ready
+status: split            # superseded by TE-033 and TE-034 (2026-11-09)
 priority: must
 epic: M0 First home-server deploy
 agents: [devops-engineer, qa-engineer]
@@ -9,6 +9,9 @@ testers: [qa-engineer, security-privacy-reviewer]
 design: not-needed
 rework_rounds: 0
 ---
+
+> **SPLIT (2026-11-09, size limits):** work continues in **TE-033** (deploy doc + dry run: AC1-4, AC9-12, AC14) and **TE-034**
+> (owner-executed deploy + post-deploy checks: AC5-8, AC13, AC15; depends on TE-033). The AC text below is kept for history only.
 
 ## User story
 As the owner, I want the server-rendered app shell running on my CasaOS server, reachable only from my home network, so that
