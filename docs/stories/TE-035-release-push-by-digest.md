@@ -59,6 +59,9 @@ review (2026-11-03). Related: TE-014 AC4, AC6, AC3; `docs/plan.md` § 4 M0 CI bu
 ## Open questions
 - (none)
 
+## Notes
+- From TE-036 (2026-11-09): the Playwright (Ubuntu) scan in `scan-weekly.yml` must pass an explicit empty `--ignorefile` (e.g. `/dev/null`), so a future `.trivyignore` cannot apply silently.
+
 ## Rework log
 (empty)
 

@@ -1,7 +1,7 @@
 ---
 id: TE-036
 title: Trivy ignores are scoped per image (migrate the 20 entries)
-status: rework
+status: done
 priority: should
 epic: M0 CI/CD to GHCR (split from TE-031; order: TE-035, then TE-036)
 agents: [devops-engineer]
@@ -24,11 +24,11 @@ review (2026-11-03). Related: TE-014 AC6.
 - **Depends on:** nothing (independent of TE-035; both edit `ci.yml` or its neighbours, so do not run them in parallel).
 
 ## Acceptance criteria
-- [ ] AC5: Given `.trivyignore.yaml` with per-image `purls` entries, when the production image is scanned, then only entries scoped to
+- [x] AC5: Given `.trivyignore.yaml` with per-image `purls` entries, when the production image is scanned, then only entries scoped to
       that image apply (each Debian entry uses `pkg:deb/debian/<package>`, `pkg:deb/debian/*` only as a documented fallback; the go-jose golang purl also suppresses; verified locally with pinned Trivy 0.76.1 against Debian and Ubuntu targets); the Playwright (Ubuntu) image in `scan-weekly.yml` does not use the production entries.
-- [ ] AC6: Given an ignore entry scoped to the production image, when the same finding appears in the Playwright image scan, then the
+- [x] AC6: Given an ignore entry scoped to the production image, when the same finding appears in the Playwright image scan, then the
       scan reports it (the ignore does not apply).
-- [ ] AC7: Given the existing 20 ignore entries, when they are migrated, then each keeps its ID, reason and expiry date (2026-12-15),
+- [x] AC7: Given the existing 20 ignore entries, when they are migrated, then each keeps its ID, reason and expiry date (2026-12-15),
       and the security reviewer re-accepts the migrated file.
 
 ## Quality criteria
@@ -66,4 +66,10 @@ review (2026-11-03). Related: TE-014 AC6.
   image scan stays CI-verified after the push.
 
 ## Changelog
-(filled when done)
+- 2026-11-09 done (round 1 rework, qa-engineer PASS; security-privacy-reviewer PASS).
+- Added: `.trivyignore.yaml` (20 entries, each with ID, reason, `expired_at: 2026-12-15`, scoped by exact purl `pkg:deb/debian/<package>`; go-jose by its Go module purl).
+- Changed: `ci.yml` production scan uses `.trivyignore.yaml`; `scan-weekly.yml` dev image uses it, Playwright (Ubuntu) image runs without an ignore file; `docs/deploy/casaos-portainer.md` wording corrected.
+- Removed: `.trivyignore`.
+- Migrations: none. New env vars: none. Docker rebuild: not needed (CI and scan config only).
+- Verified: pinned Trivy 0.76.1 on Debian and Ubuntu targets; real images checked in CI on the PR.
+- Follow-ups: (1) explicit empty `--ignorefile` for the Playwright scan, folded into TE-035. (2) Dev image has High/Critical findings outside the 20 entries (linux-libc-dev etc.); needs its own review before the weekly scan is trusted.
