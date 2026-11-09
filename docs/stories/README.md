@@ -41,7 +41,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-031](TE-031-release-push-the-scanned-image.md) | Release pushes the scanned image by digest, and Trivy ignores are scoped per image; split into TE-035 and TE-036 | should | split | 0 | not-needed |
 | [TE-035](TE-035-release-push-by-digest.md) | Release pushes the scanned image by digest and gates the tags | should | ready | 0 | not-needed |
 | [TE-036](TE-036-trivy-ignores-scoped-per-image.md) | Trivy ignores are scoped per image (migrate the 21 entries, before 2026-12-15) | should | ready | 0 | not-needed |
-| [TE-037](TE-037-vite-plus-1x-upgrade.md) | Upgrade vite-plus to 1.x (due before 2026-12-15) | should | ready | 0 | not-needed |
+| [TE-037](TE-037-vite-plus-1x-upgrade.md) | Upgrade vite-plus to 1.x (due before 2026-12-15) | should | done | 1 | not-needed |
 | [TE-032](TE-032-dependency-updates-2026-11.md) | Safe dependency updates from Dependabot PRs #1-#3 (2026-11) | should | done | 0 | not-needed |
 
 ### Epics
@@ -58,7 +58,6 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 ### Follow-ups (2026-11 dependency updates)
 Deferred from TE-032 (major or breaking; each needs its own story before it is applied):
 - TypeScript 7 (major): needs a dedicated compatibility story (tsc, oxlint type-aware rules, SSR build).
-- **vite-plus 1.x (major), priority: next, due before 2026-12-15:** exact pin stays at 0.3.3 until its own story. The undici ignores in `.github/audit-ignore.json` expire then; the bundled Vite 8.3.0 dev-server advisories are fixed in 8.3.3. Re-check the copied Vite `fs.deny` defaults in `vite.config.ts`.
 - **phpunit advisory PKSA-qhjm-rpqc-qkn6 (dev-only, medium, from TE-032):** phpunit 13.4.1 stays until Pest allows phpunit ≥ 13.4.4; then move it (`composer.json`, `composer audit` must be clean).
 - lucide-react 1.x (major): icon API changes need a UI story.
 - @laravel/passkeys 0.4 (0.x minor, breaking): needs its own auth story (passkeys are not in M0).

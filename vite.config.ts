@@ -134,7 +134,7 @@ export default defineConfig({
         // under the project root by URL, so without this /config/app.php, /phpunit.xml,
         // /bootstrap/cache/*.php and /storage/logs/*.log were readable on :5173. A user `deny`
         // REPLACES Vite's defaults (it isn't merged and the defaults aren't exported), so the first
-        // six entries copy Vite 8.3's defaults; keep them when you upgrade. Denied files answer 403.
+        // six entries copy Vite 8.3 defaults (re-checked against the bundled 8.3.7, TE-037); keep them when you upgrade. Denied files answer 403.
         // This only affects HTTP serving: Tailwind's `@source` scan and PHP read files directly.
         fs: {
             deny: [
