@@ -40,7 +40,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-030](TE-030-deploy-and-error-page-polish.md) | Deploy and error-page polish (chore) | should | done | 0 | not-needed |
 | [TE-031](TE-031-release-push-the-scanned-image.md) | Release pushes the scanned image by digest, and Trivy ignores are scoped per image; split into TE-035 and TE-036 | should | split | 0 | not-needed |
 | [TE-035](TE-035-release-push-by-digest.md) | Release pushes the scanned image by digest and gates the tags | should | ready | 0 | not-needed |
-| [TE-036](TE-036-trivy-ignores-scoped-per-image.md) | Trivy ignores are scoped per image (migrate the 21 entries, before 2026-12-15) | should | ready | 0 | not-needed |
+| [TE-036](TE-036-trivy-ignores-scoped-per-image.md) | Trivy ignores are scoped per image (migrate the 20 entries, before 2026-12-15) | should | rework | 1 | not-needed |
 | [TE-037](TE-037-vite-plus-1x-upgrade.md) | Upgrade vite-plus to 1.x (due before 2026-12-15) | should | done | 1 | not-needed |
 | [TE-032](TE-032-dependency-updates-2026-11.md) | Safe dependency updates from Dependabot PRs #1-#3 (2026-11) | should | done | 0 | not-needed |
 
