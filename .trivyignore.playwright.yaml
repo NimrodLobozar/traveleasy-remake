@@ -8,7 +8,7 @@ vulnerabilities:
       purls:
           - pkg:deb/ubuntu/gstreamer1.0-plugins-bad
           - pkg:deb/ubuntu/libgstreamer-plugins-bad1.0-0
-      statement: 'Ubuntu package without or awaiting an update in the pinned Playwright image (apt fix 2.8.4ubuntu0.1 exists but Microsoft has not rebuilt the image; gstreamer has no fix). Not reachable: no network install or media decoding of untrusted input in e2e.'
+      statement: 'GStreamer packages in the pinned Playwright image (Ubuntu 24.04); no fixed Ubuntu package is available yet. Not reachable: e2e never decodes untrusted media. Local e2e container only.'
       expired_at: 2026-12-15
     - id: CVE-2026-102276
       purls:
@@ -29,7 +29,7 @@ vulnerabilities:
       purls:
           - pkg:deb/ubuntu/apt
           - pkg:deb/ubuntu/libapt-pkg6.0t64
-      statement: 'Ubuntu package without or awaiting an update in the pinned Playwright image (apt fix 2.8.4ubuntu0.1 exists but Microsoft has not rebuilt the image; gstreamer has no fix). Not reachable: no network install or media decoding of untrusted input in e2e.'
+      statement: 'apt packages in the pinned Playwright image. Fixed upstream in apt 3.0.4, but Microsoft has not rebuilt v1.65.0-noble. Not reachable: e2e does no package installs from untrusted sources. Local e2e container only.'
       expired_at: 2026-12-15
     - id: CVE-2026-109869
       purls:
