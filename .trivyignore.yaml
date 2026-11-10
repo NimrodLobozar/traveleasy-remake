@@ -186,10 +186,10 @@ vulnerabilities:
     - id: CVE-2026-119374
       purls:
           - pkg:deb/debian/libsqlite3-0
-      statement: 'libsqlite3-0: no fixed Debian package yet (TE-044). libsqlite3 is linked by PHP''s pdo_sqlite/sqlite3 extensions and the frankenphp binary; the app never opens SQLite databases (DB_CONNECTION=pgsql, no SQLite in app/config), so there are no untrusted DB files or SQL. uid 10001, cap_drop ALL.'
+      statement: "libsqlite3-0: no fixed Debian package yet (TE-044). libsqlite3 is linked by PHP's pdo_sqlite/sqlite3 extensions and the frankenphp binary; the app never opens SQLite databases (DB_CONNECTION=pgsql, no SQLite in app/config), so there are no untrusted DB files or SQL. uid 10001, cap_drop ALL."
       expired_at: 2026-12-15
     - id: CVE-2026-119379
       purls:
           - pkg:deb/debian/libsqlite3-0
-      statement: 'libsqlite3-0: no fixed Debian package yet (TE-044). libsqlite3 is linked by PHP''s pdo_sqlite/sqlite3 extensions and the frankenphp binary; the app never opens SQLite databases (DB_CONNECTION=pgsql, no SQLite in app/config), so there are no untrusted DB files or SQL. uid 10001, cap_drop ALL.'
+      statement: "libsqlite3-0: no fixed Debian package yet (TE-044). libsqlite3 is linked by PHP's pdo_sqlite/sqlite3 extensions and the frankenphp binary; the app never opens SQLite databases (DB_CONNECTION=pgsql, no SQLite in app/config), so there are no untrusted DB files or SQL. uid 10001, cap_drop ALL."
       expired_at: 2026-12-15
