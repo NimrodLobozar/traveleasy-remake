@@ -34,7 +34,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-026](TE-026-first-lan-only-deploy.md) | First LAN-only deploy to the home server (**owner-gated**); split into TE-033 and TE-034 | must | split | 0 | not-needed |
 | [TE-033](TE-033-deploy-doc-and-dry-run.md) | Home-server deploy doc and dry run on a throwaway stack; split into TE-040 and TE-041 | must | split | 0 | not-needed |
 | [TE-040](TE-040-home-server-deploy-doc.md) | Home-server deploy doc (CasaOS, Portainer, NPM) | must | done | 2 | not-needed |
-| [TE-041](TE-041-deploy-dry-run-throwaway-stack.md) | Dry run of the deploy doc on a throwaway stack (after TE-040) | must | ready | 0 | not-needed |
+| [TE-041](TE-041-deploy-dry-run-throwaway-stack.md) | Dry run of the deploy doc on a throwaway stack (after TE-040) | must | rework | 1 | not-needed |
 | [TE-042](TE-042-manual-dump-retention-and-umask.md) | Manual dump retention rule, restore re-erasure note, umask order (TE-040 follow-ups; before TE-034) | should | ready | 0 | not-needed |
 | [TE-034](TE-034-owner-lan-deploy-and-post-deploy-checks.md) | First LAN-only deploy and post-deploy checks (**owner-gated**; after TE-041) | must | ready | 0 | not-needed |
 | [TE-027](TE-027-bump-php-8-5-12-dev-image.md) | Bump PHP to 8.5.12 in the dev image (chore) | must | done | 0 | not-needed |
