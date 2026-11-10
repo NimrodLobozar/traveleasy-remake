@@ -1,7 +1,7 @@
 ---
 id: TE-044
 title: Clear the 9 High Trivy findings in the prod image (FrankenPHP 1.13.5, apt 3.0.4, scoped ignores for no-fix krb5/sqlite)
-status: in-progress
+status: done
 priority: must
 epic: Maintenance
 agents: [devops-engineer]
@@ -23,25 +23,27 @@ Since 2026-11-09 the Release job's Trivy scan, and the weekly scan, fail on 9 Hi
   - CVE-2026-119374, CVE-2026-119379: `libsqlite3-0` 3.46.1-7+deb13u2.
   - Not exploitable here: only client libraries are present, the app uses PostgreSQL, the process runs as uid 10001 with `cap_drop: ALL`. The ignores are a stopgap, not a verdict.
 
-Related: TE-036 (per-image Trivy ignore scoping, format to follow), TE-035 (release gate), TE-043 (last CI fix, branch base), TE-038 (similar earlier advisory story).
+Scope note (2026-11-10): the weekly-scan part of this story moved to TE-045. `scan-weekly.yml` scans the dev image (`traveleasy-remake-dev:local`, php:8.5-cli base) and the Playwright image, not the prod image, so a green Release job here does not make the weekly scan green. The Release job on PR #19 is green (all checks pass).
+
+Related: TE-045 (weekly scan: dev and Playwright image findings), TE-036 (per-image Trivy ignore scoping, format to follow), TE-035 (release gate), TE-043 (last CI fix, branch base), TE-038 (similar earlier advisory story).
 
 Branch: `fix/te-044-trivy-high-debian-13-7`, off `origin/dev` once PR #18 (TE-043) is merged. If #18 is not merged yet, stack it on `fix/te-043-actionlint-sc2086`.
 
 ## Acceptance criteria
-- [ ] AC1: Given the Dockerfile, when the FrankenPHP base is bumped, then `FRANKENPHP_VERSION` is `1.13.5` (from `1.13.4`) and `FRANKENPHP_DIGEST` is re-pinned to the digest of the `1.13.5` tag for the same PHP and Debian variant, checked with `docker buildx imagetools inspect`.
-- [ ] AC2: Given the rebuilt prod image, when `docker run --rm --entrypoint dpkg <prod-image> -s apt libapt-pkg7.0` runs, then both report `3.0.4` or later. If the new base already provides it, no extra `apt-get upgrade` is needed; otherwise the production stage runs an explicit `apt-get upgrade` for `apt` and `libapt-pkg7.0` only, with the apt lists cleaned afterwards.
-- [ ] AC3: Given `.trivyignore.yaml`, when the six no-fix IDs are added, then each has the exact purl of the affected package (as Trivy reports it), a `statement` with the reason above, `expired_at: 2026-12-15`, and the per-image scope used by TE-036 (prod image only; the dev image and the PHP/Node CI scans are not covered). No ignore is added for CVE-2026-109518 or CVE-2026-78661, because they are fixed.
-- [ ] AC4: Given the same pinned Trivy image and flags as the CI Release job, when the scan runs locally on the rebuilt prod image, then it reports 0 High or Critical findings that are not ignored. The log path is recorded in the changelog.
-- [ ] AC5: Given the PR into `dev`, when CI runs, then the Release job (Trivy gate) is green on the PR, and after the merge a manual dispatch of the weekly scan workflow passes.
-- [ ] AC6: Given the change, when `docs/tech-stack.md` is read, then the FrankenPHP pin (1.13.5) and the apt pin (3.0.4) match the Dockerfile, and the six ignores are listed with their expiry date 2026-12-15.
+- [x] AC1: Given the Dockerfile, when the FrankenPHP base is bumped, then `FRANKENPHP_VERSION` is `1.13.5` (from `1.13.4`) and `FRANKENPHP_DIGEST` is re-pinned to the digest of the `1.13.5` tag for the same PHP and Debian variant, checked with `docker buildx imagetools inspect`.
+- [x] AC2: Given the rebuilt prod image, when `docker run --rm --entrypoint dpkg <prod-image> -s apt libapt-pkg7.0` runs, then both report `3.0.4` or later. If the new base already provides it, no extra `apt-get upgrade` is needed; otherwise the production stage runs an explicit `apt-get upgrade` for `apt` and `libapt-pkg7.0` only, with the apt lists cleaned afterwards.
+- [x] AC3: Given `.trivyignore.yaml`, when the six no-fix IDs are added, then each has the exact purl of the affected package (as Trivy reports it), a `statement` with the reason above, `expired_at: 2026-12-15`, and the per-image scope used by TE-036 (prod image only; the dev image and the PHP/Node CI scans are not covered). No ignore is added for CVE-2026-109518 or CVE-2026-78661, because they are fixed.
+- [x] AC4: Given the same pinned Trivy image and flags as the CI Release job, when the scan runs locally on the rebuilt prod image, then it reports 0 High or Critical findings that are not ignored. The log path is recorded in the changelog.
+- [x] AC5: Given the PR into `dev` (PR #19), when CI runs, then the Release job (Trivy gate on the prod image) is green on the PR. The weekly scan is not part of this story; it moved to TE-045.
+- [x] AC6: Given the change, when `docs/tech-stack.md` is read, then the FrankenPHP pin (1.13.5) and the apt pin (3.0.4) match the Dockerfile, and the six ignores are listed with their expiry date 2026-12-15.
 
 ## Quality criteria
-- [ ] Tests: no new unit or feature tests (infrastructure change). `bash scripts/check.sh static` is green, and the prod image builds and starts healthy (`/up` returns 200).
-- [ ] Accessibility: not applicable (no UI change).
-- [ ] Security/privacy: `security-privacy-reviewer` re-reviews the ignore diff. Each ignore has exact purl and scope, the statement is true for this image, no ignore is broader than the six IDs, and the expiry is not extended. The FrankenPHP digest is verified against the upstream tag.
-- [ ] i18n: not applicable.
-- [ ] Performance: not applicable.
-- [ ] Docs updated: `docs/tech-stack.md` (FrankenPHP and apt pins, ignore list and expiry).
+- [x] Tests: no new unit or feature tests (infrastructure change). `bash scripts/check.sh static` is green, and the prod image builds and starts healthy (`/up` returns 200).
+- [x] Accessibility: not applicable (no UI change).
+- [x] Security/privacy: `security-privacy-reviewer` re-reviews the ignore diff. Each ignore has exact purl and scope, the statement is true for this image, no ignore is broader than the six IDs, and the expiry is not extended. The FrankenPHP digest is verified against the upstream tag.
+- [x] i18n: not applicable.
+- [x] Performance: not applicable.
+- [x] Docs updated: `docs/tech-stack.md` (FrankenPHP and apt pins, ignore list and expiry).
 
 ## Files to touch
 - `Dockerfile`: `ARG FRANKENPHP_VERSION` (line ~19) and `ARG FRANKENPHP_DIGEST` (line ~20); `production` stage (line ~147) only if AC2 needs an explicit apt upgrade.
@@ -63,4 +65,13 @@ Branch: `fix/te-044-trivy-high-debian-13-7`, off `origin/dev` once PR #18 (TE-04
 (empty)
 
 ## Changelog
-(filled when done)
+2026-11-10, 0 rework rounds.
+- Cause: 9 High findings since 2026-11-09 (Debian 13.7 base). The last green Release was 2026-11-03.
+- Fix: FrankenPHP 1.13.4→1.13.5 with the digest re-pinned (official image verified). apt 3.0.4 comes with the base. Six time-boxed ignores (krb5 x4, sqlite x2), expiring 2026-12-15, prod image only; owner decision. The sqlite ignore rationale was corrected after review. `docs/tech-stack.md` and `docs/decisions.md` are updated. PR #19.
+- QA: PASS.
+  - `check.sh all` green (php 759, front 23 files, e2e 144 passed / 2 skipped, static pass).
+  - The ignores match exactly the 6 IDs; apt and x/net are fixed, not ignored.
+  - All 4 PR checks pass, Release Trivy gate included.
+- Security: PASS (one Low, fixed: sqlite rationale wording). Versionless purls accepted.
+- Split: the weekly scan of the dev and Playwright images moved to TE-045 (owner-approved).
+- Follow-up: re-review the ignores before 2026-12-15, or drop them when Debian ships fixes.
