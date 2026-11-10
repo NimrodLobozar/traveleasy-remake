@@ -22,7 +22,8 @@ I know the whole path from `git push` to a running stack works.
 - **OWNER-GATED:** the actual deploy on the home server is performed by or with the owner. Agents prepare and verify everything
   else; they never change the server or Portainer without the owner's explicit go-ahead in this conversation. The first public
   internet exposure is out of scope (end of M6).
-- **Depends on:** TE-033 (deploy doc proven by a dry run; required), TE-014 (a published `v0.0.x` image), TE-024, TE-025,
+- **Depends on:** TE-041 (dry run, which needs TE-040, the deploy doc; both required; TE-033 was split into them) and also the NPM and
+  phone-on-mobile-data checks (TE-033 AC4/AC11c owner parts) are done by the owner here, TE-014 (a published `v0.0.x` image), TE-024, TE-025,
   TE-015 to TE-019 (the shell), TE-020 to TE-023 (design system; the deploy of the shell can happen once TE-016 to TE-019 are done
   if the owner wants an earlier first deploy; decide at that time). TE-035 (push by digest) is recommended before this deploy so the
   running tag is the scanned image, but is not required.
