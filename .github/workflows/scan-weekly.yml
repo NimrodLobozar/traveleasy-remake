@@ -48,7 +48,7 @@ jobs:
                       echo "== $image"
                       # Ubuntu Playwright image: only its own file; the Debian ignores never apply to it.
                       ignore="$RUNNER_TEMP/trivyignore-dev.yaml"
-                      [ "$image" = traveleasy-remake-dev:local ] || ignore="$PWD/.trivyignore.playwright.yaml"
+                      [ "$image" = traveleasy-remake-dev:local ] || ignore=.trivyignore.playwright.yaml
                       docker run --rm --user root -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/work" -v "$RUNNER_TEMP:$RUNNER_TEMP" -w /work \
                           "$TRIVY_IMAGE" image --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --ignorefile "$ignore" --timeout 20m \
                           --exit-code 1 "$image" || status=1
