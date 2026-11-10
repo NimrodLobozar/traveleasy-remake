@@ -26,3 +26,5 @@ The `vite` alias hides Vite advisories from `npm audit`; check them by hand on e
 `package.json` `"//"`). A Pest test keeps the Playwright image tag and the npm package in sync.
 
 `server.fs.deny` in `vite.config.ts` (TE-037 AC5): the six Vite defaults copied there were compared with the bundled Vite 8.3.7 and are identical, so they stay; our Laravel entries follow them.
+
+Production base (TE-044): FrankenPHP 1.13.5 (`dunglas/frankenphp:1.13.5-php8.5.12-trixie`, digest pinned in the Dockerfile), which brings `apt` / `libapt-pkg7.0` 3.0.4 and Go `x/net` v0.62.0. `.trivyignore.yaml` carries time-boxed ignores, all expiring 2026-12-15 (re-check before then): the earlier util-linux, curl, libacl1, perl, libsqlite3-0 (CVE-2026-119373), systemd, ncurses, libxml2 and go-jose entries, plus (TE-044) krb5 `libgssapi-krb5-2`/`libk5crypto3`/`libkrb5-3`/`libkrb5support0` for CVE-2026-112321, -112322, -112323, -119079 and `libsqlite3-0` for CVE-2026-119374, -119379.
