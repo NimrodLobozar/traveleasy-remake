@@ -49,6 +49,6 @@ vulnerabilities:
 secrets:
     - id: azure-sas-token
       paths:
-          - root/.npm/**
+          - /root/.npm/**
       statement: "npm cache and debug log left in the upstream Playwright image by Microsoft's own image build (a time-limited download URL, not a credential of ours). Playwright image only; the image runs in the local e2e container."
       expired_at: 2026-12-15
