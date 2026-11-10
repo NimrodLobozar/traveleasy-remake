@@ -15,6 +15,7 @@ As the owner, I want the manual database dumps to have a deletion rule and safe 
 
 ## Context
 - Non-blocking follow-ups from the TE-040 security review (round 2). No existing backup story covers them (the scheduled `backup` service is part of the split TE-026/TE-031).
+- Note (2026-11-10): the umask order (AC3) was found in the TE-041 dry run (D4) and is fixed there in the doc; here only verify it stays correct. ACs unchanged.
 - Doc: `docs/deploy/casaos-portainer.md` (dump section, about lines 325-360); inventory row for manual dumps in `docs/privacy/data-inventory.md`.
 
 ## Acceptance criteria
