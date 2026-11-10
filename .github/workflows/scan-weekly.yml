@@ -45,10 +45,10 @@ jobs:
                   for image in traveleasy-remake-dev:local "$PLAYWRIGHT_IMAGE"; do
                       echo "== $image"
                       # Debian dev image shares the production base: reviewed ignores apply. Ubuntu Playwright image: none.
-                      ignore=""
-                      [ "$image" = traveleasy-remake-dev:local ] && ignore="--ignorefile .trivyignore.yaml"
+                      ignore=()
+                      [ "$image" = traveleasy-remake-dev:local ] && ignore=(--ignorefile .trivyignore.yaml)
                       docker run --rm --user root -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/work" -w /work \
-                          "$TRIVY_IMAGE" image --scanners vuln,secret,misconfig --severity HIGH,CRITICAL $ignore \
+                          "$TRIVY_IMAGE" image --scanners vuln,secret,misconfig --severity HIGH,CRITICAL "${ignore[@]}" \
                           --exit-code 1 "$image" || status=1
                   done
                   exit "$status"
