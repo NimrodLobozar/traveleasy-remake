@@ -15,7 +15,7 @@
 # change the version ARG and its *_DIGEST together (a stale digest fails the build loudly).
 
 ARG PHP_VERSION=8.5.12
-ARG PHP_CLI_DIGEST=sha256:9236fd373d3bcda0659cf94838a744bd79791419292958963f8c6b34a0071554
+ARG PHP_CLI_DIGEST=sha256:50956f094e90a716d43bea28087d447555ad80510e386ab8c9c10d8c70d781a9
 ARG FRANKENPHP_VERSION=1.13.5
 ARG FRANKENPHP_DIGEST=sha256:7e73a27eb7712a5b4073b92f8f0dec91e9400138604b76cc791589faaa6a639c
 ARG NODE_VERSION=24.21.0
@@ -47,6 +47,9 @@ ARG PHP_EXTENSIONS
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends libpq-dev libicu-dev libzip-dev unzip; \
+    # TE-045: pull in fixed Debian security builds the base digest does not have yet (dev stage only; the \
+    # production stage is a separate FROM). Remove once the base digest ships them. \
+    apt-get install -y --no-install-recommends --only-upgrade apt libapt-pkg7.0 linux-libc-dev zlib1g zlib1g-dev; \
     docker-php-ext-install -j"$(nproc)" ${PHP_EXTENSIONS}; \
     rm -rf /var/lib/apt/lists/*
 

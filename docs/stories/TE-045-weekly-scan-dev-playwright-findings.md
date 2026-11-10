@@ -1,7 +1,7 @@
 ---
 id: TE-045
 title: Weekly scan green: dev and Playwright image findings
-status: ready
+status: in-progress
 priority: must
 epic: Maintenance
 agents: [devops-engineer]

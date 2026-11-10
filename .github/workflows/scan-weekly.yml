@@ -39,16 +39,18 @@ jobs:
                   ref="$(grep -oE 'mcr\.microsoft\.com/playwright:[^ ]+' compose.dev.yaml | head -n 1)"
                   echo "PLAYWRIGHT_IMAGE=$ref" >> "$GITHUB_ENV"
                   docker pull "$ref"
-            - name: Trivy scan of both images (High and Critical fail the run; the dev image uses .trivyignore.yaml, the Playwright image none, TE-036)
+            - name: Trivy scan of both images (High and Critical fail the run; per-image ignore files, TE-036 and TE-045)
               run: |
                   status=0
+                  # Dev image: Debian base shared with production, so the shared reviewed ignores apply, plus the dev-only file.
+                  { cat .trivyignore.yaml; sed '1,/^vulnerabilities:/d' .trivyignore.dev.yaml; } > "$RUNNER_TEMP/trivyignore-dev.yaml"
                   for image in traveleasy-remake-dev:local "$PLAYWRIGHT_IMAGE"; do
                       echo "== $image"
-                      # Debian dev image shares the production base: reviewed ignores apply. Ubuntu Playwright image: none.
-                      ignore=()
-                      [ "$image" = traveleasy-remake-dev:local ] && ignore=(--ignorefile .trivyignore.yaml)
-                      docker run --rm --user root -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/work" -w /work \
-                          "$TRIVY_IMAGE" image --scanners vuln,secret,misconfig --severity HIGH,CRITICAL "${ignore[@]}" \
+                      # Ubuntu Playwright image: only its own file; the Debian ignores never apply to it.
+                      ignore="$RUNNER_TEMP/trivyignore-dev.yaml"
+                      [ "$image" = traveleasy-remake-dev:local ] || ignore=.trivyignore.playwright.yaml
+                      docker run --rm --user root -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/work" -v "$RUNNER_TEMP:$RUNNER_TEMP" -w /work \
+                          "$TRIVY_IMAGE" image --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --ignorefile "$ignore" --timeout 20m \
                           --exit-code 1 "$image" || status=1
                   done
                   exit "$status"

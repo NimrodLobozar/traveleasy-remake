@@ -1,0 +1,54 @@
+# Reviewed Trivy exceptions for the Playwright image only (TE-045): mcr.microsoft.com/playwright (Ubuntu 24.04), scanned by
+# scan-weekly.yml. The production scan, the dev scan and the shared .trivyignore.yaml never use this file.
+# Every purl is exact. Every entry expires 2026-12-15; re-check before then (look for a rebuilt v1.65.x-noble or v1.66 image).
+# Reviewed 2026-11-10: Microsoft has not rebuilt v1.65.0-noble (digest unchanged); the pin is tied to @playwright/test 1.65.0.
+# The image runs only in the local e2e container, against the local dev app, never on the server.
+vulnerabilities:
+    - id: CVE-2025-3887
+      purls:
+          - pkg:deb/ubuntu/gstreamer1.0-plugins-bad
+          - pkg:deb/ubuntu/libgstreamer-plugins-bad1.0-0
+      statement: 'GStreamer packages in the pinned Playwright image (Ubuntu 24.04); no fixed Ubuntu package is available yet. Not reachable: e2e never decodes untrusted media. Local e2e container only.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-102276
+      purls:
+          - pkg:npm/brace-expansion@5.0.9
+      statement: 'npm bundled in the Playwright image (global npm, not the app or test dependencies); no fixed release in the pinned image yet. Local e2e container only.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-102278
+      purls:
+          - pkg:npm/brace-expansion@5.0.9
+      statement: 'npm bundled in the Playwright image (global npm, not the app or test dependencies); no fixed release in the pinned image yet. Local e2e container only.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-109383
+      purls:
+          - pkg:npm/undici@6.28.0
+      statement: 'npm bundled in the Playwright image (global npm, not the app or test dependencies); no fixed release in the pinned image yet. Local e2e container only.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-109518
+      purls:
+          - pkg:deb/ubuntu/apt
+          - pkg:deb/ubuntu/libapt-pkg6.0t64
+      statement: 'apt packages in the pinned Playwright image. Fixed upstream in apt 3.0.4, but Microsoft has not rebuilt v1.65.0-noble. Not reachable: e2e does no package installs from untrusted sources. Local e2e container only.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-109869
+      purls:
+          - pkg:npm/undici@6.28.0
+      statement: 'npm bundled in the Playwright image (global npm, not the app or test dependencies); no fixed release in the pinned image yet. Local e2e container only.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-19534
+      purls:
+          - pkg:npm/undici@6.28.0
+      statement: 'npm bundled in the Playwright image (global npm, not the app or test dependencies); no fixed release in the pinned image yet. Local e2e container only.'
+      expired_at: 2026-12-15
+    - id: CVE-2026-87018
+      purls:
+          - pkg:npm/undici@6.28.0
+      statement: 'npm bundled in the Playwright image (global npm, not the app or test dependencies); no fixed release in the pinned image yet. Local e2e container only.'
+      expired_at: 2026-12-15
+secrets:
+    - id: azure-sas-token
+      paths:
+          - /root/.npm/**
+      statement: "npm cache and debug log left in the upstream Playwright image by Microsoft's own image build (a time-limited download URL, not a credential of ours). Playwright image only; the image runs in the local e2e container."
+      expired_at: 2026-12-15
