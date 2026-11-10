@@ -245,7 +245,7 @@ log lines (they hold more than the IP).
 
    Why `maxage 14`: NPM has no cron; its backend runs logrotate once when it starts and then **every 2 days**, so `daily` and
    `rotate 13` alone would keep about 26 days. `maxage 14` deletes every rotated log older than 14 days at each run, so
-   retention is 14 days plus at most 2 days until the next run. The file must be owned by root and not writable by others
+   the target retention is 14 days and the real maximum is about 18 days (a line can sit up to 2 days in the live log, plus up to 2 days past `maxage 14` until the next run). The file must be owned by root and not writable by others
    (mode 0644), or logrotate refuses to read it.
 4. In Portainer open **NPM's own stack** (Stacks -> the NPM stack -> **Editor**) and add one line under the NPM service's
    `volumes:`, keeping the existing ones:
