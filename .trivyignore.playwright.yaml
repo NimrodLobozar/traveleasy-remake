@@ -46,3 +46,9 @@ vulnerabilities:
           - pkg:npm/undici@6.28.0
       statement: 'npm bundled in the Playwright image (global npm, not the app or test dependencies); no fixed release in the pinned image yet. Local e2e container only.'
       expired_at: 2026-12-15
+secrets:
+    - id: azure-sas-token
+      paths:
+          - root/.npm/**
+      statement: "npm cache and debug log left in the upstream Playwright image by Microsoft's own image build (a time-limited download URL, not a credential of ours). Playwright image only; the image runs in the local e2e container."
+      expired_at: 2026-12-15
