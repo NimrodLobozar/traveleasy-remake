@@ -5,7 +5,7 @@ Production runs as one Portainer stack made from [`compose.yaml`](../../compose.
 Public access goes through the existing Nginx Proxy Manager (NPM); the stack publishes **no host port**.
 
 Status: v1 of this guide (TE-040). The stack, the env file and the secrets helper are tested (TE-024, TE-025); the commands in
-this guide are proven on a throwaway stack in TE-041; the real first deploy is TE-034 (owner-gated). Until the first release
+this guide were proven on a throwaway stack in TE-041 (NPM 2.16.0); the real first deploy is TE-034 (owner-gated). Until the first release
 tag is deployed, the tag in the env file is a placeholder.
 
 **Who does what.** You (the owner) do every server, Portainer and NPM step yourself. Agents never access the server,
@@ -71,7 +71,7 @@ MUST declare `depends_on: app: condition: service_healthy`, so they never run ne
    ```
 
    - `--log-driver none` keeps Docker from storing the printed secrets in the container log.
-   - `-it` is required: without a terminal the command refuses to print anything (passwords are never read from arguments).
+   - `-it` is needed for the super_admin password prompt only (passwords are never read from arguments): without a terminal that prompt refuses. With `--without-super-admin` the secrets print either way, but keep `-it`.
    - `--without-super-admin` is right for M0. The two super_admin variables (`SUPER_ADMIN_PASSWORD_HASH`,
      `SUPER_ADMIN_TOTP_SECRET`) only become used in M1, so they are not in the env file yet. Leave the flag out from M1 on:
      the helper then asks for the password (hidden prompt) and draws the TOTP QR code in the terminal.
@@ -98,8 +98,10 @@ MUST declare `depends_on: app: condition: service_healthy`, so they never run ne
 5. Open **Containers**. Within about 2 minutes `db`, `ssr` and `app` are `healthy` and `db-init` is `exited (0)`.
    `app` needs the longest (migrations on the first start).
 6. Check that no port is published: in the terminal `docker ps --filter name=traveleasy --format '{{.Names}}  {{.Ports}}'`.
-   Expect the Ports column to be empty or only `5432/tcp` / `8080/tcp` **without** `0.0.0.0:` or `:::`. Any `0.0.0.0:` entry is
-   a mistake: stop and report it.
+   Expect `app` and `ssr` to list `80/tcp, 443/tcp, 2019/tcp, 8080/tcp, 443/udp` (the image's EXPOSE list; normal) and `db` to list
+   `5432/tcp`. The check is that **no entry contains `->`** (no `0.0.0.0:` or `:::`). Any `->` entry is a mistake: stop and report it.
+   Always deploy through the Portainer stack (or pass `-p <stack name>` on the command line); a bare
+   `docker compose -f compose.yaml up` would run under the project name written in the file.
 7. Add the proxy host in NPM (next section). Then run "Verify the deploy".
 
 If `app` keeps restarting, open its **Logs**: the entrypoint says why (`Refusing to start: ...` names the wrong variable,
@@ -172,7 +174,7 @@ log lines (they hold more than the IP).
       client of the last request (replace `<npm>` with NPM's container name and `<id>` with the number from
       `docker exec <npm> ls /data/logs`):
       `docker exec <npm> tail -n 1 /data/logs/proxy-host-<id>_access.log | grep -o '\[Client [^]]*\]'`.
-      Expect `[Client 192.168.1.50]` (your device's LAN IP). If NPM's log format differs, verify in TE-041.
+      Expect `[Client 192.168.1.50]` (your device's LAN IP). Verified in TE-041 (NPM 2.16.0): the line looks like `[Client 10.0.0.5]`.
    b. *The trusted proxy is believed, anyone else is ignored.* This boots the app and asks which address it assigns to a request
       carrying `X-Forwarded-For: 203.0.113.9`, once from NPM and once from a neighbour:
 
@@ -181,13 +183,13 @@ log lines (they hold more than the IP).
       require "/var/www/html/vendor/autoload.php";
       $app = require "/var/www/html/bootstrap/app.php";
       $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-      foreach ([$argv[1], "172.20.0.99"] as $peer) {
+      foreach ([$argv[1], "<a-neighbour-ip>"] as $peer) {
           $r = Illuminate\Http\Request::create("/", "GET", [], [], [], ["REMOTE_ADDR" => $peer, "HTTP_X_FORWARDED_FOR" => "203.0.113.9"]);
           $app->make(App\Http\Middleware\TrustProxies::class)->handle($r, fn ($r) => print($peer . " -> " . $r->ip() . PHP_EOL));
       }' <npm-ip>
       ```
 
-      Expect two lines: `<npm-ip> -> 203.0.113.9` (the trusted proxy is believed) and `172.20.0.99 -> 172.20.0.99` (a neighbour
+      Expect two lines: `<npm-ip> -> 203.0.113.9` (the trusted proxy is believed) and `<a-neighbour-ip> -> <a-neighbour-ip>` (a neighbour
       or the gateway is **not** believed). If the second line shows `203.0.113.9`, `TRUSTED_PROXIES` is too wide: fix it at once.
    c. *Through NPM a forged `X-Forwarded-For` does not take over.* From a LAN device:
       `curl -sk -H "X-Forwarded-For: 203.0.113.9" https://<your domain>/ -o /dev/null -w '%{http_code}\n'` (`http://` in the
@@ -199,7 +201,7 @@ log lines (they hold more than the IP).
       setup). Expect `200`; then the 5a `tail ... | grep -o` command prints `[Client <your LAN IP>]`. If it prints
       `[Client 203.0.113.9]`, the line is missing or in the wrong place: fix it in the Advanced tab, **Save**, and repeat.
       Repeat once with `-H "X-Real-IP: 127.0.0.1"`: expect the same result (your LAN IP, and the `lan-only` list still applies).
-   The variant with a neighbouring container as sender is also run in the TE-041 dry run.
+   The variant with a neighbouring container as sender was run in the TE-041 dry run (NPM 2.16.0): the neighbour is not believed.
 
 ## Logs and privacy
 
@@ -208,8 +210,9 @@ log lines (they hold more than the IP).
 - **NPM keeps access and error logs with client IPs.** Location: NPM's data volume, `/data/logs/proxy-host-<id>_access.log` and
   `proxy-host-<id>_error.log`; list them with `docker exec <npm> ls /data/logs`. NPM's own rule (weekly, 4 to 10 rotations) keeps
   more than the 14 days we allow, and a change made inside the container is lost when NPM is recreated. So we keep NPM's own
-  rule **exactly as it is**, change only how often and how many times it rotates, and mount that copy read-only from a file
-  that lives **outside** the container. The IPs stay on your server and are never sent anywhere.
+  rule **exactly as it is**, change only how often and how many times it rotates, and mount that copy from a file
+  that lives **outside** the container. Pin NPM's image to the tag these steps were verified on, `jc21/nginx-proxy-manager:2.16.0`
+  (not `latest`), and redo step 8 whenever you change it. The IPs stay on your server and are never sent anywhere.
 
 **Set the 14-day log retention (once; again only if NPM's stack is rebuilt from scratch)**
 
@@ -219,39 +222,44 @@ log lines (they hold more than the IP).
    other log such as `backend.log`. Do not retype or shorten it; step 3 copies it whole.
 2. On the server, make a folder that is not inside NPM's data volume (CasaOS example):
    `sudo mkdir -p /DATA/AppData/npm-extra && cd /DATA/AppData/npm-extra`.
-3. Copy the upstream file, then apply only these edits: every `weekly` becomes `daily`, every `rotate <n>` becomes `rotate 13`,
-   and ` || true` is removed from the end of the `postrotate` command, so a failing reload shows as an error instead of being
-   hidden. Everything else stays byte for byte:
+3. Copy the upstream file, then apply only these edits: every `weekly` becomes `daily`, every `rotate <n>` becomes `rotate 13` followed by a new line `maxage 14` (in every block,
+   `backend.log` too), and ` || true` is removed from the end of the `postrotate` command, so a failing reload shows as an error
+   instead of being hidden. Everything else stays byte for byte:
 
    ```
    docker exec <npm> cat /etc/logrotate.d/nginx-proxy-manager > ~/npm-logrotate.upstream
    sudo cp ~/npm-logrotate.upstream logrotate-nginx-proxy-manager
    sudo sed -i -E \
      -e 's/^([[:space:]]*)weekly[[:space:]]*$/\1daily/' \
-     -e 's/^([[:space:]]*)rotate [0-9]+[[:space:]]*$/\1rotate 13/' \
+     -e 's/^([[:space:]]*)rotate [0-9]+[[:space:]]*$/\1rotate 13\n\1maxage 14/' \
      -e 's/[[:space:]]*\|\|[[:space:]]*true[[:space:]]*$//' \
      logrotate-nginx-proxy-manager
    sudo chown root:root logrotate-nginx-proxy-manager && sudo chmod 644 logrotate-nginx-proxy-manager
    diff ~/npm-logrotate.upstream logrotate-nginx-proxy-manager
    ```
 
-   The `diff` must show only `weekly` -> `daily`, `rotate <n>` -> `rotate 13`, and the `postrotate` line(s) losing
+   The `diff` must show only `weekly` -> `daily`, `rotate <n>` -> `rotate 13` plus an added `maxage 14` line, and the `postrotate` line(s) losing
    ` || true`. If it shows any other change, or no `weekly` line was changed (the upstream file differs from what this guide
    expects), stop and do not mount the file. The `postrotate` line reads the nginx pid from `/run/nginx/nginx.pid`; that this
-   path is right in your NPM image: verify in TE-041.
+   path is right: verified in TE-041 (NPM 2.16.0).
 
-   `daily` + `rotate 13` keeps today's log plus 13 rotated days = 14 days. The file must be owned by root and not writable by
-   others, or logrotate refuses to read it.
+   Why `maxage 14`: NPM has no cron; its backend runs logrotate once when it starts and then **every 2 days**, so `daily` and
+   `rotate 13` alone would keep about 26 days. `maxage 14` deletes every rotated log older than 14 days at each run, so
+   retention is 14 days plus at most 2 days until the next run. The file must be owned by root and not writable by others
+   (mode 0644), or logrotate refuses to read it.
 4. In Portainer open **NPM's own stack** (Stacks -> the NPM stack -> **Editor**) and add one line under the NPM service's
    `volumes:`, keeping the existing ones:
-   `- /DATA/AppData/npm-extra/logrotate-nginx-proxy-manager:/etc/logrotate.d/nginx-proxy-manager:ro`
-   (If NPM was installed as a CasaOS app instead, add the same path in the app's settings under **Volumes**.)
+   `- /DATA/AppData/npm-extra/logrotate-nginx-proxy-manager:/etc/logrotate.d/nginx-proxy-manager`
+   Mount it read-write (no `:ro`): NPM runs `chmod 644` on this file at every start, and on a read-only mount that fails and NPM
+   does not start. The host file is already root:root 0644, so the chmod changes nothing.
+   (If NPM was installed as a CasaOS app instead, add the same path in the app's settings under **Volumes**, also without read-only.)
 5. Click **Update the stack**. This recreates NPM and takes every site behind it offline for a few seconds. The fixed IP from
    "Before the first deploy" must still be in the stack, otherwise `TRUSTED_PROXIES` no longer matches.
 6. Verify with a dry run (it changes nothing): `docker exec <npm> logrotate -d /etc/logrotate.d/nginx-proxy-manager`. Expect
-   one `rotating pattern: ... after 1 days (13 rotations)` line for every block of the upstream file and no `error:` line. Then
-   `docker exec <npm> grep -nE 'weekly|rotate [0-9]|\|\| true' /etc/logrotate.d/nginx-proxy-manager`; expect only
-   `rotate 13` lines (no `weekly`, no other number, no `|| true`).
+   two `rotating pattern: ... after 1 days (13 rotations)` lines (the access and error blocks), one size-based line for
+   `/data/logs/backend.log` (`10485760 bytes ... (13 rotations)`), and no `error:` line. Then
+   `docker exec <npm> grep -nE 'weekly|rotate [0-9]|maxage|\|\| true' /etc/logrotate.d/nginx-proxy-manager`; expect only
+   `rotate 13` and `maxage 14` lines (no `weekly`, no other number, no `|| true`).
 7. Delete files already older than the limit. First list them:
    `docker exec <npm> find /data/logs -name '*.log*' -mtime +14 -print`. If the list shows only old log files, run the same
    command with `-delete` instead of `-print`.
@@ -262,8 +270,9 @@ log lines (they hold more than the IP).
    `docker run --rm --entrypoint cat <npm image>:<new tag> /etc/logrotate.d/nginx-proxy-manager > ~/npm-logrotate.upstream`
    (delete the old `~/npm-logrotate.upstream` first).
 
-Whether NPM's image runs logrotate daily, accepts this file, and reloads nginx with the `postrotate` line (pid path
-`/run/nginx/nginx.pid`, now without `|| true`) cannot be proven without NPM: verify in TE-041.
+Verified in TE-041 on NPM 2.16.0: NPM starts with the read-write mount, accepts this file (a group- or world-writable file is
+ignored with a warning), a forced run rotates, and the `postrotate` reload (pid path `/run/nginx/nginx.pid`, without
+`|| true`) works: nginx writes to the new log afterwards.
 
 ## Optional: NPM custom error page (502/504)
 
@@ -334,8 +343,8 @@ The scheduled dump service is a later story. Until then, take a dump before ever
   an earlier one (invoices must be kept 7 years):
 
   ```
-  mkdir -p ~/traveleasy-backups && cd ~/traveleasy-backups
   umask 077
+  mkdir -p ~/traveleasy-backups && cd ~/traveleasy-backups
   set -o noclobber
   f=traveleasy-$(date +%F-%H%M%S).dump
   docker exec traveleasy-db-1 pg_dump -U postgres -Fc traveleasy > "$f" \
@@ -375,7 +384,7 @@ The scheduled dump service is a later story. Until then, take a dump before ever
   6. Only after `RESTORE OK`, start `app` and run "Verify the deploy" steps 1 and 3. On `RESTORE FAILED`, the database still
      holds the state from step 3; start `app` and read the error before trying again. `db-init` re-applies the app role on the
      next deploy.
-- Keep dumps off the server too. Run this procedure once on the throwaway stack: verify in TE-041. A scheduled restore test is
+- Keep dumps off the server too. This procedure (dump, verify, safety dump, restore) was run once on the throwaway stack in TE-041 and works as written. A scheduled restore test is
   part of the `backup` story.
 
 ## Removing the stack
