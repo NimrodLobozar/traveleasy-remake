@@ -1,7 +1,7 @@
 ---
 id: TE-043
 title: Fix actionlint SC2086 in the weekly scan workflow (CI red on dev and PR #17)
-status: in-progress
+status: done
 priority: must
 epic: none
 agents: [devops-engineer]
@@ -21,18 +21,18 @@ As the owner, I want the "Workflow lint (actionlint)" CI job to pass on `dev` an
 - Related: TE-036 (scoped Trivy ignores), TE-014 AC5 (weekly scan).
 
 ## Acceptance criteria
-- [ ] AC1: Given the pinned actionlint image that CI uses (same image and digest as the CI job), when it runs on `.github/workflows/scan-weekly.yml` before the fix, then it reports SC2086 at line 43; the developer records the command and output in the handoff.
-- [ ] AC2: Given the fix, when actionlint runs on all files in `.github/workflows/`, then it reports no findings (exit 0, no shellcheck info, warning or error).
-- [ ] AC3: Given the fix, when the scan step runs, then the dev image is scanned with `--ignorefile .trivyignore.yaml` and the Playwright image without an ignore file, both with `--severity HIGH,CRITICAL --exit-code 1`, and the step's exit status is unchanged (any High/Critical finding fails the run). The developer shows the final `docker run` command line in the handoff.
-- [ ] AC4: Given the PR that contains the fix, when CI runs, then the "Workflow lint (actionlint)" job is green on the PR.
+- [x] AC1: Given the pinned actionlint image that CI uses (same image and digest as the CI job), when it runs on `.github/workflows/scan-weekly.yml` before the fix, then it reports SC2086 at line 43; the developer records the command and output in the handoff.
+- [x] AC2: Given the fix, when actionlint runs on all files in `.github/workflows/`, then it reports no findings (exit 0, no shellcheck info, warning or error).
+- [x] AC3: Given the fix, when the scan step runs, then the dev image is scanned with `--ignorefile .trivyignore.yaml` and the Playwright image without an ignore file, both with `--severity HIGH,CRITICAL --exit-code 1`, and the step's exit status is unchanged (any High/Critical finding fails the run). The developer shows the final `docker run` command line in the handoff.
+- [x] AC4: Given the PR that contains the fix, when CI runs, then the "Workflow lint (actionlint)" job is green on the PR.
 
 ## Quality criteria
-- [ ] Tests: actionlint run locally with the CI image (AC1, AC2). No new code tests; the workflow is verified by AC4 and by the next scheduled or manual run of "Weekly scan" (`workflow_dispatch`).
+- [x] Tests: actionlint run locally with the CI image (AC1, AC2). No new code tests; the workflow is verified by AC4 and by the next scheduled or manual run of "Weekly scan" (`workflow_dispatch`).
 - [ ] Accessibility: n/a.
-- [ ] Security/privacy: reviewer confirms the Trivy flags and the exit-code logic are unchanged, that the ignore file is still used only for the dev image, and that no permission or secret handling changed (`permissions: contents: read`, `persist-credentials: false`).
+- [x] Security/privacy: reviewer confirms the Trivy flags and the exit-code logic are unchanged, that the ignore file is still used only for the dev image, and that no permission or secret handling changed (`permissions: contents: read`, `persist-credentials: false`).
 - [ ] i18n: n/a.
 - [ ] Performance: n/a.
-- [ ] Docs updated: none expected; if `docs/testing.md` lists the actionlint command, keep it accurate.
+- [x] Docs updated: none expected; if `docs/testing.md` lists the actionlint command, keep it accurate.
 
 ## Files to touch
 - `.github/workflows/scan-weekly.yml` (scan step, `run: |` block, the `ignore` variable around file lines 47-52): change `ignore=""` to an array (`ignore=()`, `ignore=(--ignorefile .trivyignore.yaml)`) and pass `"${ignore[@]}"` to `docker run`.
@@ -50,4 +50,10 @@ As the owner, I want the "Workflow lint (actionlint)" CI job to pass on `dev` an
 (empty)
 
 ## Changelog
-(filled when done)
+- 2026-11-10: closed, no rework rounds.
+- Root cause: TE-036 (106c185, 1d05fec) added an unquoted `$ignore` string in scan-weekly.yml; actionlint 1.7.12's shellcheck flags SC2086, so CI was red on dev since 2026-11-09.
+- Changed: `.github/workflows/scan-weekly.yml` uses a bash array `ignore=()` / `(--ignorefile .trivyignore.yaml)` for the dev image only, expanded as `"${ignore[@]}"`. Commit `ci: fix actionlint SC2086 in weekly scan (TE-043)`, PR #18.
+- Added: none. Removed: none. Migrations: none. New env vars: none. Docker rebuild: not needed.
+- QA PASS: actionlint clean (pinned digest); with docker stubbed under `bash -eu` the dev image gets exactly two ignore args, Playwright none; a failing scan still exits 1.
+- Security PASS: no findings; ignores not widened, no untrusted input added.
+- AC4 confirmed: "Workflow lint (actionlint)" green on PR #18 (checked 2026-11-10).
