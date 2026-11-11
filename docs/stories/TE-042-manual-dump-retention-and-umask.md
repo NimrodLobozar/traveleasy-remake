@@ -1,7 +1,7 @@
 ---
 id: TE-042
 title: Manual dump retention rule, restore re-erasure note, umask order
-status: in-progress
+status: done
 priority: should
 epic: M0 First home-server deploy (follow-up of TE-040; before TE-034)
 agents: [devops-engineer]
@@ -25,12 +25,12 @@ As the owner, I want the manual database dumps to have a deletion rule and safe 
 - [x] AC4: Given the changes, when `docs/privacy/data-inventory.md` is read, then the manual-dump row states the 30-day maximum and matches the doc.
 
 ## Quality criteria
-- [ ] Tests: doc-only; the commands are exercised in TE-041 AC7 (or a note if TE-041 is already done).
-- [ ] Accessibility: n/a.
-- [ ] Security/privacy: reviewer confirms retention, permissions and the erasure re-apply note.
-- [ ] i18n: n/a.
-- [ ] Performance: n/a.
-- [ ] Docs updated: `docs/deploy/casaos-portainer.md`, `docs/privacy/data-inventory.md`.
+- [x] Tests: doc-only; the commands were exercised in the TE-041 dry run (which found the umask order, D4).
+- [x] Accessibility: n/a.
+- [x] Security/privacy: reviewer confirms retention, permissions and the erasure re-apply note (PASS, twice).
+- [x] i18n: n/a.
+- [x] Performance: n/a.
+- [x] Docs updated: `docs/deploy/casaos-portainer.md`, `docs/privacy/data-inventory.md`.
 
 ## Files to touch
 - `docs/deploy/casaos-portainer.md`: dump section (umask order, retention, restore note).
@@ -43,7 +43,18 @@ As the owner, I want the manual database dumps to have a deletion rule and safe 
 - (none)
 
 ## Rework log
-(empty)
+
+### Review follow-up (not a failed round; rework_rounds stays 0) - 2026-11-11
+QA and security both PASSED; the owner wants the security review's findings fixed before closing. Clarified criteria:
+- **R1 (Medium, `docs/deploy/casaos-portainer.md` re-erasure step):** the step could not be done: self-service deletions are not in the owner's request log, there is no admin or artisan erasure, and "check the safety dump" had no command. Required: before the restore, save current user IDs (`psql -Atc "select id from users"` into a file written under `umask 077`). After `RESTORE OK`, diff them against the restored IDs; any ID that is back was erased after the dump (bigint sequence IDs, never reused). Until an erasure command exists the doc tells the owner how to remove those accounts and flags it as interim (replaced by TE-047). The ID files are deleted afterwards.
+- **R2 (Low, retention paragraph):** use `find -mtime +29` so the 30-day limit holds. Resolve the contradiction "never delete the newest verified dump" vs the 30-day maximum: 30 days wins once the update the dump guarded is confirmed good. `docs/privacy/data-inventory.md` (Manual DB dumps row) kept consistent.
+- Fix applied by task-writer in the two docs; needs a re-check by security-privacy-reviewer (R1, R2). Status left for the orchestrator.
 
 ## Changelog
-(filled when done)
+- **Added:** 30-day maximum for manual dumps with list/delete commands (`find -mtime +29`); restore re-erasure procedure by user-ID diff (interim, replaced by TE-047).
+- **Changed:** `umask 077` now runs before `mkdir -p ~/traveleasy-backups` (folder 0700, dumps 0600); `docs/privacy/data-inventory.md` manual-dump row states the 30-day maximum.
+- **Removed:** nothing.
+- **Migrations:** none. **New env vars:** none. **Docker rebuild:** not needed (docs only).
+- **Commits:** e2334b8, ee8a1ce, and the R1/R2 fix commit.
+- **Testers:** qa-engineer PASS (static gate: pint, larastan, front-static green); security-privacy-reviewer PASS, initial and after the R1/R2 follow-up.
+- **Follow-up:** TE-047 replaces the interim SQL erasure step and carries the three restore-procedure fixes.

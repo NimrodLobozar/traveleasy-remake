@@ -35,7 +35,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-033](TE-033-deploy-doc-and-dry-run.md) | Home-server deploy doc and dry run on a throwaway stack; split into TE-040 and TE-041 | must | split | 0 | not-needed |
 | [TE-040](TE-040-home-server-deploy-doc.md) | Home-server deploy doc (CasaOS, Portainer, NPM) | must | done | 2 | not-needed |
 | [TE-041](TE-041-deploy-dry-run-throwaway-stack.md) | Dry run of the deploy doc on a throwaway stack (after TE-040) | must | done | 1 | not-needed |
-| [TE-042](TE-042-manual-dump-retention-and-umask.md) | Manual dump retention rule, restore re-erasure note, umask order (TE-040 follow-ups; before TE-034) | should | in-progress | 0 | not-needed |
+| [TE-042](TE-042-manual-dump-retention-and-umask.md) | Manual dump retention rule, restore re-erasure note, umask order (TE-040 follow-ups; before TE-034) | should | done | 0 | not-needed |
 | [TE-034](TE-034-owner-lan-deploy-and-post-deploy-checks.md) | First LAN-only deploy and post-deploy checks (**owner-gated**; after TE-041) | must | ready | 0 | not-needed |
 | [TE-027](TE-027-bump-php-8-5-12-dev-image.md) | Bump PHP to 8.5.12 in the dev image (chore) | must | done | 0 | not-needed |
 | [TE-028](TE-028-production-image-hardening-follow-ups.md) | Production image hardening follow-ups (chore) | must | done | 0 | not-needed |
@@ -49,6 +49,7 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-044](TE-044-trivy-high-findings-debian-13-7.md) | Clear the 9 High Trivy findings in the prod image (FrankenPHP 1.13.5, apt 3.0.4, scoped ignores for no-fix krb5/sqlite) | must | done | 0 | not-needed |
 | [TE-045](TE-045-weekly-scan-dev-playwright-findings.md) | Weekly scan green: dev and Playwright image findings (split from TE-044) | must | done | 0 | not-needed |
 | [TE-046](TE-046-weekly-scan-ignore-hygiene.md) | Weekly-scan ignore hygiene (follow-up to TE-045) | should | ready | 0 | not-needed |
+| [TE-047](TE-047-admin-account-erasure-and-id-based-re-erasure.md) | Admin/artisan account erasure and ID-based re-erasure after restore (TE-042 review; before go-live, with TE-039) | must | ready | 0 | not-needed |
 | [TE-037](TE-037-vite-plus-1x-upgrade.md) | Upgrade vite-plus to 1.x (due before 2026-12-15) | should | done | 1 | not-needed |
 | [TE-032](TE-032-dependency-updates-2026-11.md) | Safe dependency updates from Dependabot PRs #1-#3 (2026-11) | should | done | 0 | not-needed |
 | [TE-038](TE-038-symfony-serializer-advisories.md) | Fix symfony/serializer advisories blocking the composer audit gate | must | done | 1 | not-needed |
