@@ -48,19 +48,22 @@ test('TE-049 a new address is stored trimmed and lowercase', function () {
     expect(User::query()->sole()->email)->toBe('new.user@example.com');
 });
 
-test('TE-049 AC1 a case variant of an existing address gets the e-mail-taken error on the e-mail field', function (string $locale) {
+test('TE-049 AC1 a case variant of an existing address gets the e-mail-taken error on the e-mail field in nl and en', function (string $locale, string $expected) {
     User::factory()->create(['email' => 'admin@example.com']);
 
     $this->withUnencryptedCookie('locale', $locale)
         ->from(route('register'))
         ->post(route('register.store'), te049Registration(' Admin@Example.com '))
         ->assertRedirect(route('register'))
-        ->assertSessionHasErrors(['email' => trans('validation.unique', ['attribute' => 'email'], $locale)])
+        ->assertSessionHasErrors(['email' => $expected])
         ->assertSessionDoesntHaveErrors(['name', 'password']);
 
     $this->assertGuest();
     expect(User::query()->count())->toBe(1);
-})->with(['nl', 'en']);
+})->with([
+    'nl' => ['nl', 'Dit e-mailadres is al in gebruik.'],
+    'en' => ['en', 'This e-mail address is already in use.'],
+]);
 
 test('TE-049 AC1 a legacy row in another case still blocks the address', function () {
     $existing = User::factory()->create();
@@ -75,8 +78,8 @@ test('TE-049 AC1 a legacy row in another case still blocks the address', functio
 test('TE-049 AC2 the super_admin address cannot be registered in any case before the account exists', function (string $email) {
     config(['auth.super_admin_email' => 'Owner@Example.com']);
 
-    $this->post(route('register.store'), te049Registration($email))
-        ->assertSessionHasErrors(['email' => trans('validation.unique', ['attribute' => 'email'])]);
+    $this->withUnencryptedCookie('locale', 'nl')->post(route('register.store'), te049Registration($email))
+        ->assertSessionHasErrors(['email' => 'Dit e-mailadres is al in gebruik.']);
 
     $this->assertGuest();
     expect(User::query()->count())->toBe(0);

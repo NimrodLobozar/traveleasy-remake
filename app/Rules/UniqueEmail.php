@@ -16,7 +16,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
  * Compares on `lower(email)`, so it is backed by the `users_email_lower_unique` index and also catches a row stored in
  * another case before normalisation was in place. The protected super_admin address counts as taken even before the
  * account exists, so a case variant cannot claim it. The ignored user (own profile) may keep their own address in any
- * case or with surrounding spaces. The message is the existing `validation.unique` key: it names no address.
+ * case or with surrounding spaces. The message is `auth.email_taken` (nl + en): it names no address.
  */
 final readonly class UniqueEmail implements ValidationRule
 {
@@ -36,7 +36,7 @@ final readonly class UniqueEmail implements ValidationRule
             ->exists();
 
         if ($taken || $this->isReservedForSomeoneElse($email)) {
-            $fail('validation.unique')->translate();
+            $fail('auth.email_taken')->translate();
         }
     }
 

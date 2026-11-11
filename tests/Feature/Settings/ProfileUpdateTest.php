@@ -97,7 +97,7 @@ test('TE-049 a new address is stored trimmed and lowercase', function () {
     expect($user->refresh()->email)->toBe('jan.nieuw@example.com');
 });
 
-test('TE-049 the address of another account in another case gets the e-mail-taken error', function (string $locale) {
+test('TE-049 the address of another account in another case gets the e-mail-taken error in nl and en', function (string $locale, string $expected) {
     User::factory()->create(['email' => 'piet@example.com']);
     $user = User::factory()->create(['email' => 'jan@example.com']);
 
@@ -106,11 +106,14 @@ test('TE-049 the address of another account in another case gets the e-mail-take
         ->from(route('profile.edit'))
         ->patch(route('profile.update'), ['name' => 'Jan', 'email' => 'Piet@Example.com'])
         ->assertRedirect(route('profile.edit'))
-        ->assertSessionHasErrors(['email' => trans('validation.unique', ['attribute' => 'email'], $locale)])
+        ->assertSessionHasErrors(['email' => $expected])
         ->assertSessionDoesntHaveErrors('name');
 
     expect($user->refresh()->email)->toBe('jan@example.com');
-})->with(['nl', 'en']);
+})->with([
+    'nl' => ['nl', 'Dit e-mailadres is al in gebruik.'],
+    'en' => ['en', 'This e-mail address is already in use.'],
+]);
 
 test('TE-049 a customer cannot take the super_admin address in any case', function () {
     config(['auth.super_admin_email' => 'owner@example.com']);
