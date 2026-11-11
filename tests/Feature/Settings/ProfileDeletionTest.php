@@ -104,3 +104,17 @@ test('AC4 the protected super_admin cannot delete itself', function () {
     expect(User::query()->find($owner->id))->not->toBeNull()
         ->and(AuditLog::query()->count())->toBe(0);
 });
+
+test('TE-049 AC8 the super_admin stored in another case cannot delete itself', function () {
+    config(['auth.super_admin_email' => 'owner@example.test']);
+    $owner = User::factory()->create();
+    DB::table('users')->where('id', $owner->id)->update(['email' => 'Owner@Example.test']);
+    $owner->refresh();
+
+    $this->actingAs($owner)
+        ->delete(route('profile.destroy'), ['password' => 'password'])
+        ->assertForbidden();
+
+    expect(User::query()->find($owner->id))->not->toBeNull()
+        ->and(AuditLog::query()->count())->toBe(0);
+});

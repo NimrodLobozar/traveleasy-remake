@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Erasure;
 
 use App\Models\User;
+use App\Support\EmailAddress;
 
 /**
  * The one place that decides whether an account may never be erased.
@@ -17,12 +18,21 @@ class ProtectedAccountGuard
 {
     public function isProtected(User $user): bool
     {
+        return $this->isProtectedAddress($user->email);
+    }
+
+    /**
+     * Whether the address is the protected one, compared in the shared normalised form ({@see EmailAddress}), so a
+     * case variant or surrounding spaces on either side still match. Also stops registration claiming the address.
+     */
+    public function isProtectedAddress(string $email): bool
+    {
         $identifier = config('auth.super_admin_email');
 
-        if (! is_string($identifier) || trim($identifier) === '') {
+        if (! is_string($identifier) || EmailAddress::normalise($identifier) === '') {
             return false;
         }
 
-        return mb_strtolower(trim($identifier)) === mb_strtolower(trim($user->email));
+        return EmailAddress::normalise($identifier) === EmailAddress::normalise($email);
     }
 }

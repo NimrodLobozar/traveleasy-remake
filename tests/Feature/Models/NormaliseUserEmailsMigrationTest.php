@@ -3,12 +3,17 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
-function emailMigration(): object
+/** @param 'up'|'down' $direction */
+function emailMigration(string $direction): void
 {
-    return require database_path('migrations/2026_11_11_100000_normalise_user_emails.php');
+    $migration = require __DIR__.'/../../../database/migrations/2026_11_11_100000_normalise_user_emails.php';
+    assert($migration instanceof Migration && method_exists($migration, 'up') && method_exists($migration, 'down'));
+
+    $direction === 'up' ? $migration->up() : $migration->down();
 }
 
 function rawUser(string $email): void
@@ -24,24 +29,24 @@ function rawUser(string $email): void
 }
 
 it('trims and lowercases existing e-mails', function () {
-    emailMigration()->down();
+    emailMigration('down');
     rawUser('  Jan@Example.COM ');
     rawUser('anna@example.com');
 
-    emailMigration()->up();
+    emailMigration('up');
 
     expect(DB::table('users')->orderBy('id')->pluck('email')->all())
         ->toBe(['jan@example.com', 'anna@example.com']);
 });
 
 it('aborts on a collision without changing anything or naming an address', function () {
-    emailMigration()->down();
+    emailMigration('down');
     rawUser('Jan@Example.com');
     rawUser('jan@example.com ');
     rawUser('Other@Example.com');
 
     try {
-        emailMigration()->up();
+        emailMigration('up');
         $this->fail('Expected the migration to abort.');
     } catch (RuntimeException $e) {
         expect(strtolower($e->getMessage()))->not->toContain('jan')->not->toContain('example.com');
