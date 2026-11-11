@@ -1,7 +1,7 @@
 ---
 id: TE-042
 title: Manual dump retention rule, restore re-erasure note, umask order
-status: ready
+status: in-progress
 priority: should
 epic: M0 First home-server deploy (follow-up of TE-040; before TE-034)
 agents: [devops-engineer]
