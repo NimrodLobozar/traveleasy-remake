@@ -51,9 +51,11 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-046](TE-046-weekly-scan-ignore-hygiene.md) | Weekly-scan ignore hygiene (follow-up to TE-045) | should | ready | 0 | not-needed |
 | [TE-047](TE-047-admin-account-erasure-and-id-based-re-erasure.md) | Admin/artisan account erasure and ID-based re-erasure (code; TE-042 review; before go-live, with TE-039) | must | done | 0 | not-needed |
 | [TE-048](TE-048-restore-procedure-re-erasure-docs.md) | Restore procedure rewrite with ID-based re-erasure (docs; split from TE-047, depends on it) | must | done | 0 | not-needed |
-| [TE-049](TE-049-normalise-e-mail-case.md) | Normalise e-mail case so the protected super_admin address cannot be claimed (follow-up to TE-047; before go-live) | must | ready | 0 | not-needed |
+| [TE-049](TE-049-normalise-e-mail-case.md) | Normalise e-mail case so the protected super_admin address cannot be claimed (follow-up to TE-047; before go-live) | must | done | 0 | not-needed |
 | [TE-050](TE-050-stabilise-timing-flaky-locale-tests.md) | Stabilise timing-flaky locale tests (switches e2e, LocaleResolutionTest) | should | ready | 0 | not-needed |
 | [TE-051](TE-051-restore-procedure-hardening.md) | Restore procedure hardening: app.env cleanup, users_id_seq reset, doc corrections (docs; follow-up to TE-048; before go-live) | must | ready | 0 | not-needed |
+| [TE-052](TE-052-rate-limit-register.md) | Rate-limit POST /register by IP (security review of TE-049; before go-live) | must | ready | 0 | not-needed |
+| [TE-053](TE-053-email-whitespace-parity.md) | Whitespace parity between PostgreSQL btrim and PHP trim for e-mail normalisation (follow-up to TE-049) | could | ready | 0 | not-needed |
 | [TE-037](TE-037-vite-plus-1x-upgrade.md) | Upgrade vite-plus to 1.x (due before 2026-12-15) | should | done | 1 | not-needed |
 | [TE-032](TE-032-dependency-updates-2026-11.md) | Safe dependency updates from Dependabot PRs #1-#3 (2026-11) | should | done | 0 | not-needed |
 | [TE-038](TE-038-symfony-serializer-advisories.md) | Fix symfony/serializer advisories blocking the composer audit gate | must | done | 1 | not-needed |
