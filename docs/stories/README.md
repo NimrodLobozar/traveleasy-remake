@@ -49,7 +49,10 @@ Priority (MoSCoW): `must` · `should` · `could` · `nice-to-have`.
 | [TE-044](TE-044-trivy-high-findings-debian-13-7.md) | Clear the 9 High Trivy findings in the prod image (FrankenPHP 1.13.5, apt 3.0.4, scoped ignores for no-fix krb5/sqlite) | must | done | 0 | not-needed |
 | [TE-045](TE-045-weekly-scan-dev-playwright-findings.md) | Weekly scan green: dev and Playwright image findings (split from TE-044) | must | done | 0 | not-needed |
 | [TE-046](TE-046-weekly-scan-ignore-hygiene.md) | Weekly-scan ignore hygiene (follow-up to TE-045) | should | ready | 0 | not-needed |
-| [TE-047](TE-047-admin-account-erasure-and-id-based-re-erasure.md) | Admin/artisan account erasure and ID-based re-erasure after restore (TE-042 review; before go-live, with TE-039) | must | ready | 0 | not-needed |
+| [TE-047](TE-047-admin-account-erasure-and-id-based-re-erasure.md) | Admin/artisan account erasure and ID-based re-erasure (code; TE-042 review; before go-live, with TE-039) | must | done | 0 | not-needed |
+| [TE-048](TE-048-restore-procedure-re-erasure-docs.md) | Restore procedure rewrite with ID-based re-erasure (docs; split from TE-047, depends on it) | must | ready | 0 | not-needed |
+| [TE-049](TE-049-normalise-e-mail-case.md) | Normalise e-mail case so the protected super_admin address cannot be claimed (follow-up to TE-047; before go-live) | must | ready | 0 | not-needed |
+| [TE-050](TE-050-stabilise-timing-flaky-locale-tests.md) | Stabilise timing-flaky locale tests (switches e2e, LocaleResolutionTest) | should | ready | 0 | not-needed |
 | [TE-037](TE-037-vite-plus-1x-upgrade.md) | Upgrade vite-plus to 1.x (due before 2026-12-15) | should | done | 1 | not-needed |
 | [TE-032](TE-032-dependency-updates-2026-11.md) | Safe dependency updates from Dependabot PRs #1-#3 (2026-11) | should | done | 0 | not-needed |
 | [TE-038](TE-038-symfony-serializer-advisories.md) | Fix symfony/serializer advisories blocking the composer audit gate | must | done | 1 | not-needed |

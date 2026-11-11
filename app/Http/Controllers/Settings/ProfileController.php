@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Services\AccountEraser;
 use App\Support\CurrentUser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,15 +44,19 @@ class ProfileController extends Controller
     }
 
     /**
-     * Delete the user's profile.
+     * Erase the signed-in user's own account (never another user's) through the shared AccountEraser (TE-047).
+     *
+     * Logout comes first: logging out a deleted user would save the model again (remember-token cycling).
      */
-    public function destroy(ProfileDeleteRequest $request): RedirectResponse
+    public function destroy(ProfileDeleteRequest $request, AccountEraser $eraser): RedirectResponse
     {
         $user = CurrentUser::of($request);
 
+        abort_if($eraser->isProtected($user), 403);
+
         Auth::logout();
 
-        $user->delete();
+        $eraser->erase($user, AccountEraser::ACTOR_SELF);
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

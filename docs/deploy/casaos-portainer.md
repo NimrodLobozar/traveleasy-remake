@@ -92,6 +92,7 @@ MUST declare `depends_on: app: condition: service_healthy`, so they never run ne
    - `APP_IMAGE_TAG`: the released tag you deploy, for example `v0.1.0` (never `latest`).
    - `APP_URL`: the public https address NPM serves, for example `https://traveleasy.example.com`.
    - `TRUSTED_PROXIES`: NPM's fixed IP from step 2 above, one address and nothing else.
+   - `SUPER_ADMIN_EMAIL` (optional): your private super_admin login e-mail, so the account eraser can never erase it. Leave empty if you have none.
    - `SESSION_SECURE_COOKIE`: leave `true`, except for the LAN-over-HTTP exception in "Nginx Proxy Manager host".
    - `DB_SUPERUSER_PASSWORD`, `DB_PASSWORD`, `APP_KEY`: paste the three lines from step 3 of "Before the first deploy".
 4. Click **Deploy the stack**. Expect the stack to appear in the list. Portainer reports an error naming the variable if a required one is empty.

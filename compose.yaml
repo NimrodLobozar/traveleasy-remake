@@ -190,6 +190,8 @@ services:
             # NPM's single FIXED IP on npm_shared: only that peer may set X-Forwarded-*. Never the network CIDR, never * and
             # never empty-means-all (the production boot check refuses ranges).
             TRUSTED_PROXIES: ${TRUSTED_PROXIES:?TRUSTED_PROXIES is required (the fixed IP of Nginx Proxy Manager on npm_shared, see docs/deploy/casaos-portainer.md)}
+            # Login e-mail of the super_admin; the account eraser (users:erase) refuses it. Empty = none protected.
+            SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
             INERTIA_SSR_ENABLED: ${INERTIA_SSR_ENABLED:-true}
             INERTIA_SSR_URL: ${INERTIA_SSR_URL:-http://ssr:13714}
             INERTIA_SSR_TIMEOUT: ${INERTIA_SSR_TIMEOUT:-2}
