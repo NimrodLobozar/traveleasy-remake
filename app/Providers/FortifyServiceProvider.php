@@ -9,6 +9,7 @@ use App\Support\EmailAddress;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
@@ -33,6 +34,7 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();
+        $this->throttleRegistration();
     }
 
     /**
@@ -79,12 +81,36 @@ class FortifyServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($throttleKey);
         });
 
+        // TE-052: registration is counted per client IP only, never per e-mail address, so the key holds no personal
+        // data and a new address can't reset it. ip() honours X-Forwarded-For only from TRUSTED_PROXIES (TE-012).
+        RateLimiter::for('register', function (Request $request) {
+            return Limit::perMinute(5)->by((string) $request->ip());
+        });
+
         RateLimiter::for('passkeys', function (Request $request) {
             $credentialId = $request->input('credential.id');
 
             return Limit::perMinute(10)->by(
                 (is_string($credentialId) && $credentialId !== '' ? $credentialId : $request->session()->getId()).'|'.$request->ip(),
             );
+        });
+    }
+
+    /**
+     * TE-052: `fortify.limiters` has no registration key, so the `register` limiter is added to Fortify's
+     * `POST /register` route here. Fortify registers its routes in its own boot, so this runs once every provider has
+     * booted. Idempotent: a cached route (`php artisan optimize`) already carries the middleware.
+     */
+    private function throttleRegistration(): void
+    {
+        $this->app->booted(function (): void {
+            $routes = Route::getRoutes();
+            $routes->refreshNameLookups();
+            $route = $routes->getByName('register.store');
+
+            if ($route !== null && ! in_array('throttle:register', $route->middleware(), true)) {
+                $route->middleware('throttle:register');
+            }
         });
     }
 }

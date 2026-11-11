@@ -29,6 +29,29 @@ test('new users can register', function () {
     $response->assertRedirect(route('dashboard', absolute: false));
 });
 
+test('TE-052 AC4 a registration under the limit creates the account and redirects as before', function () {
+    $this->post(route('register.store'), te049Registration('new.user@example.com'))
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('dashboard', absolute: false));
+
+    $this->assertAuthenticated();
+    expect(User::query()->sole()->email)->toBe('new.user@example.com')
+        ->and(RateLimiter::attempts(md5('register127.0.0.1')))->toBe(1);
+});
+
+test('TE-052 AC7 a signed-in user is refused by the guest middleware, also with the IP limit used up', function (int $used) {
+    $user = User::factory()->create();
+    RateLimiter::increment(md5('register127.0.0.1'), amount: $used);
+
+    $this->actingAs($user)
+        ->post(route('register.store'), te049Registration('other@example.com'))
+        ->assertRedirect(route('dashboard', absolute: false));
+
+    $this->assertAuthenticatedAs($user);
+    expect(User::query()->count())->toBe(1)
+        ->and(RateLimiter::attempts(md5('register127.0.0.1')))->toBe($used);
+})->with(['under the limit' => 0, 'limit used up' => 5]);
+
 /** @return array<string, string> */
 function te049Registration(string $email): array
 {

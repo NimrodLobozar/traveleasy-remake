@@ -9,12 +9,14 @@ use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\TrustProxies;
 use App\Support\Errors\ErrorPageRenderer;
 use App\Support\Health\HealthCheckFailed;
+use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Middleware\TrustProxies as FrameworkTrustProxies;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -43,6 +45,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // TE-012 AC12: trust X-Forwarded-For/-Proto/-Port only from TRUSTED_PROXIES (never `*`, never -Host).
         $middleware->replace(FrameworkTrustProxies::class, TrustProxies::class);
+
+        // TE-052 AC7: `guest` runs before any throttle, so a signed-in user posting to a guest-only route (register,
+        // login) gets the guest redirect instead of a 429, and doesn't use up the guests' counter on that IP.
+        $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: RedirectIfAuthenticated::class);
 
         // Plain, allow-listed UI preferences; never personal data. `locale` is validated by LocaleResolver (TE-009).
         $middleware->encryptCookies(except: ['appearance', 'locale', 'sidebar_state']);
