@@ -30,6 +30,21 @@ The kit's `DatabaseSeeder` creates `test@example.com` with the factory password 
 data and must never run in production (M1/M2 `reference` vs `demo` seeder split). The TE-002 dev environment never
 seeds automatically (image, entrypoint and compose files checked).
 
+## Re-erasure after a restore (TE-047, TE-048)
+
+A restored dump brings back accounts erased after it was taken. The restore procedure (`docs/deploy/casaos-portainer.md`,
+"Restore and erasures") finds them by user ID and runs `users:erase --from-file=-` before `app` starts, so they cannot log
+in. Manual dumps are kept at most 30 days (same limit as above).
+
+| Table | Re-erasure |
+|---|---|
+| `users` | Row deleted by the eraser |
+| `passkeys` | Deleted explicitly (and by cascade) |
+| `sessions` | Deleted by `user_id` (no foreign key, so by name) |
+| `audit_logs` | Kept on purpose (pseudonymous, user ID only); a new `account_erased` row (actor `cli`) is written |
+| `cache`, `cache_locks` | Not matched by user ID; expire by themselves (limiter decay) |
+| `jobs`, `failed_jobs` | Hold no personal data (jobs reference IDs); not touched |
+
 ## Development environment (TE-002)
 
 The dev stack should hold **fake data only**. Never import a production dump into it: the dev tools below have weaker

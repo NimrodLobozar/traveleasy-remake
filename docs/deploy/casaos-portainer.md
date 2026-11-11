@@ -382,31 +382,70 @@ The scheduled dump service is a later story. Until then, take a dump before ever
        < <file from step 1> && echo "RESTORE OK" || echo "RESTORE FAILED: database unchanged, read the error above"
      ```
 
-  6. Only after `RESTORE OK`, start `app` and run "Verify the deploy" steps 1 and 3. On `RESTORE FAILED`, the database still
-     holds the state from step 3; start `app` and read the error before trying again. `db-init` re-applies the app role on the
-     next deploy.
+  6. After `RESTORE OK`, do **not** start `app` yet: first do "Restore and erasures" below (the `db` container is the only
+     one running). Then start `app` and run "Verify the deploy" steps 1 and 3. On `RESTORE FAILED`, the database still holds
+     the state from step 3 and no account came back, so you can start `app` and read the error before trying again.
+     `db-init` re-applies the app role on the next deploy.
 - Restore and erasures. A dump holds the data as it was on the day it was taken. Any account deleted or erased **after**
   that date (also self-service deletions, which are not in your request log) comes back with the restore and must be
-  erased again right after `RESTORE OK`. Do this by user ID, before and after the restore (IDs are bigint sequence values
-  and are never reused, so an ID that is back was deleted after the dump):
-  1. **Before the restore** (before step 3's safety dump is replaced, with the old state still live), save the current IDs:
+  erased again. Do this by user ID, before and after the restore (IDs are bigint sequence values and are never reused, so
+  an ID that is back was deleted after the dump). **`app` stays stopped until the erasure has succeeded** (only `db` runs;
+  stop `worker` and `scheduler` too if you run them): otherwise an account that was erased could log in again between
+  the restore and the re-erasure. The ID files hold only numeric IDs, no names or e-mail addresses.
+  1. **Before the restore** (restore step 2 done, so `app` is stopped; the old state still live), save the current IDs:
 
      ```
+     cd ~/traveleasy-backups
      umask 077
-     docker exec traveleasy-db-1 psql -U postgres -d traveleasy -Atc "select id from users order by id" \
-       > ~/traveleasy-backups/ids-before-restore.txt
+     docker exec traveleasy-db-1 psql -U postgres -d traveleasy -Atc "select id from users order by id" > ids-before.txt
      ```
-  2. **After `RESTORE OK`**, list the restored IDs the same way into `ids-after-restore.txt`, then show the IDs that are back:
+  2. **After `RESTORE OK`, with `app` still stopped:**
 
      ```
-     comm -13 <(sort ids-before-restore.txt) <(sort ids-after-restore.txt)
+     cd ~/traveleasy-backups
+     umask 077
+     docker exec traveleasy-db-1 psql -U postgres -d traveleasy -Atc "select id from users order by id" > ids-after-restore.txt
+     comm -13 <(sort ids-before.txt) <(sort ids-after-restore.txt) > ids-to-erase.txt
+     cat ids-to-erase.txt
      ```
-     Every ID printed was present in the dump but not in the live database, so that account was erased after the dump.
-  3. Erase those accounts again. **Interim, until the admin/artisan erasure command exists (TE-047):** remove each account
-     with SQL in `psql` as the superuser, inside a transaction, and check that rows in tables that reference the user
-     (`select` first) are removed too; then note the date in your request log. This is a manual step and is replaced by
-     the command from TE-047.
-  4. Delete the ID files: `rm ~/traveleasy-backups/ids-*-restore.txt`.
+
+     Every ID in `ids-to-erase.txt` was present in the dump but not in the live database, so that account was erased or
+     deleted after the dump. If the file is empty, nothing came back: go to step 5.
+  3. Erase those accounts again with the `users:erase` command (TE-047) in a one-off container of the same image, on the
+     stack's database network and with the same settings as `app` (the stopped `app` container still holds them; the
+     temporary `app.env` file holds secrets, so it is deleted in step 5). The command removes the user, passkeys and
+     sessions, and writes an `account_erased` audit row with actor `cli`:
+
+     ```
+     cd ~/traveleasy-backups
+     umask 077
+     docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' traveleasy-app-1 > app.env
+     img=$(docker inspect -f '{{.Config.Image}}' traveleasy-app-1)
+     net=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' traveleasy-db-1 | cut -d' ' -f1)
+     docker run --rm -i --network "$net" --env-file app.env --read-only --cap-drop ALL \
+       --security-opt no-new-privileges:true --tmpfs /tmp:uid=10001,gid=10001,mode=1777,size=64m \
+       --tmpfs /var/www/html/storage/framework:uid=10001,gid=10001,mode=0700,size=64m \
+       "$img" php artisan users:erase --from-file=- < ids-to-erase.txt
+     echo "exit code: $?"
+     ```
+
+     Expect one `<id> erased` line per ID, then `Summary: N erased, 0 not found, 0 refused, 0 failed.` and `exit code: 0`.
+     The command is safe to run again (an ID that is already gone is `not found`). The only account it refuses is the
+     `super_admin`.
+  4. **A non-zero exit code, or any `refused` or `failed` count, blocks starting `app`.** Do not start it. Read the line
+     of each ID that is not `erased`, run the block again (a failed ID changed nothing for that user) and check the
+     container logs for the error. If it still fails, or a `refused` ID is not the owner's own account, leave `app`
+     stopped and ask the owner. Starting `app` with an account that came back would let that person log in.
+  5. Only when the summary shows `0 refused, 0 failed` (or the list was empty), delete the temporary files, then start
+     `app` (Portainer -> Containers -> `app` -> **Start**) and run "Verify the deploy" steps 1 and 3. Note the date and the
+     number of erased accounts in your request log:
+
+     ```
+     cd ~/traveleasy-backups
+     rm -f ids-before.txt ids-after-restore.txt ids-to-erase.txt app.env
+     ```
+
+     Every table with personal data in `docs/privacy/data-inventory.md` is covered (see "Re-erasure after a restore" there).
 - Retention of manual dumps. A manual dump is a full copy of personal data, so it is not kept: delete an older dump as soon
   as a newer one is verified (`DUMP OK`) and the update it guarded is confirmed good, and never keep any manual dump longer
   than 30 days (the 30 days win, even over the newest dump, once the update it guarded is confirmed good). Invoices are
