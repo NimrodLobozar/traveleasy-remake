@@ -384,28 +384,45 @@ The scheduled dump service is a later story. Until then, take a dump before ever
   6. Only after `RESTORE OK`, start `app` and run "Verify the deploy" steps 1 and 3. On `RESTORE FAILED`, the database still
      holds the state from step 3; start `app` and read the error before trying again. `db-init` re-applies the app role on the
      next deploy.
-- Restore and erasures. A dump holds the data as it was on the day it was taken. Any account deletion or data-subject
-  erasure request handled **after** that date comes back with the restore, and must be erased again right after
-  `RESTORE OK`. To find them:
-  1. List the erasure requests received since the dump's date from your own request log (mailbox, notes). The pre-restore
-     safety dump (restore step 3) still holds the newer state, so it is the place to check who was deleted since.
-  2. Compare that list with the restored users; every person on it that is present again is erased again the same way as the
-     first time (Settings > Profile > Delete account, or the admin erasure).
-  3. Write the re-erasure and the date in your request log.
+- Restore and erasures. A dump holds the data as it was on the day it was taken. Any account deleted or erased **after**
+  that date (also self-service deletions, which are not in your request log) comes back with the restore and must be
+  erased again right after `RESTORE OK`. Do this by user ID, before and after the restore (IDs are bigint sequence values
+  and are never reused, so an ID that is back was deleted after the dump):
+  1. **Before the restore** (before step 3's safety dump is replaced, with the old state still live), save the current IDs:
+
+     ```
+     umask 077
+     docker exec traveleasy-db-1 psql -U postgres -d traveleasy -Atc "select id from users order by id" \
+       > ~/traveleasy-backups/ids-before-restore.txt
+     ```
+  2. **After `RESTORE OK`**, list the restored IDs the same way into `ids-after-restore.txt`, then show the IDs that are back:
+
+     ```
+     comm -13 <(sort ids-before-restore.txt) <(sort ids-after-restore.txt)
+     ```
+     Every ID printed was present in the dump but not in the live database, so that account was erased after the dump.
+  3. Erase those accounts again. **Interim, until the admin/artisan erasure command exists (TE-047):** remove each account
+     with SQL in `psql` as the superuser, inside a transaction, and check that rows in tables that reference the user
+     (`select` first) are removed too; then note the date in your request log. This is a manual step and is replaced by
+     the command from TE-047.
+  4. Delete the ID files: `rm ~/traveleasy-backups/ids-*-restore.txt`.
 - Retention of manual dumps. A manual dump is a full copy of personal data, so it is not kept: delete an older dump as soon
   as a newer one is verified (`DUMP OK`) and the update it guarded is confirmed good, and never keep any manual dump longer
-  than 30 days. Invoices are kept 7 years in the database, not in these dumps. List the dumps with their age, then delete
-  the ones older than 30 days (check the list first):
+  than 30 days (the 30 days win, even over the newest dump, once the update it guarded is confirmed good). Invoices are
+  kept 7 years in the database, not in these dumps. List the dumps with their age, then delete the ones that are 30 days
+  old or more (check the list first):
 
   ```
   cd ~/traveleasy-backups
   ls -lt --time-style=long-iso
-  find . -maxdepth 1 -name 'traveleasy-*.dump' -mtime +30 -print      # what would go
-  find . -maxdepth 1 -name 'traveleasy-*.dump' -mtime +30 -delete     # delete them
+  find . -maxdepth 1 -name 'traveleasy-*.dump' -mtime +29 -print      # what would go
+  find . -maxdepth 1 -name 'traveleasy-*.dump' -mtime +29 -delete     # delete them
   ```
 
-  To delete one older dump by name: `rm traveleasy-<date>-<time>.dump`. Never delete the newest verified dump or a
-  `pre-restore` file whose restore is not yet confirmed good. Copies kept off the server follow the same 30 days.
+  (`-mtime +29` matches files at least 30 days old; `+30` would keep them until day 31.) To delete one older dump by
+  name: `rm traveleasy-<date>-<time>.dump`. Do not delete the newest verified dump, or a `pre-restore` file whose restore is
+  not yet confirmed good, while the update or restore they guard is still unconfirmed; after confirmation the 30-day limit
+  applies to them too. Copies kept off the server follow the same 30 days.
 - Keep dumps off the server too. This procedure (dump, verify, safety dump, restore) was run once on the throwaway stack in TE-041 and works as written. A scheduled restore test is
   part of the `backup` story.
 
