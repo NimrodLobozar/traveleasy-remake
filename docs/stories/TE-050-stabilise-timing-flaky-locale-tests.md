@@ -24,6 +24,13 @@ Seen during the TE-047 gate. `tests/e2e/switches.spec.ts` (language switch) once
 - [ ] AC5: Given the fix, when the root cause is found, then it is recorded in the Changelog (one or two sentences: for example, cookie set after the redirect, or state shared between tests), and no retries are added to `playwright.config.ts` or the PHP suite to hide it.
 - [ ] AC6: Given a regression that breaks the switch (cookie not set, or `lang` stays `nl`), when the spec runs, then it fails within the normal assertion timeout and not after a retry, so a real break is still caught.
 
+## Context (added during TE-049)
+- Seen again during the TE-049 full gate (branch `fix/te-049-email-case`), under load:
+  - `tokens.test.ts` and `lang-files.test.ts` timed out at 5000 ms.
+  - `i18n-check.test.ts` AC6 duration assertion failed (13150 ms against a 5000 ms limit).
+  - 11 e2e axe tests in the base-components and complex-components specs timed out at 30 s.
+- All of them passed when run alone. Same pattern as before: load-dependent, not a logic break. Include them in the root-cause work; the fix must not raise timeouts to hide it.
+
 ## Quality criteria
 - [ ] Tests: the two changed specs pass AC3 and AC4; the rest of the suites stay green (`bash scripts/check.sh all`, once at the end).
 - [ ] Accessibility: not applicable (no UI change); the switch keeps its accessible name.

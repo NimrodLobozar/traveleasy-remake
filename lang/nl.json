@@ -5,6 +5,7 @@
     "auth.confirm.separator": "Of bevestig met wachtwoord",
     "auth.confirm.submit": "Wachtwoord bevestigen",
     "auth.confirm.title": "Wachtwoord bevestigen",
+    "auth.email_taken": "Dit e-mailadres is al in gebruik.",
     "auth.login.description": "Vul hieronder je e-mailadres en wachtwoord in om in te loggen",
     "auth.login.heading": "Log in op je account",
     "auth.login.no_account": "Nog geen account?",

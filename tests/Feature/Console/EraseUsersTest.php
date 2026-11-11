@@ -328,3 +328,18 @@ it('AC8 re-erases accounts that a restore brought back, sessions included', func
         ->and(AuditLog::query()->where('subject_user_id', $erased->id)->count())->toBe(2);
     unlink($file);
 });
+
+it('TE-049 AC8 refuses the super_admin stored in another case before normalisation was in place', function () {
+    config(['auth.super_admin_email' => 'owner@example.test']);
+    $owner = User::factory()->create();
+    // A case-variant row as an older code path could have written it: the model mutator is bypassed on purpose.
+    DB::table('users')->where('id', $owner->id)->update(['email' => 'Owner@Example.test']);
+
+    eraseUsers($this, ['id' => (string) $owner->id])
+        ->expectsOutput("{$owner->id} REFUSED (protected account)")
+        ->doesntExpectOutputToContain('xample.test')
+        ->assertExitCode(1);
+
+    expect(DB::table('users')->where('id', $owner->id)->value('email'))->toBe('Owner@Example.test')
+        ->and(AuditLog::query()->count())->toBe(0);
+});

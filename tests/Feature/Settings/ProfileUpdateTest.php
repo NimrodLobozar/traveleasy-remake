@@ -74,3 +74,65 @@ test('correct password must be provided to delete account', function () {
 
     expect($user->fresh())->not->toBeNull();
 });
+
+test('TE-049 AC3 the own address in another case or with spaces saves without a unique error', function () {
+    $user = User::factory()->create(['email' => 'jan@example.com']);
+
+    $this->actingAs($user)
+        ->from(route('profile.edit'))
+        ->patch(route('profile.update'), ['name' => 'Jan', 'email' => '  Jan@Example.COM '])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('profile.edit'));
+
+    expect($user->refresh()->email)->toBe('jan@example.com');
+});
+
+test('TE-049 a new address is stored trimmed and lowercase', function () {
+    $user = User::factory()->create(['email' => 'jan@example.com']);
+
+    $this->actingAs($user)
+        ->patch(route('profile.update'), ['name' => 'Jan', 'email' => ' Jan.Nieuw@Example.com'])
+        ->assertSessionHasNoErrors();
+
+    expect($user->refresh()->email)->toBe('jan.nieuw@example.com');
+});
+
+test('TE-049 the address of another account in another case gets the e-mail-taken error in nl and en', function (string $locale, string $expected) {
+    User::factory()->create(['email' => 'piet@example.com']);
+    $user = User::factory()->create(['email' => 'jan@example.com']);
+
+    $this->actingAs($user)
+        ->withUnencryptedCookie('locale', $locale)
+        ->from(route('profile.edit'))
+        ->patch(route('profile.update'), ['name' => 'Jan', 'email' => 'Piet@Example.com'])
+        ->assertRedirect(route('profile.edit'))
+        ->assertSessionHasErrors(['email' => $expected])
+        ->assertSessionDoesntHaveErrors('name');
+
+    expect($user->refresh()->email)->toBe('jan@example.com');
+})->with([
+    'nl' => ['nl', 'Dit e-mailadres is al in gebruik.'],
+    'en' => ['en', 'This e-mail address is already in use.'],
+]);
+
+test('TE-049 a customer cannot take the super_admin address in any case', function () {
+    config(['auth.super_admin_email' => 'owner@example.com']);
+    $user = User::factory()->create(['email' => 'jan@example.com']);
+
+    $this->actingAs($user)
+        ->patch(route('profile.update'), ['name' => 'Jan', 'email' => 'Owner@Example.com'])
+        ->assertSessionHasErrors('email');
+
+    expect($user->refresh()->email)->toBe('jan@example.com');
+});
+
+test('TE-049 the super_admin keeps its own address in another case', function () {
+    config(['auth.super_admin_email' => 'Owner@Example.com']);
+    $owner = User::factory()->create(['email' => 'owner@example.com']);
+
+    $this->actingAs($owner)
+        ->patch(route('profile.update'), ['name' => 'Owner', 'email' => 'OWNER@example.com'])
+        ->assertSessionHasNoErrors();
+
+    expect($owner->refresh()->email)->toBe('owner@example.com');
+});

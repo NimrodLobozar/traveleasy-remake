@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Concerns;
 
-use App\Models\User;
+use App\Rules\UniqueEmail;
+use App\Support\EmailAddress;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Validation\Rule;
 use Stringable;
 
 trait ProfileValidationRules
@@ -37,6 +37,9 @@ trait ProfileValidationRules
     /**
      * Get the validation rules used to validate user emails.
      *
+     * Expects normalised input ({@see EmailAddress}); uniqueness is case-insensitive and the
+     * protected super_admin address counts as taken (TE-049).
+     *
      * @return array<int, ValidationRule|Stringable|array<mixed>|string>
      */
     protected function emailRules(?int $userId = null): array
@@ -46,9 +49,7 @@ trait ProfileValidationRules
             'string',
             'email',
             'max:255',
-            $userId === null
-                ? Rule::unique(User::class)
-                : Rule::unique(User::class)->ignore($userId),
+            new UniqueEmail($userId),
         ];
     }
 }

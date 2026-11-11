@@ -14,7 +14,7 @@ here security and abuse prevention.
 | Where | Field(s) | Purpose | Legal basis | Who can access | Retention (target) | Notes |
 |---|---|---|---|---|---|---|
 | `users` | `name` | Display name in the app | (b) | The user; staff with a need (M1 roles) | Until account deletion | Free text, max 255 |
-| `users` | `email` | **Login name only** (ADR-0005): never verified, never mailed | (b) | The user; staff with a need | Until account deletion | Must become case-insensitive unique (M1) |
+| `users` | `email` | **Login name only** (ADR-0005): never verified, never mailed | (b) | The user; staff with a need | Until account deletion | Stored trimmed and lowercase; unique on `lower(email)` (TE-049) |
 | `users` | `password` | Authentication | (b) | Nobody (bcrypt hash, `#[Hidden]`) | Until account deletion | Never in Inertia props (`SharedUserData`) |
 | `users` | `two_factor_secret`, `two_factor_recovery_codes`, `two_factor_confirmed_at` | 2FA | (b), (f) | Nobody (Fortify encrypts the secret and codes with `APP_KEY`; hidden) | Until 2FA is disabled or the account is deleted | Never in Inertia props |
 | `users` | `remember_token` | "Remember me" login | (b) | Nobody (hidden) | Until logout or account deletion | |

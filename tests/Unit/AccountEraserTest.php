@@ -121,3 +121,32 @@ it('writes the audit row with the given actor and the erased ID only', function 
     expect($row->only(['event', 'subject_user_id', 'actor']))
         ->toBe(['event' => 'account_erased', 'subject_user_id' => $user->id, 'actor' => 'self']);
 });
+
+it('TE-049 AC7 matches the protected address in the normalised form on both sides', function (string $configured, string $checked) {
+    config(['auth.super_admin_email' => $configured]);
+
+    expect((new ProtectedAccountGuard)->isProtectedAddress($checked))->toBeTrue();
+})->with([
+    'mixed case in env' => ['Owner@Example.test', 'owner@example.test'],
+    'mixed case in input' => ['owner@example.test', 'OWNER@example.TEST'],
+    'spaces on both sides' => [' owner@example.test ', "\towner@Example.test  "],
+]);
+
+it('TE-049 AC7 does not match another address or protect anything without the env value', function (?string $configured, string $checked) {
+    config(['auth.super_admin_email' => $configured]);
+
+    expect((new ProtectedAccountGuard)->isProtectedAddress($checked))->toBeFalse();
+})->with([
+    'other address' => ['owner@example.test', 'owner2@example.test'],
+    'unset' => [null, 'owner@example.test'],
+    'empty' => ['', ''],
+    'blank' => ['   ', '   '],
+]);
+
+it('TE-049 AC7 protects a legacy row stored in another case', function () {
+    config(['auth.super_admin_email' => 'owner@example.test']);
+    $owner = User::factory()->create();
+    DB::table('users')->where('id', $owner->id)->update(['email' => ' Owner@Example.TEST']);
+
+    expect((new ProtectedAccountGuard)->isProtected($owner->refresh()))->toBeTrue();
+});
