@@ -384,6 +384,28 @@ The scheduled dump service is a later story. Until then, take a dump before ever
   6. Only after `RESTORE OK`, start `app` and run "Verify the deploy" steps 1 and 3. On `RESTORE FAILED`, the database still
      holds the state from step 3; start `app` and read the error before trying again. `db-init` re-applies the app role on the
      next deploy.
+- Restore and erasures. A dump holds the data as it was on the day it was taken. Any account deletion or data-subject
+  erasure request handled **after** that date comes back with the restore, and must be erased again right after
+  `RESTORE OK`. To find them:
+  1. List the erasure requests received since the dump's date from your own request log (mailbox, notes). The pre-restore
+     safety dump (restore step 3) still holds the newer state, so it is the place to check who was deleted since.
+  2. Compare that list with the restored users; every person on it that is present again is erased again the same way as the
+     first time (Settings > Profile > Delete account, or the admin erasure).
+  3. Write the re-erasure and the date in your request log.
+- Retention of manual dumps. A manual dump is a full copy of personal data, so it is not kept: delete an older dump as soon
+  as a newer one is verified (`DUMP OK`) and the update it guarded is confirmed good, and never keep any manual dump longer
+  than 30 days. Invoices are kept 7 years in the database, not in these dumps. List the dumps with their age, then delete
+  the ones older than 30 days (check the list first):
+
+  ```
+  cd ~/traveleasy-backups
+  ls -lt --time-style=long-iso
+  find . -maxdepth 1 -name 'traveleasy-*.dump' -mtime +30 -print      # what would go
+  find . -maxdepth 1 -name 'traveleasy-*.dump' -mtime +30 -delete     # delete them
+  ```
+
+  To delete one older dump by name: `rm traveleasy-<date>-<time>.dump`. Never delete the newest verified dump or a
+  `pre-restore` file whose restore is not yet confirmed good. Copies kept off the server follow the same 30 days.
 - Keep dumps off the server too. This procedure (dump, verify, safety dump, restore) was run once on the throwaway stack in TE-041 and works as written. A scheduled restore test is
   part of the `backup` story.
 
