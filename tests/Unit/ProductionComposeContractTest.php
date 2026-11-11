@@ -247,7 +247,7 @@ test('the Portainer env file is plain KEY=value with a comment per variable (TE-
     $values = portainerEnvValues();
     $empty = array_keys(array_filter($values, static fn (string $v): bool => $v === ''));
     sort($empty);
-    expect($empty)->toBe(['APP_KEY', 'CSP_REPORT_PATH', 'DB_PASSWORD', 'DB_SUPERUSER_PASSWORD', 'TRUSTED_PROXIES']);
+    expect($empty)->toBe(['APP_KEY', 'CSP_REPORT_PATH', 'DB_PASSWORD', 'DB_SUPERUSER_PASSWORD', 'SUPER_ADMIN_EMAIL', 'TRUSTED_PROXIES']);
 });
 
 test('the Portainer env file has the secure production settings (TE-025 AC10, AC11)', function () {

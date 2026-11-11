@@ -1,7 +1,7 @@
 ---
 id: TE-045
 title: Weekly scan green: dev and Playwright image findings
-status: in-progress
+status: done
 priority: must
 epic: Maintenance
 agents: [devops-engineer]
@@ -19,12 +19,12 @@ Run 42789826447 (on the TE-044 branch, `scan-weekly.yml`) found 77 findings in t
 Related: TE-044 (prod image, moved the weekly-scan part here), TE-036 (per-image Trivy ignore scoping), TE-043 (last weekly-scan workflow fix).
 
 ## Acceptance criteria
-- [ ] AC1: Given the dev image and the Playwright image, when the triage runs with the same Trivy image and flags as `scan-weekly.yml`, then every finding is listed per image with one of: fixed by a base or package bump, fixed by a re-pin, or no fix yet (with the upstream reference).
-- [ ] AC2: Given the findings, when the fixable ones are handled, then the php:cli base for the dev image and the Playwright image pin are bumped or re-pinned to a digest that clears them, or the dev build upgrades `linux-libc-dev` and `apt`/`libapt-pkg` explicitly (cleaned apt lists afterwards); the resulting Trivy scan has no High or Critical finding that is fixable.
-- [ ] AC3: Given the no-fix findings, when an ignore is needed, then it is a time-boxed reviewed entry in `.trivyignore*`, scoped to the dev or the Playwright image only (never the prod image or the PHP/Node CI scans), with the exact purl, a `statement`, and an `expired_at` no later than 2026-12-15.
-- [ ] AC4: Given the branch with the changes merged to `dev`, when `gh workflow run scan-weekly.yml` is dispatched, then the run is green.
-- [ ] AC5: Given `docs/tech-stack.md`, when it is read, then the dev image base, the Playwright image pin and any new ignores with their expiry dates match the Dockerfile and ignore files.
-- [ ] AC6: Given the Dockerfile and compose changes, when the devops-engineer rebuilds the dev stack (`docker compose rm -s -f -v app vite` then `docker compose up -d --build`), then the app and vite services are healthy and `/up` returns 200.
+- [x] AC1: Given the dev image and the Playwright image, when the triage runs with the same Trivy image and flags as `scan-weekly.yml`, then every finding is listed per image with one of: fixed by a base or package bump, fixed by a re-pin, or no fix yet (with the upstream reference).
+- [x] AC2: Given the findings, when the fixable ones are handled, then the php:cli base for the dev image and the Playwright image pin are bumped or re-pinned to a digest that clears them, or the dev build upgrades `linux-libc-dev` and `apt`/`libapt-pkg` explicitly (cleaned apt lists afterwards); the resulting Trivy scan has no High or Critical finding that is fixable.
+- [x] AC3: Given the no-fix findings, when an ignore is needed, then it is a time-boxed reviewed entry in `.trivyignore*`, scoped to the dev or the Playwright image only (never the prod image or the PHP/Node CI scans), with the exact purl, a `statement`, and an `expired_at` no later than 2026-12-15.
+- [x] AC4: Given the branch with the changes merged to `dev`, when `gh workflow run scan-weekly.yml` is dispatched, then the run is green.
+- [x] AC5: Given `docs/tech-stack.md`, when it is read, then the dev image base, the Playwright image pin and any new ignores with their expiry dates match the Dockerfile and ignore files.
+- [x] AC6: Given the Dockerfile and compose changes, when the devops-engineer rebuilds the dev stack (`docker compose rm -s -f -v app vite` then `docker compose up -d --build`), then the app and vite services are healthy and `/up` returns 200.
 
 ## Quality criteria
 - [ ] Tests: no new unit or feature tests (infrastructure change). `bash scripts/check.sh static` is green; the dev stack starts healthy after the rebuild.
@@ -55,4 +55,10 @@ Related: TE-044 (prod image, moved the weekly-scan part here), TE-036 (per-image
 (empty)
 
 ## Changelog
-(filled when done)
+Done 2026-11-10. PR #20 merged into `dev` (merge SHA 717910e). QA PASS (php 759/759; front and e2e green after re-runs of load-timeout flakes; static green). Security PASS. Weekly scan on `dev`: run 42818020240, success.
+- Added: `.trivyignore.dev.yaml` (49 entries) and `.trivyignore.playwright.yaml` (9 entries), all scoped to one image, all expiring 2026-12-15.
+- Changed: php:cli dev base re-pinned to a new digest, plus an apt `--only-upgrade` in the dev-only `base` stage (prod stage untouched); about 46 CVEs fixed. `scan-weekly.yml` loads the per-image ignore files and uses `--timeout 20m`. `docs/tech-stack.md` updated. Playwright pin unchanged.
+- Removed: nothing.
+- Migrations: none. New env vars: none.
+- Docker: dev stack rebuilt the preferred way (`rm -s -f -v app vite`, then `up -d --build`); healthy. No production rebuild needed.
+- Follow-up: TE-046 (ignore hygiene before the 2026-12-15 expiry).

@@ -114,4 +114,17 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Protected super_admin identifier
+    |--------------------------------------------------------------------------
+    |
+    | The e-mail (login name) of the env-provisioned super_admin. Until the
+    | roles story adds the real role, this is how the account is recognised
+    | and protected from erasure (TE-047). Empty means there is no super_admin.
+    |
+    */
+
+    'super_admin_email' => env('SUPER_ADMIN_EMAIL'),
+
 ];
