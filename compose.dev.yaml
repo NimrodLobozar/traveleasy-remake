@@ -204,7 +204,7 @@ services:
         #
         # VERSION SYNC: the image tag MUST equal @playwright/test in package.json/package-lock.json (pinned
         # exactly). The tag is also pinned by digest (TE-013 AC6); bump tag, digest and package together; tests/Unit/PlaywrightImageVersionSyncTest.php fails otherwise.
-        image: mcr.microsoft.com/playwright:v1.65.0-noble@sha256:6e3fb709361521eb27161606e6da6d2674e5e89fa16516cb37d6fdd91372273d
+        image: mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579
         profiles: ['e2e']
         # Shares vite's network namespace: localhost:5173 is the real Vite dev server, so the page's JS really
         # loads (the asset URLs in public/hot point at http://localhost:5173). Playwright's global setup
